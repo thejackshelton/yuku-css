@@ -17,12 +17,30 @@ pub fn build(b: *std.Build) void {
             .os_tag = .freestanding,
             .cpu_model = .{ .explicit = &std.Target.wasm.cpu.mvp },
         }),
+        // small saves a third of the size at more than twice the time
         .optimize = .ReleaseFast,
         .strip = true,
     }) });
     wasm.entry = .disabled;
     wasm.rdynamic = true;
     b.installArtifact(wasm);
+
+    const gen_decoder = b.addExecutable(.{
+        .name = "gen_decoder",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/gen_decoder.zig"),
+            .target = b.graph.host,
+            .optimize = optimize,
+            .imports = &.{.{ .name = "yuku-css", .module = b.createModule(.{
+                .root_source_file = b.path("src/root.zig"),
+                .target = b.graph.host,
+                .optimize = optimize,
+            }) }},
+        }),
+    });
+    const generated = b.addUpdateSourceFiles();
+    generated.addCopyFileToSource(b.addRunArtifact(gen_decoder).captureStdOut(.{}), "src/decode.js");
+    b.getInstallStep().dependOn(&generated.step);
 
     const test_step = b.step("test", "Run the Zig tests");
     test_step.dependOn(&b.addRunArtifact(b.addTest(.{ .root_module = css })).step);
