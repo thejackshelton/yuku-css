@@ -84,6 +84,25 @@ pub fn build(b: *std.Build) void {
     lexer_wasm.rdynamic = true;
     b.installArtifact(lexer_wasm);
 
+    // `zig build profile`: an unstripped wasm with per-phase exports, for bench/profile.mjs
+    const profile = b.addExecutable(.{
+        .name = "yuku-css-profile",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/profile_wasm.zig"),
+            .target = wasm.root_module.resolved_target,
+            .optimize = .ReleaseFast,
+            .imports = &.{.{ .name = "yuku-css", .module = b.createModule(.{
+                .root_source_file = b.path("src/root.zig"),
+                .target = wasm.root_module.resolved_target,
+                .optimize = .ReleaseFast,
+            }) }},
+        }),
+    });
+    profile.entry = .disabled;
+    profile.rdynamic = true;
+    const install_profile = b.addInstallArtifact(profile, .{});
+    b.step("profile", "Build the per-phase profiling wasm").dependOn(&install_profile.step);
+
     const gen_decoder = b.addExecutable(.{
         .name = "gen_decoder",
         .root_module = b.createModule(.{

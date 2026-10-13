@@ -14,6 +14,9 @@ const flag = struct {
     const context_mask = 0xF;
     const parse_value = 1 << 7;
     const parse_custom_property = 1 << 8;
+    const parse_atrule_prelude = 1 << 9;
+    const atrule = 10;
+    const atrule_mask = 0xF;
 };
 
 export fn alloc(len: usize) [*]u8 {
@@ -41,17 +44,27 @@ fn parseBuffer(source: []const u8, flags: u32) ![]u8 {
         .parse_rule_prelude = flags & flag.parse_rule_prelude != 0,
         .parse_value = flags & flag.parse_value != 0,
         .parse_custom_property = flags & flag.parse_custom_property != 0,
+        .lines = flags & flag.positions != 0,
+        .parse_atrule_prelude = flags & flag.parse_atrule_prelude != 0,
+        .atrule = std.enums.fromInt(
+            css.parser.Atrule,
+            (flags >> flag.atrule) & flag.atrule_mask,
+        ) orelse .unknown,
         .context = std.enums.fromInt(
             css.parser.Context,
             (flags >> flag.context) & flag.context_mask,
         ) orelse .stylesheet,
     });
     defer tree.deinit();
-    const utf16: css.transfer.Utf16 = .init(source);
-    const lines: css.transfer.Lines = if (flags & flag.positions != 0) .init(source) else .none;
     const tokens = flags & flag.tokens != 0;
-    const out = try prefixed(css.transfer.bufferSize(&tree, utf16, lines, tokens));
-    _ = css.transfer.serializeInto(&tree, utf16, lines, tokens, out[4..]);
+    if (tokens) {
+        var list: css.token.TokenList = .empty;
+        try css.tokenize(tree.allocator(), &list, source);
+        tree.tokens = list.items;
+    }
+    const utf16: css.transfer.Utf16 = .init(source);
+    const out = try prefixed(css.transfer.bufferSize(&tree, utf16, tokens));
+    _ = css.transfer.serializeInto(&tree, utf16, tokens, out[4..]);
     return out;
 }
 

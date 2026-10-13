@@ -23,7 +23,7 @@ pub const Scope = enum {
 
 /// css-tree's `Value`: the component values up to the first the value scope does not read.
 pub fn value(p: *Parser) ParseError!NodeIndex {
-    std.debug.assert(p.index <= p.count);
+    std.debug.assert(p.end <= p.src.len);
     const node = try valueWithSpace(p, null);
     std.debug.assert(p.tree.data(node) == .value);
     return node;
@@ -33,7 +33,7 @@ pub fn value(p: *Parser) ParseError!NodeIndex {
 /// `Raw` up to `!` or `;` when it does not parse. Null when `nested`, not `custom`, and that `Raw`
 /// holds a `{}` block, which makes the statement a nested rule (css-syntax-3).
 pub fn declarationValue(p: *Parser, custom: bool, value_token: u32, nested: bool) Error!NodeIndex {
-    std.debug.assert(value_token <= p.index);
+    std.debug.assert(value_token <= p.tokenStart());
     const start = p.checkpoint();
     const node = declarationValueStrict(p, custom, value_token) catch |err| switch (err) {
         error.OutOfMemory => |e| return e,
@@ -50,10 +50,10 @@ pub fn declarationValue(p: *Parser, custom: bool, value_token: u32, nested: bool
 }
 
 fn declarationValueStrict(p: *Parser, custom: bool, value_token: u32) ParseError!NodeIndex {
-    const first = p.index;
+    const first = p.tokenStart();
     std.debug.assert(value_token <= first);
     const node = try valueWithSpace(p, if (custom) value_token else null);
-    std.debug.assert(p.index >= first);
+    std.debug.assert(p.tokenStart() >= first);
     const ends = p.eof or p.tag == .semicolon or p.isDelim('!') or p.isBalanceEdge(first);
     if (!ends) return p.fail(.unexpected_input, null);
     return node;
@@ -62,7 +62,7 @@ fn declarationValueStrict(p: *Parser, custom: bool, value_token: u32) ParseError
 /// A `Value`, which, when empty and `space_from` is a token index, holds css-tree's lone
 /// `WhiteSpace` if a whitespace token lies between `space_from` and the current token.
 pub fn valueWithSpace(p: *Parser, space_from: ?u32) ParseError!NodeIndex {
-    std.debug.assert(space_from == null or space_from.? <= p.index);
+    std.debug.assert(space_from == null or space_from.? <= p.tokenStart());
     const start = p.start;
     var children = try sequence(p, .value);
     if (children.len == 0) {
@@ -76,16 +76,11 @@ pub fn valueWithSpace(p: *Parser, space_from: ?u32) ParseError!NodeIndex {
 
 // the first whitespace token from `from` through the current one
 fn whiteSpace(p: *Parser, from: u32) Error!?NodeIndex {
-    std.debug.assert(from <= p.index);
-    std.debug.assert(p.index <= p.count);
-    var i = from;
-    while (i <= p.index and i < p.count) : (i += 1) {
-        if (p.tokens[i].tag != .whitespace) continue;
-        const start = p.tokenStart(i);
-        if (p.space.start == String.none.start) p.space = try p.pooled(" ");
-        return try p.add(.{ .white_space = .{ .value = p.space } }, start, p.tokens[i].end);
-    }
-    return null;
+    std.debug.assert(from <= p.tokenStart());
+    std.debug.assert(p.end <= p.src.len);
+    const span = p.whitespaceSince(from) orelse return null;
+    if (p.space.start == String.none.start) p.space = try p.pooled(" ");
+    return try p.add(.{ .white_space = .{ .value = p.space } }, span.start, span.end);
 }
 
 /// css-tree's `readSequence`: component values up to the first `scope` does not read, skipping
@@ -106,9 +101,9 @@ pub fn sequence(p: *Parser, comptime scope: Scope) ParseError!ast.IndexRange {
             },
             else => {},
         }
-        const before = p.index;
+        const before = p.start;
         const child = try component(p, scope) orelse break;
-        std.debug.assert(p.index > before);
+        std.debug.assert(p.start > before);
         if (scope == .value and space) {
             try padOperator(p, child, .before);
             const items = p.scratch.items;
@@ -283,7 +278,7 @@ fn varArguments(p: *Parser) ParseError!ast.IndexRange {
     p.skipSC();
     if (p.tag == .comma) {
         try p.push(try p.operator());
-        const from = p.index;
+        const from = p.tokenStart();
         const fallback = if (p.options.parse_custom_property)
             try valueWithSpace(p, from)
         else
@@ -333,7 +328,7 @@ pub fn unicodeRange(p: *Parser) ParseError!NodeIndex {
 
 // what follows the `u` of `<urange>` (css-syntax-3), as css-tree's `scanUnicodeRange` reads it
 fn unicodeRangeRest(p: *Parser) ParseError!void {
-    std.debug.assert(p.index > 0 and p.tokens[p.index - 1].tag == .ident);
+    std.debug.assert(p.prev_tag == .ident);
     std.debug.assert(p.at(p.start) == '+');
     switch (p.tag) {
         .number => {
@@ -422,7 +417,7 @@ pub fn ratio(p: *Parser) ParseError!NodeIndex {
 }
 
 fn ratioTerm(p: *Parser) ParseError!NodeIndex {
-    std.debug.assert(p.index <= p.count);
+    std.debug.assert(p.end <= p.src.len);
     p.skipSC();
     std.debug.assert(p.tag != .whitespace and p.tag != .comment);
     return switch (p.tag) {

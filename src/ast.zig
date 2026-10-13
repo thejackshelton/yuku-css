@@ -2,7 +2,7 @@ const std = @import("std");
 const token = @import("token.zig");
 
 /// Byte offsets into the source, `end` exclusive.
-pub const Span = struct {
+pub const Span = extern struct {
     start: u32,
     end: u32,
 };
@@ -40,6 +40,36 @@ pub const Matcher = enum(u3) {
     substring,
 
     pub const strings = [_]?[]const u8{ null, "=", "~=", "|=", "^=", "$=", "*=" };
+};
+
+/// The `not` or `only` before a media type, lowercased as css-tree gives it.
+pub const MediaModifier = enum(u2) {
+    none,
+    not,
+    only,
+
+    pub const strings = [_]?[]const u8{ null, "not", "only" };
+};
+
+/// What a `Condition` and its features test.
+pub const ConditionKind = enum(u2) {
+    media,
+    supports,
+    container,
+
+    pub const strings = [_]?[]const u8{ "media", "supports", "container" };
+};
+
+/// A comparison of a range feature.
+pub const Comparison = enum(u3) {
+    none,
+    less,
+    less_or_equal,
+    greater,
+    greater_or_equal,
+    equal,
+
+    pub const strings = [_]?[]const u8{ null, "<", "<=", ">", ">=", "=" };
 };
 
 /// css-tree's nodes, in the order of their fields there.
@@ -89,6 +119,33 @@ pub const NodeData = union(enum) {
     ratio: struct { left: NodeIndex, right: NodeIndex },
     /// A pooled `" "` that css-tree places in an empty custom property value, with no position.
     white_space: struct { value: String },
+    atrule_prelude: struct { children: IndexRange },
+    media_query_list: struct { children: IndexRange },
+    /// `media_type` is none for a query that is only a condition.
+    media_query: struct { modifier: MediaModifier, media_type: String, condition: NodeIndex },
+    /// Terms, the `and`, `or` and `not` between them as identifiers, and parenthesized conditions.
+    condition: struct { kind: ConditionKind, children: IndexRange },
+    /// `(name)` or `(name: value)`. `value` is null for the first.
+    feature: struct { kind: ConditionKind, name: String, value: NodeIndex },
+    /// `style()` of a container query or `selector()` of a supports condition.
+    feature_function: struct { kind: ConditionKind, feature: String, value: NodeIndex },
+    /// `(left < middle)` or `(left < middle < right)`.
+    feature_range: struct {
+        kind: ConditionKind,
+        left: NodeIndex,
+        left_comparison: Comparison,
+        middle: NodeIndex,
+        right_comparison: Comparison,
+        right: NodeIndex,
+    },
+    /// A function or parentheses a condition does not know. `function` is none for parentheses.
+    general_enclosed: struct { kind: ConditionKind, function: String, children: IndexRange },
+    supports_declaration: struct { declaration: NodeIndex },
+    /// A layer name as written, dots included.
+    layer: struct { name: String },
+    layer_list: struct { children: IndexRange },
+    /// `@scope`'s root and limit, either null.
+    scope: struct { root: NodeIndex, limit: NodeIndex },
 };
 
 pub const Tag = std.meta.Tag(NodeData);
@@ -130,6 +187,7 @@ pub const Message = enum(u8) {
     left_square_bracket_expected,
     right_square_bracket_expected,
     right_parenthesis_expected,
+    left_parenthesis_expected,
     left_curly_bracket_expected,
     right_curly_bracket_expected,
     at_keyword_expected,
@@ -162,6 +220,25 @@ pub const Message = enum(u8) {
     unterminated_url,
     bad_url,
     invalid_escape,
+    semicolon_or_block_expected,
+    identifier_or_parenthesis_expected,
+    and_expected,
+    to_expected,
+    condition_expected,
+    feature_value_expected,
+    feature_colon_or_comparison_expected,
+    comparison_expected,
+    string_or_url_expected,
+    url_function_expected,
+    /// Takes the function name as its argument.
+    unknown_feature,
+    // where the grammars of conditions read an error that css-tree does not
+    parenthesized_condition_expected,
+    and_or_expected,
+    and_or_mixed,
+    not_combined,
+    or_after_media_type,
+    media_type_expected,
 
     /// css-tree's wording.
     pub fn text(message: Message) []const u8 {
@@ -194,6 +271,7 @@ pub const Message = enum(u8) {
             .left_square_bracket_expected => "\"[\" is expected",
             .right_square_bracket_expected => "\"]\" is expected",
             .right_parenthesis_expected => "\")\" is expected",
+            .left_parenthesis_expected => "\"(\" is expected",
             .left_curly_bracket_expected => "\"{\" is expected",
             .right_curly_bracket_expected => "\"}\" is expected",
             .at_keyword_expected => "At keyword is expected",
@@ -226,6 +304,23 @@ pub const Message = enum(u8) {
             .unterminated_url => "Unterminated url",
             .bad_url => "Unexpected character in url",
             .invalid_escape => "Invalid escape",
+            .semicolon_or_block_expected => "Semicolon or block is expected",
+            .identifier_or_parenthesis_expected => "Identifier or parenthesis is expected",
+            .and_expected => "Identifier \"and\" is expected",
+            .to_expected => "Identifier \"to\" is expected",
+            .condition_expected => "Condition is expected",
+            .feature_value_expected => "Number, dimension, ratio or identifier is expected",
+            .feature_colon_or_comparison_expected => "Expected \":\", \"<\", \">\", \"=\" or \")\"",
+            .comparison_expected => "Expected \"<\", \">\", \"=\" or \")\"",
+            .string_or_url_expected => "String or url() is expected",
+            .url_function_expected => "Function name must be `url`",
+            .unknown_feature => "Unknown feature {}()",
+            .parenthesized_condition_expected => "Condition in parentheses is expected",
+            .and_or_expected => "Identifier \"and\" or \"or\" is expected",
+            .and_or_mixed => "\"and\" and \"or\" cannot be mixed without parentheses",
+            .not_combined => "\"not\" cannot be combined without parentheses",
+            .or_after_media_type => "\"or\" cannot follow a media type",
+            .media_type_expected => "Media type is expected",
         };
     }
 };
@@ -233,6 +328,8 @@ pub const Message = enum(u8) {
 pub const Diagnostic = struct {
     message: Message,
     span: Span,
+    /// What fills the `{}` of the message, none for a message without one.
+    argument: String = .none,
 };
 
 /// A parsed tree. All memory lives in one arena, so `deinit()` frees everything at once.
@@ -242,9 +339,12 @@ pub const Tree = struct {
     /// Child lists of all nodes, resolved with `extra()`.
     extras: std.ArrayList(NodeIndex) = .empty,
     diagnostics: std.ArrayList(Diagnostic) = .empty,
-    /// The tokens the tree was parsed from, for comments and `tokens`.
+    /// The tokens of the source, when asked for.
     tokens: []const token.Token = &.{},
-    comment_count: u32 = 0,
+    /// Where each comment of the source starts and ends, in order.
+    comments: []const Span = &.{},
+    /// Where each line after the first starts, when asked for.
+    lines: []const u32 = &.{},
     source: []const u8,
     strings: StringPool,
     arena: std.heap.ArenaAllocator,

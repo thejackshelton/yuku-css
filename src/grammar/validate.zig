@@ -88,20 +88,19 @@ pub fn findProperty(l: *const Lexer, name: PropertyName) u32 {
     return l.findProperty(name.basename);
 }
 
-// the tokens whose text is exactly `span`, as the parser read them
-fn tokensOf(all: []const css.token.Token, span: css.ast.Span) []const css.token.Token {
+// the tokens of the value at `span`, read from its text, their ends placed in the whole source
+fn tokensOf(
+    gpa: Allocator,
+    source: []const u8,
+    span: css.ast.Span,
+    tokens: *css.token.TokenList,
+) ![]const css.token.Token {
     assert(span.start <= span.end);
-    var low: usize = 0;
-    var high: usize = all.len;
-    // the first token that ends past the span's start, by halving
-    while (low < high) {
-        const mid = low + (high - low) / 2;
-        if (all[mid].end <= span.start) low = mid + 1 else high = mid;
-    }
-    var end = low;
-    while (end < all.len and all[end].end <= span.end) end += 1;
-    assert(low <= end);
-    return all[low..end];
+    assert(span.end <= source.len);
+    tokens.clearRetainingCapacity();
+    try css.tokenize(gpa, tokens, source[span.start..span.end]);
+    for (tokens.items) |*t| t.end += span.start;
+    return tokens.items;
 }
 
 /// Parses `source` and matches each declaration's value against its property, appending a record
@@ -116,6 +115,8 @@ pub const Scratch = struct {
     seen: std.StringHashMapUnmanaged(u32) = .empty,
     /// Where non-ASCII characters end, and the bytes they have beyond their UTF-16 units so far.
     breaks: std.ArrayList([2]u32) = .empty,
+    /// The tokens of the value being matched.
+    tokens: css.token.TokenList = .empty,
 };
 
 pub fn validate(
@@ -132,7 +133,11 @@ pub fn validate(
     const breaks = &scratch.breaks;
     assert(source.len < std.math.maxInt(u32));
     seen.clearRetainingCapacity();
-    var tree = try css.parse(gpa, source, .{ .parse_rule_prelude = false, .parse_value = false });
+    var tree = try css.parse(gpa, source, .{
+        .parse_rule_prelude = false,
+        .parse_value = false,
+        .parse_atrule_prelude = false,
+    });
     defer tree.deinit();
     const tags = tree.nodes.items(.data);
     var count: u32 = 0;
@@ -184,7 +189,7 @@ pub fn validate(
         } else {
             const view: generic.Tokens = .{
                 .source = source,
-                .list = tokensOf(tree.tokens, value),
+                .list = try tokensOf(gpa, source, value, &scratch.tokens),
                 .first = value.start,
             };
             try matchInto(l, matcher, descriptor, view, &record, entries);

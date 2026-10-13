@@ -35,7 +35,8 @@ The tree is css-tree 3.2.1's, node for node and field for field, with arrays in 
 
 | Option | Default | |
 |---|---|---|
-| `context` | `"stylesheet"` | read the source as `"atrule"`, `"rule"`, `"selectorList"`, `"selector"`, `"block"`, `"declarationList"`, `"declaration"` or `"value"`; `"atrulePrelude"`, `"mediaQueryList"` and `"mediaQuery"` give a `Raw` for now |
+| `context` | `"stylesheet"` | read the source as `"atrule"`, `"atrulePrelude"`, `"mediaQueryList"`, `"mediaQuery"`, `"rule"`, `"selectorList"`, `"selector"`, `"block"`, `"declarationList"`, `"declaration"` or `"value"` |
+| `atrule` | | the at-rule, such as `"media"`, whose prelude the `"atrulePrelude"` context reads; without one, the prelude is component values |
 | `positions` | `false` | `loc` in place of `start` and `end` |
 | `filename`, `offset`, `line`, `column` | `"<unknown>"`, `0`, `1`, `1` | where `loc` says the source is |
 | `tokens` | `false` | keep every token in `tokens`, packed as `tokenize` packs them |
@@ -43,7 +44,7 @@ The tree is css-tree 3.2.1's, node for node and field for field, with arrays in 
 | `parseRulePrelude` | `true` | `false` keeps each selector as `Raw` |
 | `parseValue` | `true` | `false` keeps each declaration value as `Raw` |
 | `parseCustomProperty` | `false` | `true` parses custom property values and `var()` fallbacks as a `Value` |
-| `parseAtrulePrelude` | `true` | accepted, but at-rule preludes are `Raw` for now |
+| `parseAtrulePrelude` | `true` | `false` keeps each at-rule prelude as `Raw` |
 
 ### Tokens
 
@@ -104,15 +105,15 @@ Matching is css-tree's algorithm, in Zig: the same match graph, the same backtra
 
 ### Where it differs from css-tree
 
-Where css-tree reads CSS otherwise than the CSS Syntax, Nesting, and Selectors specifications, yuku-css follows the specifications. Most visibly, css-tree reads a nested rule that does not start with `&`, such as `.a { .b {} }`, as a broken declaration, and reads no column combinator `||`. [test/divergences.ts](test/divergences.ts) lists every difference with the spec it follows and the css-tree fixtures it fails; [test/compare.ts](test/compare.ts) forks css-tree to parse the same way for the parity tests.
+Where css-tree reads CSS otherwise than the CSS Syntax, Nesting, and Selectors specifications, yuku-css follows the specifications. Most visibly, css-tree reads a nested rule that does not start with `&`, such as `.a { .b {} }`, as a broken declaration, and reads no column combinator `||`. In at-rule preludes, a media, supports or container condition whose keywords Media Queries 4 or CSS Conditional 3 reject, as in `@media screen (color)`, keeps css-tree's tree with a diagnostic, and the end of input closes an open feature such as `@media (color` where css-tree reports an error and drops it. [test/divergences.ts](test/divergences.ts) lists every difference with the spec it follows and the css-tree fixtures it fails; [test/compare.ts](test/compare.ts) forks css-tree to parse the same way for the parity tests.
 
-css-tree's own fixtures run as the suite, `bun test test/suite.test.ts`, refreshed with `bun run sync`. A fixture of what yuku-css does not build yet, at-rule preludes and the generator, is listed as pending in the same file and must fail until it lands. The lexer's fixtures and css-tree's lexer tests run from [test/grammar](test/grammar), `bun test test/grammar`.
+css-tree's own fixtures run as the suite, `bun test test/suite.test.ts`, refreshed with `bun run sync`. A fixture of what yuku-css does not build yet, the generator, is listed as pending in the same file and must fail until it lands. The lexer's fixtures and css-tree's lexer tests run from [test/grammar](test/grammar), `bun test test/grammar`.
 
 `generate` prints a `Ratio` without a right term as `16/1`, where css-tree throws, and `string.decode` and `url.decode` keep what comes before an escaped closing quote or parenthesis, as in `"ab\"`, where css-tree keeps only the quote.
 
 ## Benchmark
 
-Parsing the 252 style sheets of [test/corpus](test/corpus) against [css-tree](https://github.com/csstree/csstree), set to parse values and keep at-rule preludes raw as yuku-css does, and to give positions, and [PostCSS](https://postcss.org), which leaves selectors as strings. `yuku-css loc` parses with `positions: true`, so it builds the very tree css-tree does.
+Parsing the 252 style sheets of [test/corpus](test/corpus) against [css-tree](https://github.com/csstree/csstree), set to parse values and at-rule preludes as yuku-css does, and to give positions, and [PostCSS](https://postcss.org), which leaves selectors as strings. `yuku-css loc` parses with `positions: true`, so it builds the very tree css-tree does.
 
 ![Time per file to parse with yuku-css, css-tree, and PostCSS](bench/chart.svg)
 

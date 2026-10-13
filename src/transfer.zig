@@ -8,8 +8,8 @@
 //   strings       string_pool_len bytes of UTF-8, zero-padded to a 4-byte boundary
 //   diagnostics   diagnostic_count * DIAGNOSTIC_SIZE
 //   utf16         utf16_count * 2 u32, see `Utf16`
-//   lines         line_count u32, the byte offset where each line after the first starts
 //   comments      comment_count * 2 u32, where each comment starts and ends
+//   lines         line_count u32, where each line after the first starts
 //   tokens        token_count * TOKEN_SIZE, each `Token` as is, when asked for
 //
 // node fields
@@ -21,7 +21,8 @@
 //
 // a String starting below source_len slices the source, else the pool at start - source_len
 //
-// offsets are bytes; past first_non_ascii, the utf16 section maps them to UTF-16 code units
+// node spans and source strings are UTF-16 code units, every other offset bytes, which the utf16
+// section maps past first_non_ascii
 //
 // the token list, from `serializeTokens`
 //
@@ -32,7 +33,6 @@
 const std = @import("std");
 const ast = @import("ast.zig");
 const token = @import("token.zig");
-const lexer = @import("lexer.zig");
 
 // field order defines the wire layout
 const Header = extern struct {
@@ -45,8 +45,8 @@ const Header = extern struct {
     // positions below this need no UTF-16 conversion
     first_non_ascii: u32,
     utf16_count: u32,
-    line_count: u32,
     comment_count: u32,
+    line_count: u32,
     token_count: u32,
 };
 
@@ -63,6 +63,9 @@ const PackedDiagnostic = extern struct {
     message: u32,
     start: u32,
     end: u32,
+    // a String, 0xFFFFFFFF for a message without an argument
+    argument_start: u32,
+    argument_end: u32,
 };
 
 const TokensHeader = extern struct {
@@ -88,8 +91,8 @@ pub const HDR_DIAGNOSTIC_COUNT_U32: u32 = @offsetOf(Header, "diagnostic_count") 
 pub const HDR_ROOT_U32: u32 = @offsetOf(Header, "root") / 4;
 pub const HDR_FIRST_NON_ASCII_U32: u32 = @offsetOf(Header, "first_non_ascii") / 4;
 pub const HDR_UTF16_COUNT_U32: u32 = @offsetOf(Header, "utf16_count") / 4;
-pub const HDR_LINE_COUNT_U32: u32 = @offsetOf(Header, "line_count") / 4;
 pub const HDR_COMMENT_COUNT_U32: u32 = @offsetOf(Header, "comment_count") / 4;
+pub const HDR_LINE_COUNT_U32: u32 = @offsetOf(Header, "line_count") / 4;
 pub const HDR_TOKEN_COUNT_U32: u32 = @offsetOf(Header, "token_count") / 4;
 
 pub const TOKENS_COUNT_U32: u32 = @offsetOf(TokensHeader, "token_count") / 4;
@@ -104,6 +107,7 @@ pub const NODE_SPAN_END_U32: u8 = @offsetOf(PackedNode, "span_end") / 4;
 pub const DIAGNOSTIC_MESSAGE_U32: u8 = @offsetOf(PackedDiagnostic, "message") / 4;
 pub const DIAGNOSTIC_START_U32: u8 = @offsetOf(PackedDiagnostic, "start") / 4;
 pub const DIAGNOSTIC_END_U32: u8 = @offsetOf(PackedDiagnostic, "end") / 4;
+pub const DIAGNOSTIC_ARGUMENT_U32: u8 = @offsetOf(PackedDiagnostic, "argument_start") / 4;
 
 const NODE_DATA_SLOTS: u8 = NODE_SPAN_START_U32 - NODE_HEADER_U32S;
 const NODE_FLAG_BITS: u8 = @bitSizeOf(@FieldType(PackedNode, "flags"));
@@ -168,20 +172,20 @@ pub fn totalFlagBits(comptime T: type) u8 {
     return flagBitForField(T, @typeInfo(T).@"struct".field_types.len);
 }
 
-pub fn bufferSize(tree: *const ast.Tree, utf16: Utf16, lines: Lines, tokens: bool) usize {
+pub fn bufferSize(tree: *const ast.Tree, utf16: Utf16, tokens: bool) usize {
     return HEADER_SIZE +
-        tree.comment_count * 8 +
+        tree.comments.len * 8 +
+        tree.lines.len * 4 +
         (if (tokens) tree.tokens.len * TOKEN_SIZE else 0) +
         tree.nodes.len * NODE_SIZE +
         tree.extras.items.len * 4 +
         std.mem.alignForward(usize, tree.strings.extra.items.len, 4) +
         tree.diagnostics.items.len * DIAGNOSTIC_SIZE +
-        utf16.count * 8 +
-        lines.count * 4;
+        utf16.count * 8;
 }
 
-pub fn serializeInto(tree: *const ast.Tree, utf16: Utf16, lines: Lines, tokens: bool, buf: []u8) usize {
-    std.debug.assert(buf.len >= bufferSize(tree, utf16, lines, tokens));
+pub fn serializeInto(tree: *const ast.Tree, utf16: Utf16, tokens: bool, buf: []u8) usize {
+    std.debug.assert(buf.len >= bufferSize(tree, utf16, tokens));
     std.debug.assert(@intFromPtr(buf.ptr) % 4 == 0);
     std.debug.assert(@backingInt(tree.root) + 1 == tree.nodes.len);
 
@@ -195,16 +199,29 @@ pub fn serializeInto(tree: *const ast.Tree, utf16: Utf16, lines: Lines, tokens: 
         .root = @backingInt(tree.root),
         .first_non_ascii = utf16.first,
         .utf16_count = utf16.count,
-        .line_count = lines.count,
-        .comment_count = tree.comment_count,
+        .comment_count = @intCast(tree.comments.len),
+        .line_count = @intCast(tree.lines.len),
         .token_count = if (tokens) @intCast(tree.tokens.len) else 0,
     };
     var pos: usize = 0;
     writeBytes(buf, &pos, std.mem.asBytes(&header));
 
+    // the utf16 section goes in first, since the nodes are mapped with it
+    const utf16_pos = pos + tree.nodes.len * NODE_SIZE + tree.extras.items.len * 4 +
+        std.mem.alignForward(usize, pool_len, 4) + tree.diagnostics.items.len * DIAGNOSTIC_SIZE;
+    const utf16_len = utf16.write(tree.source, buf[utf16_pos..]);
     const nodes_out: [*]PackedNode = @ptrCast(@alignCast(buf.ptr + pos));
-    for (tree.nodes.items(.data), tree.nodes.items(.span), 0..) |*data, span, i| {
-        nodes_out[i] = packNode(data, span);
+    const data = tree.nodes.items(.data);
+    const spans = tree.nodes.items(.span);
+    const points: [*]const u32 = @ptrCast(@alignCast(buf.ptr + utf16_pos));
+    var map: Mapping = .{
+        .utf16 = .{ .points = points[0 .. utf16.count * 2], .first = utf16.first },
+        .source_len = @intCast(tree.source.len),
+    };
+    if (utf16.count == 0) {
+        for (data, spans, 0..) |*node, span, i| nodes_out[i] = packNode(node, span, false, &map);
+    } else {
+        for (data, spans, 0..) |*node, span, i| nodes_out[i] = packNode(node, span, true, &map);
     }
     pos += tree.nodes.len * NODE_SIZE;
 
@@ -217,32 +234,23 @@ pub fn serializeInto(tree: *const ast.Tree, utf16: Utf16, lines: Lines, tokens: 
 
     const diagnostics_out: [*]PackedDiagnostic = @ptrCast(@alignCast(buf.ptr + pos));
     for (tree.diagnostics.items, 0..) |d, i| {
-        diagnostics_out[i] = .{ .message = @backingInt(d.message), .start = d.span.start, .end = d.span.end };
+        diagnostics_out[i] = .{
+            .message = @backingInt(d.message),
+            .start = d.span.start,
+            .end = d.span.end,
+            .argument_start = d.argument.start,
+            .argument_end = d.argument.end,
+        };
     }
     pos += tree.diagnostics.items.len * DIAGNOSTIC_SIZE;
 
-    pos += utf16.write(tree.source, buf[pos..]);
-    pos += lines.write(tree.source, buf[pos..]);
-    if (tree.comment_count > 0) pos += writeComments(tree, buf[pos..]);
+    std.debug.assert(pos == utf16_pos);
+    pos += utf16_len;
+    writeBytes(buf, &pos, std.mem.sliceAsBytes(tree.comments));
+    writeBytes(buf, &pos, std.mem.sliceAsBytes(tree.lines));
     if (tokens) writeBytes(buf, &pos, std.mem.sliceAsBytes(tree.tokens));
-    std.debug.assert(pos == bufferSize(tree, utf16, lines, tokens));
+    std.debug.assert(pos == bufferSize(tree, utf16, tokens));
     return pos;
-}
-
-fn writeComments(tree: *const ast.Tree, buf: []u8) usize {
-    const out: [*]u32 = @ptrCast(@alignCast(buf.ptr));
-    var n: usize = 0;
-    var start = lexer.bomLen(tree.source);
-    for (tree.tokens) |t| {
-        if (t.tag == .comment) {
-            out[n] = start;
-            out[n + 1] = t.end;
-            n += 2;
-        }
-        start = t.end;
-    }
-    std.debug.assert(n == tree.comment_count * 2);
-    return n * 4;
 }
 
 pub fn tokensBufferSize(tokens: []const token.Token, utf16: Utf16) usize {
@@ -301,63 +309,41 @@ pub const Utf16 = struct {
         std.debug.assert(n == utf16.count * 2);
         return n * 4;
     }
-};
 
-/// Where each line after the first starts, for css-tree's `loc`: past `\n`, `\r\n`, `\r`, or `\f`.
-pub const Lines = struct {
-    count: u32,
+    /// Byte offsets to UTF-16 offsets by the written breakpoints, trying the last one found first,
+    /// since offsets come near in order.
+    pub const Map = struct {
+        points: []const u32,
+        first: u32,
+        j: u32 = 0,
 
-    pub const none: Lines = .{ .count = 0 };
-
-    pub fn init(source: []const u8) Lines {
-        var count: u32 = 0;
-        var i = nextBreak(source, 0);
-        while (i < source.len) : (i = nextBreak(source, i)) {
-            i += breakLen(source, i);
-            count += 1;
+        pub fn at(m: *Map, v: u32) u32 {
+            std.debug.assert(m.points.len % 2 == 0);
+            if (v <= m.first) return v;
+            const count: u32 = @intCast(m.points.len / 2);
+            const behind = m.j > 0 and m.points[2 * m.j - 2] > v;
+            const ahead = m.j < count and m.points[2 * m.j] <= v;
+            if (behind or ahead) {
+                var lo: u32 = 0;
+                var hi: u32 = count;
+                while (lo < hi) {
+                    const mid = (lo + hi) / 2;
+                    if (m.points[2 * mid] <= v) lo = mid + 1 else hi = mid;
+                }
+                m.j = lo;
+            }
+            const out = if (m.j == 0) v else v - m.points[2 * m.j - 1];
+            std.debug.assert(out <= v);
+            return out;
         }
-        return .{ .count = count };
-    }
-
-    fn write(lines: Lines, source: []const u8, buf: []u8) usize {
-        if (lines.count == 0) return 0;
-        const out: [*]u32 = @ptrCast(@alignCast(buf.ptr));
-        var n: usize = 0;
-        var i = nextBreak(source, 0);
-        while (i < source.len) : (i = nextBreak(source, i)) {
-            i += breakLen(source, i);
-            out[n] = i;
-            n += 1;
-        }
-        std.debug.assert(n == lines.count);
-        return n * 4;
-    }
-};
-
-fn breakLen(source: []const u8, i: u32) u32 {
-    return if (source[i] == '\r' and i + 1 < source.len and source[i + 1] == '\n') 2 else 1;
-}
-
-// eight bytes at a time: a word holds a byte `b` when `w ^ b` has a zero byte
-fn nextBreak(source: []const u8, from: u32) u32 {
-    const ones: u64 = 0x0101010101010101;
-    const high: u64 = 0x8080808080808080;
-    var i: usize = from;
-    while (i + 8 <= source.len) : (i += 8) {
-        const w = std.mem.readInt(u64, source[i..][0..8], .little);
-        var found: u64 = 0;
-        inline for ("\n\r\x0C") |b| {
-            const x = w ^ (ones * b);
-            found |= (x -% ones) & ~x & high;
-        }
-        if (found != 0) break;
-    }
-    while (i < source.len) : (i += 1) switch (source[i]) {
-        '\n', '\r', 0x0C => break,
-        else => {},
     };
-    return @intCast(i);
-}
+};
+
+// where node offsets are mapped to UTF-16, and which strings slice the source
+const Mapping = struct {
+    utf16: Utf16.Map,
+    source_len: u32,
+};
 
 fn charLen(lead: u8) u32 {
     return if (lead < 0xE0) 2 else if (lead < 0xF0) 3 else 4;
@@ -368,21 +354,25 @@ inline fn writeBytes(buf: []u8, pos: *usize, bytes: []const u8) void {
     pos.* += bytes.len;
 }
 
-fn packNode(data: *const ast.NodeData, span: ast.Span) PackedNode {
+fn packNode(data: *const ast.NodeData, span: ast.Span, comptime mapped: bool, m: *Mapping) PackedNode {
     var n: PackedNode = std.mem.zeroes(PackedNode);
     n.span_start = span.start;
     n.span_end = span.end;
+    if (mapped) {
+        n.span_start = m.utf16.at(span.start);
+        n.span_end = m.utf16.at(span.end);
+    }
     // by pointer, so no node copies the whole union
     switch (data.*) {
         inline else => |*payload, tag| {
             n.tag = @backingInt(tag);
-            packPayload(&n, payload);
+            packPayload(&n, payload, mapped, m);
         },
     }
     return n;
 }
 
-fn packPayload(n: *PackedNode, payload: anytype) void {
+fn packPayload(n: *PackedNode, payload: anytype, comptime mapped: bool, m: *Mapping) void {
     const T = @typeInfo(@TypeOf(payload)).pointer.child;
     const info = @typeInfo(T).@"struct";
     inline for (info.field_names, info.field_types, 0..) |name, Field, i| {
@@ -397,6 +387,10 @@ fn packPayload(n: *PackedNode, payload: anytype) void {
         } else if (Field == ast.String) {
             n.slots[slot] = value.start;
             n.slots[slot + 1] = value.end;
+            if (mapped and value.start < m.source_len) {
+                n.slots[slot] = m.utf16.at(value.start);
+                n.slots[slot + 1] = m.utf16.at(value.end);
+            }
         } else if (Field == bool) {
             if (value) n.flags |= @as(u16, 1) << bit;
         } else if (@typeInfo(Field) == .@"enum") {
@@ -425,19 +419,13 @@ test "serializes" {
     defer tree.deinit();
     const utf16: Utf16 = .init(source);
     try std.testing.expectEqual(Utf16{ .first = 1, .count = 2 }, utf16);
-    const buf = try std.testing.allocator.alignedAlloc(u8, .@"4", bufferSize(&tree, utf16, .none, false));
+    const buf = try std.testing.allocator.alignedAlloc(u8, .@"4", bufferSize(&tree, utf16, false));
     defer std.testing.allocator.free(buf);
-    try std.testing.expectEqual(buf.len, serializeInto(&tree, utf16, .none, false, buf));
+    try std.testing.expectEqual(buf.len, serializeInto(&tree, utf16, false, buf));
     const breakpoints: []const u32 = @ptrCast(@alignCast(buf[buf.len - 16 ..]));
     try std.testing.expectEqualSlices(u32, &.{ 3, 1, source.len - 2, 3 }, breakpoints);
+    // `.é` is two UTF-16 units, so the rule after it spans from unit 1, not byte 1
+    const first_rule: *const PackedNode = @ptrCast(@alignCast(buf[HEADER_SIZE..][0..NODE_SIZE]));
+    try std.testing.expect(first_rule.span_end <= source.len - 3);
     try std.testing.expectEqual(8, firstNonAscii("abcdefghé", 0));
-}
-
-test "finds where lines start" {
-    const source = "a\nb\r\nc\rd\x0Ce lorem ipsum dolor\n";
-    const lines: Lines = .init(source);
-    try std.testing.expectEqual(5, lines.count);
-    var buf: [20]u8 align(4) = undefined;
-    try std.testing.expectEqual(20, lines.write(source, &buf));
-    try std.testing.expectEqualSlices(u32, &.{ 2, 5, 7, 9, source.len }, @as(*const [5]u32, @ptrCast(&buf)));
 }

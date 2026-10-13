@@ -1,6 +1,6 @@
 import { css } from "#module";
 import type { Contexts, Location, Offsets, ParseResult, Position, Positions } from "./ast";
-import { decode, decodeTokens, tokenNames, tokenTypes } from "./decode.js";
+import { atrules, decode, decodeTokens, tokenNames, tokenTypes } from "./decode.js";
 
 export type * from "./ast";
 export { tokenNames, tokenTypes };
@@ -18,11 +18,15 @@ export interface CssSyntaxError extends SyntaxError {
 
 export interface ParseOptions {
   /**
-   * What the source is read as, by css-tree's name for it. `atrulePrelude`, `mediaQueryList` and
-   * `mediaQuery` give a `Raw` for now.
+   * What the source is read as, by css-tree's name for it.
    * @default "stylesheet"
    */
   context?: ParseContext;
+  /**
+   * The at-rule, without `@`, whose prelude the `atrulePrelude` context reads, as css-tree's
+   * `atrule` option names it. Without one, the prelude is a sequence of component values.
+   */
+  atrule?: string;
   /**
    * Give each node a css-tree `loc` with lines and columns in place of `start` and `end`.
    * @default false
@@ -58,7 +62,7 @@ export interface ParseOptions {
    */
   parseValue?: boolean;
   /**
-   * Parse at-rule preludes. Accepted for css-tree's API; preludes are `Raw` for now.
+   * Parse each at-rule's prelude as an `AtrulePrelude`. When false, it is a `Raw`.
    * @default true
    */
   parseAtrulePrelude?: boolean;
@@ -123,7 +127,9 @@ export function parse(source: string, options: ParseOptions = {}): ParseResult<P
     (tokens ? 4 : 0) |
     (context << 3) |
     (options.parseValue === false ? 0 : 1 << 7) |
-    (options.parseCustomProperty === true ? 1 << 8 : 0);
+    (options.parseCustomProperty === true ? 1 << 8 : 0) |
+    (options.parseAtrulePrelude === false ? 0 : 1 << 9) |
+    (atruleOf(options.atrule) << 10);
   const result = run(
     source,
     (pointer, len) => exports!.parse(pointer, len, flags),
@@ -138,6 +144,12 @@ export function parse(source: string, options: ParseOptions = {}): ParseResult<P
   }
   if (options.tokens !== true) delete result.tokens;
   return result;
+}
+
+function atruleOf(name: string | undefined): number {
+  if (!name) return 0;
+  const lower = String(name).toLowerCase();
+  return Object.hasOwn(atrules, lower) ? atrules[lower]! : 0;
 }
 
 function deliverTokens(tokens: Uint32Array, source: string, onToken: NonNullable<ParseOptions["onToken"]>): void {

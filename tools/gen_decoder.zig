@@ -15,6 +15,22 @@ pub fn main(init: std.process.Init) !void {
     try stdout.interface.flush();
 }
 
+// the enums of node fields, each decoded through a table of its `strings`
+const enums = .{ ast.Matcher, ast.MediaModifier, ast.ConditionKind, ast.Comparison };
+
+fn enumTable(comptime E: type) []const u8 {
+    comptime {
+        const name = @typeName(E);
+        const short = name[(std.mem.findScalarLast(u8, name, '.') orelse return name) + 1 ..];
+        var out: []const u8 = "";
+        for (short, 0..) |c, i| {
+            if (i > 0 and std.ascii.isUpper(c)) out = out ++ "_";
+            out = out ++ &[_]u8{std.ascii.toUpper(c)};
+        }
+        return out;
+    }
+}
+
 // css-tree's types that pascal casing gets wrong
 fn typeName(comptime name: []const u8) []const u8 {
     if (comptime std.mem.eql(u8, name, "cdo")) return "CDO";
@@ -30,6 +46,8 @@ fn isNullable(comptime tag: []const u8, comptime field: []const u8) bool {
         .{ "pseudo_element_selector", "children" },
         .{ "an_plus_b", "a" },
         .{ "an_plus_b", "b" },
+        .{ "media_query", "media_type" },
+        .{ "general_enclosed", "function" },
     };
     inline for (nullable) |entry| {
         if (comptime std.mem.eql(u8, entry[0], tag) and std.mem.eql(u8, entry[1], field)) return true;
@@ -49,16 +67,24 @@ fn generate(w: *Writer) Writer.Error!void {
     try writeLines(w);
     try writeDecode(w);
     try writeDecodeTokens(w);
-    try w.writeAll("export { decode, decodeTokens, tokenNames, tokenTypes };\n");
+    try w.writeAll("export { atrules, decode, decodeTokens, tokenNames, tokenTypes };\n");
 }
 
 fn writeTables(w: *Writer) !void {
-    try w.writeAll("const MATCHERS = [");
-    for (ast.Matcher.strings, 0..) |matcher, i| {
-        if (i > 0) try w.writeAll(", ");
-        if (matcher) |text| try w.print("\"{s}\"", .{text}) else try w.writeAll("null");
+    inline for (enums) |E| {
+        try w.print("const {s} = [", .{comptime enumTable(E)});
+        for (E.strings, 0..) |text, i| {
+            if (i > 0) try w.writeAll(", ");
+            if (text) |t| try w.print("\"{s}\"", .{t}) else try w.writeAll("null");
+        }
+        try w.writeAll("];\n");
     }
-    try w.writeAll("];\nconst MESSAGES = [\n");
+    try w.writeAll("const atrules = Object.freeze({\n");
+    inline for (comptime std.enums.values(css.parser.Atrule)) |name| {
+        if (name == .unknown) continue;
+        try w.print("  \"{s}\": {d},\n", .{ comptime name.text(), @backingInt(name) });
+    }
+    try w.writeAll("});\nconst MESSAGES = [\n");
     inline for (comptime std.enums.values(ast.Message)) |message| {
         try w.print("  \"{f}\",\n", .{std.zig.fmtString(message.text())});
     }
@@ -97,28 +123,54 @@ fn writeUtf16(w: *Writer) !void {
     );
 }
 
-// css-tree's OffsetToLocation, from the line starts Zig writes: lines and columns count from
-// `line` and `column`, a line after the first from column 1, and a byte order mark has neither
+// css-tree's OffsetToLocation, with lines and columns counted from `line` and `column`, a line after
+// the first from column 1, and none for a byte order mark. The parser records where lines start as
+// it lexes, and an offset's line is found from the first line past the start of its 64-unit block
 fn writeLines(w: *Writer) !void {
     try w.writeAll(
-        \\function lines(src, starts, line, column, base) {
+        \\// S[j] is where line j starts, the first placed so that its columns count from `column`
+        \\function locator(src, starts, line, column, base, file) {
         \\  const count = starts.length;
         \\  const first = src.charCodeAt(0) === 0xFEFF || src.charCodeAt(0) === 0xFFFE ? 1 : 0;
-        \\  let j = 0;
-        \\  return (offset) => {
-        \\    if (offset < first) return { offset: base + offset, line: 0, column: 0 };
-        \\    if ((j > 0 && starts[j - 1] > offset) || (j < count && starts[j] <= offset)) {
-        \\      let lo = 0, hi = count;
-        \\      while (lo < hi) {
-        \\        const mid = (lo + hi) >>> 1;
-        \\        if (starts[mid] <= offset) lo = mid + 1;
-        \\        else hi = mid;
+        \\  const S = new Int32Array(count + 2);
+        \\  S[0] = first - column + 1;
+        \\  S.set(starts, 1);
+        \\  S[count + 1] = 0x7fffffff;
+        \\  const blocks = new Int32Array((src.length >> 6) + 2);
+        \\  for (let b = 0, j = 0; b < blocks.length; b++) {
+        \\    while (S[j + 1] <= b << 6) j++;
+        \\    blocks[b] = j;
+        \\  }
+        \\  const point = (offset, j) =>
+        \\    offset < first
+        \\      ? { offset: base + offset, line: 0, column: 0 }
+        \\      : { offset: base + offset, line: line + j, column: offset - S[j] + 1 };
+        \\  if (first === 1) {
+        \\    return (s, e) => {
+        \\      let j = blocks[s >> 6];
+        \\      while (S[j + 1] <= s) j++;
+        \\      const start = point(s, j);
+        \\      if (S[j + 1] <= e) {
+        \\        j = blocks[e >> 6];
+        \\        while (S[j + 1] <= e) j++;
         \\      }
-        \\      j = lo;
+        \\      return { source: file, start, end: point(e, j) };
+        \\    };
+        \\  }
+        \\  // one literal, so that the three objects are allocated together
+        \\  return (s, e) => {
+        \\    let j = blocks[s >> 6];
+        \\    while (S[j + 1] <= s) j++;
+        \\    const startLine = line + j, startColumn = s - S[j] + 1;
+        \\    if (S[j + 1] <= e) {
+        \\      j = blocks[e >> 6];
+        \\      while (S[j + 1] <= e) j++;
         \\    }
-        \\    return j === 0
-        \\      ? { offset: base + offset, line, column: column + offset - first }
-        \\      : { offset: base + offset, line: line + j, column: offset - starts[j - 1] + 1 };
+        \\    return {
+        \\      source: file,
+        \\      start: { offset: base + s, line: startLine, column: startColumn },
+        \\      end: { offset: base + e, line: line + j, column: e - S[j] + 1 },
+        \\    };
         \\  };
         \\}
         \\
@@ -139,11 +191,11 @@ fn writeDecode(w: *Writer) !void {
         \\  const _spOff = (_extraBase + extraCount) * 4;
         \\  const _dBase = (_spOff + ((spLen + 3) & ~3)) >> 2;
         \\  const _p = utf16(_u32, _dBase + diagCount * {[dstride]d}, _u32[{[u16]d}], _firstNa);
+        \\  // node strings in the source come as UTF-16 offsets, the pool's as bytes past the source's
         \\  const str = (s, e) => {{
         \\    if (s === e) return "";
         \\    if (s >= _srcLen) return _td.decode(_u8.subarray(_spOff + s - _srcLen, _spOff + e - _srcLen));
-        \\    if (e <= _firstNa) return _src.slice(s, e);
-        \\    return _src.slice(_p(s), _p(e));
+        \\    return _src.slice(s, e);
         \\  }};
         \\  const important = (s, e) => {{
         \\    if (s === NULL) return false;
@@ -157,17 +209,19 @@ fn writeDecode(w: *Writer) !void {
         \\    return r;
         \\  }}
         \\  const positions = options.positions === true;
-        \\  const lineBase = _dBase + diagCount * {[dstride]d} + _u32[{[u16]d}] * 2;
-        \\  const commentBase = lineBase + _u32[{[lc]d}], commentCount = _u32[{[cc]d}];
-        \\  const tokenBase = commentBase + commentCount * 2, tokenCount = _u32[{[tc]d}];
-        \\  let point, file;
+        \\  const commentBase = _dBase + diagCount * {[dstride]d} + _u32[{[u16]d}] * 2;
+        \\  const commentCount = _u32[{[cc]d}];
+        \\  const lineBase = commentBase + commentCount * 2, lineCount = _u32[{[lc]d}];
+        \\  const tokenBase = lineBase + lineCount, tokenCount = _u32[{[tc]d}];
+        \\  const file = options.filename || "<unknown>";
+        \\  const line = options.line ?? 1, column = options.column ?? 1;
+        \\  let loc = null;
         \\  if (positions) {{
-        \\    const starts = new Array(_u32[{[lc]d}]);
-        \\    for (let j = 0; j < starts.length; j++) starts[j] = _p(_u32[lineBase + j]);
-        \\    point = lines(_src, starts, options.line ?? 1, options.column ?? 1, options.offset ?? 0);
-        \\    file = options.filename || "<unknown>";
+        \\    // the line starts in UTF-16 units, copied as they are where the source is ASCII
+        \\    let starts = new Int32Array(buffer, at + lineBase * 4, lineCount);
+        \\    if (lineCount > 0 && starts[lineCount - 1] > _firstNa) starts = starts.map(_p);
+        \\    loc = locator(_src, starts, line, column, options.offset ?? 0, file);
         \\  }}
-        \\  const loc = (s, e) => ({{ source: file, start: point(s), end: point(e) }});
         \\
     , .{
         .src = rt.HDR_SOURCE_LEN_U32,
@@ -181,8 +235,8 @@ fn writeDecode(w: *Writer) !void {
         .size = rt.NODE_SIZE,
         .dstride = rt.DIAGNOSTIC_SIZE / 4,
         .u16 = rt.HDR_UTF16_COUNT_U32,
-        .lc = rt.HDR_LINE_COUNT_U32,
         .cc = rt.HDR_COMMENT_COUNT_U32,
+        .lc = rt.HDR_LINE_COUNT_U32,
         .tc = rt.HDR_TOKEN_COUNT_U32,
     });
     try writeNodeFunction(w, .offsets);
@@ -200,7 +254,13 @@ fn writeDecode(w: *Writer) !void {
         \\  const diagnostics = new Array(diagCount);
         \\  for (let j = 0; j < diagCount; j++) {{
         \\    const d = _dBase + j * {[stride]d};
-        \\    diagnostics[j] = {{ severity: "error", message: MESSAGES[_u32[d + {[m]d}]], path, start: _p(_u32[d + {[s]d}]), end: _p(_u32[d + {[e]d}]), labels: [], help: null }};
+        \\    const a = _u32[d + {[a]d}], text = MESSAGES[_u32[d + {[m]d}]];
+        \\    const b = _u32[d + {[a]d} + 1];
+        \\    // diagnostic offsets are bytes, so a source argument is mapped as they are
+        \\    const argument = a === NULL ? "" : a >= _srcLen ? str(a, b) : str(_p(a), _p(b));
+        \\    const message = a === NULL ? text : text.replace("{{}}", argument);
+        \\    const start = _p(_u32[d + {[s]d}]), end = _p(_u32[d + {[e]d}]);
+        \\    diagnostics[j] = {{ severity: "error", message, path, start, end, labels: [], help: null }};
         \\  }}
         \\  const spans = commentCount === 0 ? null : new Int32Array(commentCount * 2);
         \\  for (let j = 0; j < commentCount * 2; j++) spans[j] = _p(_u32[commentBase + j]);
@@ -234,6 +294,7 @@ fn writeDecode(w: *Writer) !void {
         .m = rt.DIAGNOSTIC_MESSAGE_U32,
         .s = rt.DIAGNOSTIC_START_U32,
         .e = rt.DIAGNOSTIC_END_U32,
+        .a = rt.DIAGNOSTIC_ARGUMENT_U32,
         .tstride = rt.TOKEN_SIZE / 4,
         .ttag = rt.TOKEN_TAG_U32,
         .tend = rt.TOKEN_END_U32,
@@ -250,8 +311,7 @@ fn writeNodeFunction(w: *Writer, comptime mode: Mode) !void {
         \\    const b = (i * {[size]d} + {[hdr]d}) >> 2;
         \\    const h0 = _u32[b];
         \\    const flags = h0 >>> 16;
-        \\    let start = _u32[b + {[ss]d}], end = _u32[b + {[se]d}];
-        \\    if (end > _firstNa) {{ start = _p(start); end = _p(end); }}
+        \\    const start = _u32[b + {[ss]d}], end = _u32[b + {[se]d}];
         \\    switch (h0 & 255) {{
         \\
     , .{
@@ -314,10 +374,10 @@ fn writeCase(w: *Writer, comptime mode: Mode, comptime tag: usize, comptime name
                 if (nullable) try w.print("f{d} === NULL ? null : ", .{s});
                 try w.print("str(f{d}, f{d})", .{ s, s + 1 });
             }
-        } else if (Field == ast.Matcher) {
+        } else if (@typeInfo(Field) == .@"enum" and @hasDecl(Field, "strings")) {
             const bit = comptime rt.flagBitForField(T, i);
             const mask = comptime (1 << rt.enumBitWidth(Field)) - 1;
-            try w.print("MATCHERS[(flags >> {d}) & {d}]", .{ bit, mask });
+            try w.print("{s}[(flags >> {d}) & {d}]", .{ comptime enumTable(Field), bit, mask });
         } else {
             @compileError("no decoder for " ++ @typeName(Field));
         }
