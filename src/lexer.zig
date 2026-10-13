@@ -207,6 +207,14 @@ pub const Lexer = struct {
         return .function;
     }
 
+    /// Whether the `-` at `pos` starts an ident with a name byte or another `-` but no `-->`.
+    pub inline fn dashedIdent(l: *const Lexer) bool {
+        std.debug.assert(l.src[l.pos] == '-');
+        const b = l.at(l.pos + 1);
+        if (is(b, name_start)) return true;
+        return b == '-' and l.at(l.pos + 2) != '>';
+    }
+
     pub fn numeric(l: *Lexer) Tag {
         l.pos = l.numberEnd(l.pos);
         const c = l.at(l.pos);

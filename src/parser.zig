@@ -299,6 +299,17 @@ pub const Parser = struct {
                 l.pos += 1;
                 break :blk .delim;
             },
+            // the class selector's dot
+            .dot => if (!lexer.isDigit(l.at(l.pos + 1))) blk: {
+                l.pos += 1;
+                break :blk .delim;
+            } else l.numeric(),
+            // a custom property or vendor prefix
+            .minus => blk: {
+                const tag = if (l.dashedIdent()) l.identLike() else l.nextSlow(c);
+                plain = role[@backingInt(tag)] == .plain;
+                break :blk tag;
+            },
             else => blk: {
                 const tag = l.nextSlow(c);
                 plain = role[@backingInt(tag)] == .plain;
