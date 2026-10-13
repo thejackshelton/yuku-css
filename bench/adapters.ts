@@ -69,6 +69,25 @@ const yukuCss: Library = {
   },
 };
 
+// the closest yuku-css comes to Lightning CSS's `transform`: it parses, values kept raw, and
+// prints CSS back, where `transform` parses values into typed structures and prints them
+const yukuCssPrint: Library = {
+  name: "yuku-css print",
+  color: "#FFA07A",
+  note: "parses, values raw, and prints CSS back with `yuku-css/codegen`",
+  entries: [{ entry: "yuku-css/codegen", name: "generate" }],
+  browser: true,
+  async load(mode) {
+    const parse = await yukuCss.load(mode);
+    const { generate } = await import("yuku-css/codegen");
+    return (source) => generate(parse(source) as any);
+  },
+  async supports(mode) {
+    return mode.values === "raw" && !mode.positions;
+  },
+  check: (source, mode) => yukuCss.check(source, mode),
+};
+
 const cssTree: Library = {
   name: "css-tree",
   color: "#3A86FF",
@@ -158,6 +177,7 @@ const postcss: Library = {
 
 export const LIBRARIES: Library[] = [
   yukuCss,
+  yukuCssPrint,
   cssTree,
   lightning("lightningcss", "#F7B801", false, "lightningcss", () => import("lightningcss")),
   lightning("lightningcss-wasm", "#2EC4B6", true, "lightningcss-wasm", () => import("lightningcss-wasm")),

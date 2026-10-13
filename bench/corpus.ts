@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 export { BUCKETS, bucket } from "./sample.ts";
 
 export interface File {
-  group: "markless" | "npm" | "synthetic";
+  group: "markless" | "npm" | "synthetic" | "overhead";
   name: string;
   source: string;
   bytes: number;
@@ -15,6 +15,7 @@ export interface File {
 const MARKLESS = new URL("../test/corpus/", import.meta.url);
 const NPM = new URL("corpus/npm/", import.meta.url);
 const SYNTHETIC = new URL("corpus/synthetic/", import.meta.url);
+const OVERHEAD = new URL("corpus/overhead/", import.meta.url);
 
 // jsDelivr serves each file as published to npm
 export const PACKAGES: Record<string, { path: string; sha256: string }> = {
@@ -63,7 +64,13 @@ export const SYNTHETICS: Record<string, () => string> = {
 };
 
 /** The files of `groups`, every group by default. */
-export function load(groups: ReadonlySet<File["group"]> = new Set(["markless", "npm", "synthetic"])): File[] {
+// files so small that a parse costs what a call costs, timed apart from the rest
+export const OVERHEADS: Record<string, string> = {
+  "empty.css": "",
+  "tiny.css": ".a { color: red }\n",
+};
+
+export function load(groups: ReadonlySet<File["group"]> = new Set(["markless", "npm", "synthetic", "overhead"])): File[] {
   const read = (group: File["group"], directory: URL, names: string[]): File[] =>
     names.map((name) => {
       const source = readFileSync(new URL(name, directory), "utf8");
@@ -73,12 +80,14 @@ export function load(groups: ReadonlySet<File["group"]> = new Set(["markless", "
     ...(groups.has("markless") ? read("markless", MARKLESS, readdirSync(MARKLESS).sort()) : []),
     ...(groups.has("npm") ? read("npm", NPM, Object.keys(PACKAGES)) : []),
     ...(groups.has("synthetic") ? read("synthetic", SYNTHETIC, Object.keys(SYNTHETICS)) : []),
+    ...(groups.has("overhead") ? read("overhead", OVERHEAD, Object.keys(OVERHEADS)) : []),
   ];
 }
 
 export async function prepare(): Promise<void> {
   mkdirSync(NPM, { recursive: true });
   mkdirSync(SYNTHETIC, { recursive: true });
+  mkdirSync(OVERHEAD, { recursive: true });
   for (const [name, { path, sha256 }] of Object.entries(PACKAGES)) {
     const file = new URL(name, NPM);
     if (!existsSync(file)) {
@@ -90,6 +99,7 @@ export async function prepare(): Promise<void> {
     if (hash !== sha256) throw new Error(`${name}: sha256 ${hash}, expected ${sha256}`);
   }
   for (const [name, generate] of Object.entries(SYNTHETICS)) writeFileSync(new URL(name, SYNTHETIC), generate());
+  for (const [name, source] of Object.entries(OVERHEADS)) writeFileSync(new URL(name, OVERHEAD), source);
 }
 
 if (import.meta.main) await prepare();

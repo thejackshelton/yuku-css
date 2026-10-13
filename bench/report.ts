@@ -78,7 +78,7 @@ export function report(results: Results): void {
     return runs && { median: median(runs.map((run) => run.median)), p95: median(runs.map((run) => run.p95)) };
   };
 
-  const all = files.map((file) => file.key);
+  const all = files.filter((file) => file.group !== "overhead").map((file) => file.key);
   const markless = files.filter((file) => file.group === "markless").map((file) => file.key);
   const corpus = clean(configs.map((config) => config.id), markless);
   const everything = clean(configs.map((config) => config.id), all);
@@ -98,6 +98,15 @@ export function report(results: Results): void {
   const bundles = Object.entries<{ library: string; minified: number; gzip: number; brotli: number }>(results.bundle);
 
   const lines: string[] = [];
+  const chromiumTitle = `Chromium ${results.runtimes.chromium}`;
+  const everywhere = [...runtimes, "chromium"];
+  const titleOf = (runtime: string) => (runtime === "chromium" ? chromiumTitle : title(runtime));
+  const timingsOf = (runtime: string, config: Config): Record<string, Timing[]> | undefined =>
+    runtime === "chromium" ? results.browser[config.id] : results.time[runtime][config.id];
+  const sumOf = (runtime: string, config: Config, keys: string[]) => {
+    const timings = timingsOf(runtime, config);
+    return timings && keys.every((key) => timings[key]) ? total(timings, keys) : undefined;
+  };
   const out = (...text: string[]) => lines.push(...text);
   const table = (header: string[], rows: string[][]) =>
     out(`| ${header.join(" | ")} |`, `|${header.map((_, i) => (i ? " ---: |" : " --- |")).join("")}`, ...rows.map((row) => `| ${row.join(" | ")} |`), "");
@@ -136,7 +145,7 @@ export function report(results: Results): void {
         return faster.length ? [`on ${file.name} on ${title(runtime)}, ${list(faster)} parse faster`] : [];
       }),
   );
-  const smaller = bundles.filter(([, size]) => size.gzip < results.bundle["yuku-css"].gzip).map(([entry, size]) => `\`${entry}\` (${kb(size.gzip)})`);
+  const smaller = bundles.filter(([, size]) => !size.library.startsWith("yuku-css") && size.gzip < results.bundle["yuku-css"].gzip).map(([entry, size]) => `\`${entry}\` (${kb(size.gzip)})`);
   const biggest = large.toSorted((a, b) => bytes[b]! - bytes[a]!).find((key) => memory(yuku, key, "external") !== undefined && memory(twin, key, "peak") !== undefined)!;
   const against = (field: keyof Memory) =>
     median(
@@ -155,8 +164,11 @@ export function report(results: Results): void {
   out(
     "# Benchmark",
     "",
-    `yuku-css ${results.libraries["yuku-css"]} against [css-tree](https://github.com/csstree/csstree) ${results.libraries["css-tree"]}, with [Lightning CSS](https://lightningcss.dev) and [PostCSS](https://postcss.org) for context, on an ${results.machine.cpu}, ${results.date}. Run it with \`bun run bench:full\`; the raw data is in [bench/results/${results.date}.json](../bench/results/${results.date}.json).`,
+    `yuku-css ${results.libraries["yuku-css"]} against [Lightning CSS](https://lightningcss.dev) ${results.libraries.lightningcss}, its fastest rival, and [css-tree](https://github.com/csstree/csstree) ${results.libraries["css-tree"]}, whose tree it builds, with [PostCSS](https://postcss.org) for context, on an ${results.machine.cpu}, ${results.date}. Run it with \`bun run bench:full\`; the raw data is in [bench/results/${results.date}.json](../bench/results/${results.date}.json).`,
     "",
+  );
+  lightningSection();
+  out(
     "## Summary",
     "",
     [
@@ -246,10 +258,10 @@ export function report(results: Results): void {
   out(
     "## Cost per node",
     "",
-    "Every tree's nodes are counted the same way: each object with a string `type`, reached through fields and lists. yuku-css builds css-tree's tree, so with the same work the counts differ only where the two read CSS differently; css-tree with parsed values has a node for each value token; PostCSS has none below a rule's selector. Lightning CSS returns no tree. Each row covers the files it parses cleanly.",
+    "Every tree's nodes are counted the same way: each object with a string `type`, reached through fields and lists. yuku-css builds css-tree's tree, so with the same work the counts differ only where the two read CSS differently; css-tree with parsed values has a node for each value token; PostCSS has none below a rule's selector. Lightning CSS, and yuku-css when it prints, return no tree. Each row covers the files it parses cleanly.",
     "",
   );
-  const counted = configs.filter((config) => !config.library.startsWith("lightningcss"));
+  const counted = configs.filter((config) => !config.library.startsWith("lightningcss") && config.library !== "yuku-css print");
   table(
     ["Parser", "Files", "Nodes", ...runtimes.map((runtime) => `${title(runtime)}, ns per node`), ...runtimes.map((runtime) => `${title(runtime)}, MB/s`)],
     counted.map((config) => {
@@ -420,7 +432,7 @@ export function report(results: Results): void {
   out(
     "## Bundle size",
     "",
-    "What a browser downloads to parse: the library bundled by [Rolldown](https://rolldown.rs) for the browser and minified, keeping only its parse function (`transform` for Lightning CSS), plus any file it fetches beside the JS. yuku-css inlines its WebAssembly into the JS as base64. Lightning CSS's WebAssembly is a separate file; its native addon does not run in a browser.",
+    "What a browser downloads to parse: the library bundled by [Rolldown](https://rolldown.rs) for the browser and minified, keeping only its parse function (`transform` for Lightning CSS, `generate` for `yuku-css/codegen`), plus any file it fetches beside the JS. yuku-css inlines its WebAssembly into the JS as base64. Lightning CSS's WebAssembly is a separate file; its native addon does not run in a browser.",
     "",
   );
   table(
@@ -488,7 +500,7 @@ export function report(results: Results): void {
   out(
     "## Methodology",
     "",
-    `- **Corpus.** ${group("markless")} style sheets from the Markless repository ([test/corpus](../test/corpus)); ${group("npm")} files from npm packages, pinned by version and checked by SHA-256; ${group("synthetic")} generated stress files: deep nesting, a long selector list, huge custom properties, and many at-rules. \`node bench/corpus.ts\` fetches and generates them ([bench/corpus.ts](../bench/corpus.ts)).`,
+    `- **Corpus.** ${group("markless")} style sheets from the Markless repository ([test/corpus](../test/corpus)); ${group("npm")} files from npm packages, pinned by version and checked by SHA-256; ${group("synthetic")} generated stress files: deep nesting, a long selector list, huge custom properties, and many at-rules; and an empty file and a one-rule file, timed only for the cost of a call. \`node bench/corpus.ts\` fetches and generates them ([bench/corpus.ts](../bench/corpus.ts)).`,
     `- **Processes.** Each measurement runs in a fresh process, ${results.settings.runs} times, with the runs of every configuration taking turns. A file's time is the median over runs of its median; its p95 is the median over runs of its 95th percentile.`,
     `- **Sampling.** A process first parses its files in turn for at least a second, so the JIT has compiled the hot paths. It then parses each file for ${results.settings.budget / 5} ms more and samples it for ${results.settings.budget} ms and at least 10 samples (half that in the browser). A sample times enough parses to last 20 µs (500 µs in the browser), so the clock's cost and precision do not count.`,
     "- **Smallest first.** A process times its files a size bucket at a time, from the smallest, warming each bucket up first. css-tree resets its token buffers in full on every parse (`balance.fill(0)` in its `TokenStream`), and they keep the size of the largest source it has parsed: in a one-off check, `.a { color: red }` took 1.4 µs to parse before a 3.6 MB file and 60 µs after. Timing small files after large ones would charge css-tree for that.",
@@ -516,6 +528,152 @@ export function report(results: Results): void {
   mkdirSync(new URL("benchmark/", DOCS), { recursive: true });
   for (const [file, svg] of Object.entries(charts)) writeFileSync(new URL(`benchmark/${file}.svg`, DOCS), svg);
   writeFileSync(new URL("benchmark.md", DOCS), lines.join("\n"));
+
+  function lightningSection(): void {
+    const find = (library: string, mode: Mode) => configs.find((config) => config.library === library && sameMode(config.mode, mode));
+    const offsets = find("yuku-css", { values: "raw", positions: false });
+    const printing = find("yuku-css print", { values: "raw", positions: false });
+    const native = find("lightningcss", { values: "parsed", positions: false });
+    const wasm = find("lightningcss-wasm", { values: "parsed", positions: false });
+    if (!offsets || !printing || !native || !wasm) return;
+    const rivals = [printing, offsets, native, wasm];
+    const label = (config: Config) =>
+      config === printing ? "yuku-css, parse and print" : config === offsets ? "yuku-css, parse only" : config.library;
+    // what Lightning CSS is held against in a runtime: its addon, or its WebAssembly in the browser
+    const rival = (runtime: string) => (runtime === "chromium" ? wasm : native);
+    const verdict = (own: Total | undefined, other: Total | undefined) =>
+      own && other ? (own.median <= other.median ? `${times(other, own)} faster` : `${times(own, other)} slower`) : "–";
+    const keys = clean(rivals.map((config) => config.id), all);
+
+    out(
+      "## Against Lightning CSS",
+      "",
+      "Lightning CSS returns no tree to JS. Its `transform({ filename, code, minify: false })` parses every value into typed Rust structures and prints CSS back. The closest yuku-css comes is parsing and then printing its own tree with `yuku-css/codegen`, values kept raw, so neither side does exactly the other's work: Lightning CSS types every value, which yuku-css does not, and yuku-css builds a JS tree, which Lightning CSS does not. yuku-css parsing alone is listed too, as less work. Lightning CSS runs as its native Node.js addon and as `lightningcss-wasm`; in Chromium only the WebAssembly runs.",
+      "",
+    );
+
+    const leads: Record<string, { bucket: string; lead: number }[]> = {};
+    const rows: string[][] = [];
+    for (const runtime of everywhere)
+      for (const { name: bucketName } of BUCKETS) {
+        const chosen = inBucket(keys, bucketName);
+        if (!chosen.length) continue;
+        const sums = rivals.map((config) => sumOf(runtime, config, chosen));
+        const own = sums[0];
+        const other = sumOf(runtime, rival(runtime), chosen);
+        if (own && other) (leads[runtime] ??= []).push({ bucket: bucketName, lead: ratio(other, own) });
+        rows.push([titleOf(runtime), bucketName, String(chosen.length), ...sums.map((sum) => (sum ? mbps(sum) : "–")), verdict(own, other)]);
+      }
+    out(
+      "### By size",
+      "",
+      `Throughput on the ${keys.length} files that yuku-css and both builds of Lightning CSS parse cleanly. The last column sets yuku-css parsing and printing against Lightning CSS's addon, or in Chromium its WebAssembly.`,
+      "",
+    );
+    table(["Runtime", "Size", "Files", ...rivals.map(label), "yuku-css, parse and print, vs Lightning CSS"], rows);
+    charts.lightning = chart(
+      BUCKETS.map(({ name: bucketName }) => ({ title: bucketName, keys: inBucket(keys, bucketName) }))
+        .filter(({ keys: chosen }) => chosen.length)
+        .map(({ title: bucketName, keys: chosen }) => ({
+          title: bucketName,
+          bars: rivals.map((config) => {
+            const sum = parse("node", config, chosen);
+            return { label: label(config), color: color(config), value: throughput(sum), text: mbps(sum) };
+          }),
+        })),
+      { higherIsBetter: true, labelWidth: LABEL },
+    );
+    out(`![Throughput by file size against Lightning CSS on ${title("node")}](benchmark/lightning.svg)`, "");
+
+    const real = ["tailwind.css", "tailwind.min.css", "bulma.css", "primer.css", "bootstrap.css", "bootstrap.min.css", "foundation.css", "font-awesome.css"]
+      .map((name) => files.find((file) => file.group === "npm" && file.name === name))
+      .filter((file) => file !== undefined);
+    out(
+      "### Large real files",
+      "",
+      "Median time per parse, MB/s in parentheses. A dash marks a parse that reported errors, with the first error below.",
+      "",
+    );
+    table(
+      ["File", "Size", "Runtime", ...rivals.map(label), "yuku-css, parse and print, vs Lightning CSS"],
+      real.flatMap((file) =>
+        everywhere.map((runtime) => {
+          const sums = rivals.map((config) => (file.key in results.gate.failed[config.id] ? undefined : sumOf(runtime, config, [file.key])));
+          const cell = (sum: Total | undefined) => (sum ? `${ms(sum.median)} (${mbps(sum)})` : "–");
+          const other = file.key in results.gate.failed[rival(runtime).id] ? undefined : sumOf(runtime, rival(runtime), [file.key]);
+          return [file.name, kb(file.bytes), titleOf(runtime), ...sums.map(cell), verdict(sums[0], other)];
+        }),
+      ),
+    );
+    const rejected = real.filter((file) => file.key in results.gate.failed[native.id]);
+    if (rejected.length)
+      out(`Lightning CSS reports errors on ${list(rejected.map((file) => `${file.name} (${results.gate.failed[native.id][file.key]})`))}.`, "");
+
+    const tiny = files.filter((file) => file.group === "overhead");
+    if (tiny.length) {
+      const called = [printing, offsets, yuku, twin, native, wasm, ...configs.filter((config) => config.library === "postcss")];
+      out(
+        "### Per call",
+        "",
+        "What one call costs when there is next to nothing to parse, so a lead on small files is not read as a lead in throughput. Median time per call.",
+        "",
+      );
+      table(
+        ["File", "Runtime", ...called.map((config) => (config === yuku ? "yuku-css, positions" : config === twin ? "css-tree, positions" : label(config)))],
+        tiny.flatMap((file) =>
+          everywhere.map((runtime) => [
+            `${file.name} (${file.bytes} B)`,
+            titleOf(runtime),
+            ...called.map((config) => {
+              const sum = sumOf(runtime, config, [file.key]);
+              return sum ? us(sum.median) : "–";
+            }),
+          ]),
+        ),
+      );
+      const empty = tiny[0]!.key;
+      const call = (runtime: string, config: Config) => sumOf(runtime, config, [empty])?.median;
+      const own = call("node", printing);
+      const addon = call("node", native);
+      if (own !== undefined && addon !== undefined && own < addon)
+        out(
+          `On ${title("node")}, a call on an empty file costs yuku-css ${us(own)} to parse and print and the Lightning CSS addon ${us(addon)}, so on the smallest files part of yuku-css's lead is the cost of a call.`,
+          "",
+        );
+    }
+
+    const download = (entry: string) => results.bundle[entry]?.gzip as number | undefined;
+    const cold = (lib: string) => {
+      const runs = results.cold.node[lib]?.["npm/bootstrap.css"] as { load: number; first: number }[] | undefined;
+      return runs && median(runs.map((run) => run.load + run.first));
+    };
+    const span = (values: number[]) =>
+      `${Math.min(...values).toFixed(2)}× to ${Math.max(...values).toFixed(2)}×`;
+    const wins: string[] = [];
+    const losses: string[] = [];
+    for (const runtime of everywhere) {
+      const ahead = (leads[runtime] ?? []).filter(({ lead }) => lead >= 1);
+      const behind = (leads[runtime] ?? []).filter(({ lead }) => lead < 1);
+      const against = runtime === "chromium" ? "`lightningcss-wasm`" : "the addon";
+      if (ahead.length)
+        wins.push(`On ${titleOf(runtime)}, parsing and printing beats ${against} on ${behind.length ? `files of ${list(ahead.map(({ bucket }) => bucket))}` : "every size of file"}, by ${span(ahead.map(({ lead }) => lead))}.`);
+      if (behind.length)
+        losses.push(`On ${titleOf(runtime)}, parsing and printing is slower than ${against} on files of ${list(behind.map(({ bucket }) => bucket))}, by ${span(behind.map(({ lead }) => 1 / lead))}.`);
+    }
+    const yukuBytes = download("yuku-css") && download("yuku-css/codegen") && download("yuku-css")! + download("yuku-css/codegen")!;
+    if (yukuBytes && download("lightningcss-wasm"))
+      wins.push(`A browser downloads ${kb(yukuBytes)} gzipped to parse and print with yuku-css, against ${kb(download("lightningcss-wasm")!)} for \`lightningcss-wasm\`.`);
+    const coldYuku = cold("yuku-css print");
+    const coldNative = cold("lightningcss");
+    if (coldYuku && coldNative)
+      (coldYuku <= coldNative ? wins : losses).push(
+        `In a fresh ${title("node")} process, loading the library and parsing and printing bootstrap.css once takes yuku-css ${ms(coldYuku)}, compiling its WebAssembly included, and the Lightning CSS addon ${ms(coldNative)}.`,
+      );
+    losses.push(
+      "Lightning CSS does more with the time: it types every value, so it can minify, lower syntax for older browsers and report invalid values, none of which yuku-css does. Its output is a normalized style sheet, where yuku-css prints its tree as written.",
+    );
+    out("### Where yuku-css wins", "", ...wins.map((line) => `- ${line}`), "", "### Where yuku-css loses", "", ...losses.map((line) => `- ${line}`), "");
+  }
 }
 
 function sameMode(a: Mode, b: Mode): boolean {
