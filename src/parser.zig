@@ -703,11 +703,11 @@ pub const Parser = struct {
         };
     }
 
-    pub fn add(p: *Parser, data: ast.NodeData, start: u32, end: u32) Error!NodeIndex {
+    pub inline fn add(p: *Parser, data: ast.NodeData, start: u32, end: u32) Error!NodeIndex {
         return p.tree.addNode(data, .{ .start = start, .end = end });
     }
 
-    pub fn push(p: *Parser, node: NodeIndex) Error!void {
+    pub inline fn push(p: *Parser, node: NodeIndex) Error!void {
         if (p.scratch.items.len < p.scratch.capacity) {
             p.scratch.appendAssumeCapacity(node);
         } else {
