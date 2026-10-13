@@ -158,7 +158,12 @@ pub const Matcher = struct {
         assert(state != graph_.match);
         assert(m.then_top == none or m.then_top < m.thens.items.len);
         const index: u32 = @intCast(m.thens.items.len);
-        try push(ThenCell, m.gpa, &m.thens, .{ .state = state, .match = m.match_top, .syntax = m.syntax_top, .prev = m.then_top });
+        try push(ThenCell, m.gpa, &m.thens, .{
+            .state = state,
+            .match = m.match_top,
+            .syntax = m.syntax_top,
+            .prev = m.then_top,
+        });
         m.then_top = index;
     }
 
@@ -199,7 +204,8 @@ pub const Matcher = struct {
         var opts: u32 = if (m.syntax_top != none) m.syntaxes.items[m.syntax_top].opts else none;
         if (def.tag == .type and def.flags & syntax.flag.range != 0) opts = syntax_node + 1;
         const index: u32 = @intCast(m.syntaxes.items.len);
-        try push(SyntaxCell, m.gpa, &m.syntaxes, .{ .syntax = syntax_node, .opts = opts, .prev = m.syntax_top });
+        const cell_: SyntaxCell = .{ .syntax = syntax_node, .opts = opts, .prev = m.syntax_top };
+        try push(SyntaxCell, m.gpa, &m.syntaxes, cell_);
         m.syntax_top = index;
         const token = m.cell(m.match_top).token;
         try m.pushMatch(

@@ -24,3 +24,36 @@ export const MESSAGES: readonly string[] = Object.freeze([
   "Nesting is too deep",
   "Number is too large",
 ]);
+export const ENTRY = {
+  stub: 0,
+  token: 1,
+  open: 2,
+  close: 3,
+} as const;
+export const STATUS = {
+  match: 0,
+  mismatch: 1,
+  iterationLimit: 2,
+  badReference: 3,
+  hasVar: 4,
+} as const;
+export const SHEET_STATUS = {
+  customProperty: 5,
+  unknownProperty: 6,
+} as const;
+export const RECORD = {
+  propertyStart: 0,
+  propertyEnd: 1,
+  valueStart: 2,
+  valueEnd: 3,
+  status: 4,
+  iterations: 5,
+  longestStart: 6,
+  longestEnd: 7,
+  entries: 8,
+  entryCount: 9,
+  reference: 10,
+  wide: 11,
+} as const;
+export const RECORD_WORDS = 12;
+export const SHEET_HEADER_WORDS = 3;

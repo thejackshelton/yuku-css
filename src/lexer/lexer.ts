@@ -6,7 +6,7 @@ import { List } from "../ast/list";
 import type { AnyNode, Node } from "../ast/node";
 import { walk as walkTree } from "../ast/walk";
 import { STRUCTURES } from "./structure";
-import { MESSAGES } from "./tables";
+import { ENTRY, MESSAGES, RECORD, RECORD_WORDS, SHEET_HEADER_WORDS, SHEET_STATUS, STATUS } from "./tables";
 import {
   customError,
   definitionSyntaxError,
@@ -31,9 +31,7 @@ const NONE = 0xffffffff;
 const NO_PRELUDE = NONE - 1;
 const NO_DESCRIPTORS = NONE - 1;
 const KIND = { type: 0, property: 1, prelude: 2, descriptor: 3, anonymous: 4 } as const;
-const ENTRY_TOKEN = 1;
-const ENTRY_OPEN = 2;
-const STATUS = ["Match", "Mismatch", "Maximum iteration number exceeded (please fill an issue on https://github.com/csstree/csstree/issues)"];
+const REASONS = ["Match", "Mismatch", "Maximum iteration number exceeded (please fill an issue on https://github.com/csstree/csstree/issues)"];
 const HEADER = 10;
 
 /** css-tree's unit groups, as the lexer reads dimensions. */
@@ -576,20 +574,6 @@ class Sheet {
   }
 }
 
-const RECORD = {
-  propertyStart: 0,
-  propertyEnd: 1,
-  valueStart: 2,
-  valueEnd: 3,
-  status: 4,
-  iterations: 5,
-  longestStart: 6,
-  longestEnd: 7,
-  entries: 8,
-  entryCount: 9,
-  reference: 10,
-  wide: 11,
-} as const;
 
 /** A declaration `matchStylesheet` matched: where it is, and its match result. */
 export interface DeclarationMatch extends MatchResult {
@@ -632,12 +616,12 @@ class Declaration implements DeclarationMatch {
   }
 
   get iterations(): number | undefined {
-    return this.word(RECORD.status) >= 4 ? undefined : this.word(RECORD.iterations);
+    return this.word(RECORD.status) >= STATUS.hasVar ? undefined : this.word(RECORD.iterations);
   }
 
   get matched(): MatchNode | null {
     if (this.tree === undefined) {
-      if (this.word(RECORD.status) !== 0) this.tree = null;
+      if (this.word(RECORD.status) !== STATUS.match) this.tree = null;
       else {
         // a declaration written as an earlier one shares its tree, which holds no nodes of its own
         const trees = this.sheet.trees;
@@ -673,13 +657,13 @@ class Declaration implements DeclarationMatch {
     for (let at = this.word(RECORD.entries); at < end; at += 4) {
       const kind = words[at]! & 0xff;
       const syntax = words[at + 1]!;
-      if (kind === ENTRY_TOKEN) {
+      if (kind === ENTRY.token) {
         host.match.push({
           syntax: syntax === NONE ? null : syntaxAt(syntax),
           token: sheet.source.slice(sheet.at(words[at + 2]!), sheet.at(words[at + 3]!)),
           node: null,
         });
-      } else if (kind === ENTRY_OPEN) {
+      } else if (kind === ENTRY.open) {
         const next = { syntax: syntaxAt(syntax), match: [] as MatchNode[] };
         host.match.push(next);
         stack.push(next);
@@ -696,17 +680,17 @@ class Declaration implements DeclarationMatch {
     const status = this.word(RECORD.status);
     const sheet = this.sheet;
     switch (status) {
-      case 0:
+      case STATUS.match:
         return null;
-      case 3: {
+      case STATUS.badReference: {
         const node = syntaxAt(this.word(RECORD.reference)) as { type: string; name: string };
         return plainError("Bad syntax reference: " + (node.type === "Type" ? "<" + node.name + ">" : "<'" + node.name + "'>"));
       }
-      case 4:
+      case STATUS.hasVar:
         return plainError("Matching for a tree with var() is not supported");
-      case 5:
+      case SHEET_STATUS.customProperty:
         return plainError("Lexer matching doesn't applicable for custom properties");
-      case 6:
+      case SHEET_STATUS.unknownProperty:
         return syntaxReferenceError("Unknown property", this.property);
     }
     const valueStart = this.start;
@@ -717,7 +701,7 @@ class Declaration implements DeclarationMatch {
     const start = sheet.position(atEnd ? this.end : mismatchStart);
     const end = atEnd ? start : sheet.position(mismatchEnd);
     return syntaxMatchError(
-      STATUS[status]!,
+      REASONS[status]!,
       sheet.lexer.generatedOf(this.descriptor()),
       css,
       mismatchStart - valueStart,
@@ -869,18 +853,18 @@ export class Lexer {
   ): MatchResult {
     const status = words[0]!;
     const iterations = words[1]!;
-    if (status === 4) {
+    if (status === STATUS.hasVar) {
       return new Result(null, () => plainError("Matching for a tree with var() is not supported"));
     }
-    if (status === 3) {
+    if (status === STATUS.badReference) {
       const node = syntaxAt(words[6]!) as { type: string; name: string };
       throw new Error("Bad syntax reference: " + (node.type === "Type" ? "<" + node.name + ">" : "<'" + node.name + "'>"));
     }
     const at = ascii ? (offset: number) => offset : (offset: number) => utf16OffsetOf(source, offset);
-    if (status !== 0) {
+    if (status !== STATUS.match) {
       const longest = words[3]!;
       if (printed !== null) {
-        const error = () => treeMatchError(STATUS[status]!, this.generated(descriptor), printed, longest, value);
+        const error = () => treeMatchError(REASONS[status]!, this.generated(descriptor), printed, longest, value);
         return new Result(null, error, iterations);
       }
       const atEnd = longest >= words[2]!;
@@ -891,7 +875,7 @@ export class Lexer {
         const css = source.slice(at(first));
         const offset = atEnd ? 0 : at(start) - at(first);
         const length = atEnd ? 0 : at(end) - at(start);
-        return syntaxMatchError(STATUS[status]!, this.generated(descriptor), css, offset, length, atEnd);
+        return syntaxMatchError(REASONS[status]!, this.generated(descriptor), css, offset, length, atEnd);
       };
       return new Result(null, error, iterations);
     }
@@ -913,14 +897,14 @@ export class Lexer {
     for (let base = 0; base < entries.length; base += 4) {
       const kind = entries[base]! & 0xff;
       const syntax = entries[base + 1]!;
-      if (kind === ENTRY_TOKEN) {
+      if (kind === ENTRY.token) {
         const index = entries[base]! >>> 8;
         host.match.push({
           syntax: syntax === NONE ? null : syntaxAt(syntax),
           token: printed === null ? source.slice(at(entries[base + 2]!), at(entries[base + 3]!)) : printed.values[index]!,
           node: printed === null ? null : printed.nodes[index],
         });
-      } else if (kind === ENTRY_OPEN) {
+      } else if (kind === ENTRY.open) {
         const next = { syntax: syntaxAt(syntax), match: [] as MatchNode[] };
         host.match.push(next);
         stack.push(next);
@@ -971,13 +955,14 @@ export class Lexer {
     const len = encoder.encodeInto(source, new Uint8Array(e.memory.buffer, pointer, capacity)).written;
     const at = e.validate(this.id, len);
     if (at === 0) throw new Error("yuku-css: out of memory");
-    const header = new Uint32Array(e.memory.buffer, at, 3);
+    const header = new Uint32Array(e.memory.buffer, at, SHEET_HEADER_WORDS);
     const count = header[0]!;
     const size = header[1]!;
     const words = new Uint32Array(e.memory.buffer, at, header[2]!).slice();
     const sheet = new Sheet(this, source, words);
     const result: DeclarationMatch[] = new Array(count);
-    for (let i = 0; i < count; i++) result[i] = new Declaration(sheet, 3 + i * size);
+    if (size !== RECORD_WORDS) throw new Error("yuku-css: the lexer's WebAssembly does not match its JavaScript");
+    for (let i = 0; i < count; i++) result[i] = new Declaration(sheet, SHEET_HEADER_WORDS + i * size);
     return result;
   }
 

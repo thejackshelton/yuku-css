@@ -91,7 +91,8 @@ fn resolve(gpa: Allocator, l: *Lexer, raw: []const u8, lowered: *std.ArrayList(u
     const name = propertyName(raw, lowered.items);
     const descriptor = if (name.custom) custom_property else findProperty(l, name);
     try l.property_cache.put(gpa, try l.owned.allocator().dupe(u8, raw), descriptor);
-    assert(descriptor == custom_property or descriptor == none or descriptor < l.descriptors.items.len);
+    const special = descriptor == custom_property or descriptor == none;
+    assert(special or descriptor < l.descriptors.items.len);
     return descriptor;
 }
 
