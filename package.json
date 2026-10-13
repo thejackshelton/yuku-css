@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yuku-toolchain/yuku-css.git"
+    "url": "git+https://github.com/thejackshelton/yuku-css.git"
   },
   "type": "module",
   "sideEffects": false,

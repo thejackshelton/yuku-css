@@ -4,8 +4,8 @@ import { readFileSync } from "node:fs";
 import { basename } from "node:path";
 import { parse as cssTreeParse } from "css-tree";
 
-const YUKU = process.env.YUKU ?? "/Users/jacksm5pro/dev/open-source/yuku/packages/yuku";
-const NPM = process.env.NPM_CORPUS ?? "/Users/jacksm5pro/dev/open-source/yuku-css/.worktrees/bench/bench/corpus/npm";
+const YUKU = process.env.YUKU ?? new URL("../../yuku/packages/yuku", import.meta.url).pathname;
+const NPM = process.env.NPM_CORPUS ?? new URL("corpus/npm", import.meta.url).pathname;
 const args = process.argv.slice(2);
 const yukuAt = args.indexOf("--yuku");
 const yukuFiles = yukuAt >= 0 ? [args.splice(yukuAt, 2)[1]] : [];
