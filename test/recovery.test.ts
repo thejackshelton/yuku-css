@@ -154,6 +154,27 @@ describe("parity on values", () => {
   }
 });
 
+// the <urange> and <an-plus-b> strings css-tree's own parse tests read, valid and invalid
+const GENERIC = JSON.parse(readFileSync(new URL("suite/definition-syntax-match/generic.json", import.meta.url), "utf8"));
+const GRAMMAR: [string, (text: string) => string][] = [
+  ["<urange>", (text) => `a{b:${text}}`],
+  ["<urange>#", (text) => `a{b:${text}}`],
+  ["<an-plus-b>", (text) => `:nth-child(${text}){}`],
+];
+
+describe("parity on css-tree's generic grammar strings", () => {
+  for (const [name, wrap] of GRAMMAR) {
+    const { valid = [], invalid = [] } = GENERIC[name] as { valid?: string[]; invalid?: string[] };
+    for (const text of [...valid, ...invalid]) {
+      const source = wrap(text);
+      test(`${name} ${JSON.stringify(text)}`, () => {
+        expectTokens(source);
+        expectParity(source);
+      });
+    }
+  }
+});
+
 // xorshift, so every run mutates the same way
 function random(seed: number): () => number {
   let state = seed;
