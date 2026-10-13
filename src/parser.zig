@@ -181,7 +181,7 @@ pub const Parser = struct {
         const gpa = p.tree.allocator();
         // css-tree starts the first token past a byte order mark, and an empty source at 0
         p.first_offset = if (p.lex.pos < p.src.len) p.lex.pos else 0;
-        try p.tree.nodes.ensureTotalCapacity(gpa, p.src.len / 4 + 64);
+        try p.tree.nodes.ensureTotalCapacity(gpa, p.src.len / 8 + 64);
         try p.tree.extras.ensureTotalCapacity(gpa, p.src.len / 8 + 64);
         try p.scratch.ensureTotalCapacity(gpa, 256);
         try p.opens.ensureTotalCapacity(gpa, p.src.len / 32 + 64);
