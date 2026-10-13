@@ -154,6 +154,51 @@ describe("parity on values", () => {
   }
 });
 
+// at-rule preludes, each read as css-tree reads it, then kept raw
+const PRELUDES = [
+  "@media screen{} @media not screen{} @media ONLY screen and (color){} @media all and (a:1), print{}",
+  "@media (a){} @media (a:1){} @media (a:b){} @media (a:2px){} @media (a:1/2){} @media (a: 1 / 2){} @media (a:calc(1/2)){}",
+  "@media (a:calc(1) / 2){} @media (a:1 !){} @media (a: 'b'){} @media (a b){} @media (a: b c){} @media (--a: 1){}",
+  "@media (1 < a){} @media (1px <= a < 2px){} @media (a >= 1){} @media (a = 1){} @media (1/2 < a){} @media (a > 1 2){}",
+  "@media (calc(1) < a < max(1, 2)){} @media (a < b < c < d){} @media (<){} @media (a <){} @media (a < = 1){}",
+  "@media ((a) and (b)){} @media (a) and (b) or (c){} @media not (a) and (b){} @media not not (a){} @media not{}",
+  "@media screen (a){} @media screen and (a) or (b){} @media screen and{} @media screen and not (a){} @media and{}",
+  "@media layer{} @media only{} @media only and{} @media a b{} @media a,{} @media ,a{} @media !{} @media (a) ~{}",
+  "@media foo(a){} @media f(){} @media (){} @media ( ){} @media (1 2){} @media (a) (b){} @media (a) b (c){}",
+  "@media/**/screen/**/and/**/(/**/a/**/:/**/1/**/){} @media (a:1",
+  "@media (a",
+  "@media ((a)",
+  "@media (a < 1",
+  "@supports (a:b){} @supports not (a:b){} @supports (a:b) and (c:d) or (e:f){} @supports ((a:b)){} @supports (a){}",
+  "@supports selector(a > b){} @supports SELECTOR(> b){} @supports selector(a{}){} @supports f(a){} @supports (a:b !important){}",
+  "@supports (--a: { b }){} @supports (a:){} @supports (){} @supports a{} @supports 'a'{} @supports (a:b",
+  "@container (a > 1px){} @container name (a){} @container NONE (a){} @container style(--a: b){} @container style(a){}",
+  "@container name{} @container not (a) and (b){} @container a b (c){} @container (a) or style(b: c){} @container",
+  "@import 'a'; @import url(a); @import url( 'a' ); @import url('a' b); @import a; @import 'a' 'b'; @import;",
+  "@import 'a' layer; @import 'a' layer(b.c); @import 'a' layer(); @import 'a' layer( 1 ); @import 'a' LAYER(b) x;",
+  "@import 'a' supports(a:b); @import 'a' supports(not (a:b)); @import 'a' supports(); @import 'a' supports( 1 );",
+  "@import 'a' layer(b) supports(c:d) screen and (e), print; @import 'a' screen, ; @import 'a' f(x) screen;",
+  "@import 'a' layer(b",
+  "@import 'a' supports(a:b",
+  "@layer a; @layer a.b, c; @layer a . b; @layer a,; @layer ,a; @layer 1; @layer a{} @layer a, b{} @layer{}",
+  "@scope (a) to (b){} @scope (a){} @scope to (b){} @scope ( .a. ) to ( .b. ){} @scope x{} @scope to{} @scope (a) to b{}",
+  "@scope (> a){} @scope (a",
+  "@page{} @page :first{} @page a:left{} @page !{} @nest &.a{} @nest > a{} @font-face a{} @starting-style a{}",
+  "@keyframes a{} @-webkit-keyframes a{} @counter-style a{} @property --a{} @x a b, c(d){} @x #{} @x 'a' url(b) 1px 50%;",
+  "a{@media (a){b:c} @supports (a:b){d{}} @container (a){} @layer a{b:c} @scope (a){b:c}}",
+  "@media (a) { @media (b) { @supports (c:d) { a {} } } }",
+];
+
+describe("parity on preludes", () => {
+  for (const source of PRELUDES) {
+    test(JSON.stringify(source), () => {
+      expectTokens(source);
+      expectParity(source);
+      expectParity(source, { parseAtrulePrelude: false });
+    });
+  }
+});
+
 // the <urange> and <an-plus-b> strings css-tree's own parse tests read, valid and invalid
 const GENERIC = JSON.parse(readFileSync(new URL("suite/definition-syntax-match/generic.json", import.meta.url), "utf8"));
 const GRAMMAR: [string, (text: string) => string][] = [
@@ -203,6 +248,27 @@ describe("parity on mutated sources", () => {
     const source = file.slice(0, at) + inserted + file.slice(at + removed);
     test(`mutation ${i}`, () => {
       expectTokens(source);
+      expectParity(source);
+    });
+  }
+});
+
+// prelude tokens dropped after an at-keyword of the corpus, or of the preludes above
+const PRELUDE_JUNK = ["(", ")", "(a", "a)", " and ", " or ", " not ", "only ", ",", ":", "<", ">", "=", "/", "1", "2px", "'", "url(", "layer(", "supports(", "selector(", "style(", " to ", ".", "!", " "];
+const PRELUDE_FILES = [...FILES.filter((file) => file.includes("@")), ...PRELUDES];
+
+describe("parity on mutated preludes", () => {
+  const next = random(0x6c8e9cf5);
+  for (let i = 0; i < 400; i++) {
+    const file = PRELUDE_FILES[Math.floor(next() * PRELUDE_FILES.length)]!;
+    let at = Math.floor(next() * file.length);
+    const keyword = file.indexOf("@", at) === -1 ? file.indexOf("@") : file.indexOf("@", at);
+    at = keyword + 1 + Math.floor(next() * 24);
+    const removed = next() < 0.5 ? Math.floor(next() * 6) : 0;
+    let inserted = "";
+    for (let j = Math.floor(next() * 3); j >= 0; j--) inserted += PRELUDE_JUNK[Math.floor(next() * PRELUDE_JUNK.length)];
+    const source = file.slice(0, at) + inserted + file.slice(at + removed);
+    test(`prelude mutation ${i}`, () => {
       expectParity(source);
     });
   }
