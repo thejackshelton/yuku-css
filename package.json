@@ -27,6 +27,8 @@
     "test": "bun run build && bun test",
     "typecheck": "tsc",
     "bench": "bun run build && node bench/index.ts",
+    "bench:full": "bun run build && node bench/full.ts",
+    "bench:report": "node bench/report.ts",
     "corpus": "bun test/corpus.ts",
     "prepublishOnly": "bun run build"
   },
@@ -34,7 +36,11 @@
     "@types/bun": "1.4.3",
     "@types/css-tree": "3.2.0",
     "css-tree": "3.2.1",
+    "lightningcss": "1.33.0",
+    "lightningcss-wasm": "1.33.0",
+    "playwright": "1.64.0",
     "postcss": "8.5.30",
+    "rolldown": "1.2.13",
     "tinybench": "6.2.2",
     "tsdown": "0.23.1",
     "typescript": "7.0.2"

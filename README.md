@@ -41,6 +41,8 @@ Parsing the 252 style sheets of [test/corpus](test/corpus) against [css-tree](ht
 
 Median time per file over 3 runs, each in a fresh Node.js 24 process on an Apple M5 Pro. Run it with `bun run bench`.
 
+[docs/benchmark.md](docs/benchmark.md) goes further: real-world and synthetic CSS by size, Bun and Chromium, css-tree's defaults, Lightning CSS, cold start, memory, and bundle size. Run it with `bun run bench:full`.
+
 ## Development
 
 Needs [Zig](https://ziglang.org) 0.17 and [Bun](https://bun.sh).

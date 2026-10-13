@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { Bench } from "tinybench";
+import { chart } from "./chart.ts";
 
 interface Parser {
   name: string;
@@ -53,7 +54,10 @@ function main(): void {
   console.table(
     results.map(({ name, microseconds }) => ({ parser: name, "per file": format(microseconds) })),
   );
-  writeFileSync(new URL("chart.svg", import.meta.url), chart(results));
+  writeFileSync(
+    new URL("chart.svg", import.meta.url),
+    chart([{ bars: results.map(({ name, color, microseconds }) => ({ label: name, color, value: microseconds, text: format(microseconds) })) }]),
+  );
 }
 
 function spawn(parser: Parser): number {
@@ -86,36 +90,4 @@ function median(values: number[]): number {
 
 function format(microseconds: number): string {
   return `${microseconds.toFixed(1)} µs`;
-}
-
-function chart(results: (Parser & { microseconds: number })[]): string {
-  const width = 640;
-  const barX = 96;
-  const fastest = Math.min(...results.map((result) => result.microseconds));
-  const slowest = Math.max(...results.map((result) => result.microseconds));
-  const rows = results.map(({ name, color, microseconds }, index) => {
-    const y = index * 30;
-    const middle = y + 11;
-    const barEnd = barX + Math.round((microseconds / slowest) * (width - barX - 80));
-    const row = [
-      `<text x="${barX - 10}" y="${middle}" text-anchor="end">${name}</text>`,
-      `<rect x="${barX}" y="${y}" width="${barEnd - barX}" height="22" rx="4" fill="${color}"/>`,
-      `<text x="${barEnd + 8}" y="${middle}">${format(microseconds)}</text>`,
-    ];
-    if (microseconds !== fastest) {
-      const ratio = `${(microseconds / fastest).toFixed(2)}×`;
-      row.push(`<text class="ratio" x="${barEnd - 8}" y="${middle}" text-anchor="end">${ratio}</text>`);
-    }
-    return row.join("\n  ");
-  });
-
-  const height = results.length * 30 - 8;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <style>
-    text { font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif; fill: #848d97; dominant-baseline: central; font-variant-numeric: tabular-nums }
-    .ratio { font-size: 12px; fill: #fff }
-  </style>
-  ${rows.join("\n  ")}
-</svg>
-`;
 }
