@@ -4,6 +4,9 @@ import { definitionSyntaxError, generate, parse, walk } from "./syntax";
 export type * from "./syntax";
 export type {
   AtruleDescriptor,
+  DeclarationMatch,
+  Fragment,
+  StructureWarning,
   Descriptor,
   LexerConfig,
   MatchNode,

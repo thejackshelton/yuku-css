@@ -4,6 +4,7 @@ pub const defs = @import("defs.zig");
 pub const graph = @import("graph.zig");
 pub const lexer = @import("lexer.zig");
 pub const match = @import("match.zig");
+pub const validate = @import("validate.zig");
 
 test {
     _ = syntax;
@@ -12,4 +13,5 @@ test {
     _ = graph;
     _ = lexer;
     _ = match;
+    _ = validate;
 }

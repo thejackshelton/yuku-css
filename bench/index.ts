@@ -11,7 +11,8 @@ interface Parser {
 }
 
 const RUNS = 3;
-const CORPUS = new URL("../test/corpus/", import.meta.url);
+// `CORPUS=<dir>` times another directory of style sheets
+const CORPUS = process.env.CORPUS ? new URL(`file://${process.env.CORPUS.replace(/\/?$/, "/")}`) : new URL("../test/corpus/", import.meta.url);
 
 const PARSERS: Parser[] = [
   {
@@ -219,10 +220,46 @@ const MATCHERS: Parser[] = [
   },
 ];
 
-// `node bench/index.ts tokenize`, `generate` or `match` times tokenizing, printing or matching
-// every declaration instead, and leaves the chart alone
-const task = ["tokenize", "generate", "match"].includes(process.argv[2]!) ? process.argv[2]! : "parse";
-const suite = { tokenize: TOKENIZERS, generate: GENERATORS, match: MATCHERS }[task] ?? PARSERS;
+// validating a style sheet: every declaration matched, its tree and error read
+const VALIDATORS: Parser[] = [
+  {
+    name: "yuku-css",
+    color: "#FF6B35",
+    async load() {
+      const { lexer } = await import("yuku-css/lexer");
+      return (source: string) => {
+        for (const declaration of lexer.matchStylesheet(source)) {
+          void declaration.matched;
+          void declaration.error;
+        }
+      };
+    },
+  },
+  {
+    name: "yuku-css unread",
+    color: "#FFA07A",
+    async load() {
+      const { lexer } = await import("yuku-css/lexer");
+      return (source: string) => lexer.matchStylesheet(source);
+    },
+  },
+  {
+    name: "css-tree",
+    color: "#3A86FF",
+    async load() {
+      const { lexer, parse, walk } = await import("css-tree");
+      // css-tree's way: parse with values, then match each declaration's tree
+      return (source: string) => {
+        walk(parse(source), { visit: "Declaration", enter: (node) => void lexer.matchDeclaration(node) });
+      };
+    },
+  },
+];
+
+// `node bench/index.ts tokenize`, `generate`, `match` or `validate` times tokenizing, printing,
+// matching every declaration or validating each file instead, and leaves the chart alone
+const task = ["tokenize", "generate", "match", "validate"].includes(process.argv[2]!) ? process.argv[2]! : "parse";
+const suite = { tokenize: TOKENIZERS, generate: GENERATORS, match: MATCHERS, validate: VALIDATORS }[task] ?? PARSERS;
 const child = suite.find((parser) => parser.name === process.argv[3]);
 if (child === undefined) main();
 else process.stdout.write(String(await time(child)));

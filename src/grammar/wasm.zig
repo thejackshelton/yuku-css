@@ -8,6 +8,7 @@ const generic = @import("generic.zig");
 const defs_ = @import("defs.zig");
 const lexer_ = @import("lexer.zig");
 const match_ = @import("match.zig");
+const validate_ = @import("validate.zig");
 
 const assert = std.debug.assert;
 const gpa = std.heap.wasm_allocator;
@@ -281,6 +282,20 @@ fn matchWords(l: *Lexer, descriptor: u32, css_wide: bool, view: generic.Tokens) 
         at = c.prev;
     }
     assert(at == 0 or count == 0);
+}
+
+var entries: std.ArrayList(u32) = .empty;
+var lowered: std.ArrayList(u8) = .empty;
+
+/// Parses the first `len` bytes of the input buffer as a style sheet and matches every declaration,
+/// as `validate.zig` lays the result out, valid until the next call. 0 when out of memory.
+export fn validate(id: u32, len: u32) u32 {
+    assert(len <= input.capacity);
+    const source = input.items.ptr[0..len];
+    const l = lexerAt(id);
+    validate_.validate(gpa, l, &matcher, source, &output, &entries, &lowered) catch return 0;
+    assert(output.items.len >= validate_.header_words);
+    return @intFromPtr(output.items.ptr);
 }
 
 /// Every definition the lexer holds, behind a u32 length: the count, then for each its kind,
