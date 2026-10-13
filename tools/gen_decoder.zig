@@ -121,29 +121,48 @@ fn writeLines(w: *Writer) !void {
         \\  starts[n] = 0x7fffffff;
         \\  return starts;
         \\}
+        \\// S[j] is where line j starts, the first line placed so that its columns count from `column`
         \\function locator(src, line, column, base, file) {
         \\  const starts = lineStarts(src);
+        \\  let count = 0;
+        \\  while (starts[count] !== 0x7fffffff) count++;
+        \\  const first = src.charCodeAt(0) === 0xFEFF || src.charCodeAt(0) === 0xFFFE ? 1 : 0;
+        \\  const S = new Int32Array(count + 2);
+        \\  S[0] = first - column + 1;
+        \\  S.set(starts.subarray(0, count + 1), 1);
         \\  const blocks = new Int32Array((src.length >> 6) + 2);
         \\  for (let b = 0, j = 0; b < blocks.length; b++) {
-        \\    while (starts[j] <= b << 6) j++;
+        \\    while (S[j + 1] <= b << 6) j++;
         \\    blocks[b] = j;
         \\  }
-        \\  const first = src.charCodeAt(0) === 0xFEFF || src.charCodeAt(0) === 0xFFFE ? 1 : 0;
-        \\  const point = (offset, j) => {
-        \\    if (offset < first) return { offset: base + offset, line: 0, column: 0 };
-        \\    return j === 0
-        \\      ? { offset: base + offset, line, column: column + offset - first }
-        \\      : { offset: base + offset, line: line + j, column: offset - starts[j - 1] + 1 };
-        \\  };
+        \\  const point = (offset, j) =>
+        \\    offset < first ? { offset: base + offset, line: 0, column: 0 } : { offset: base + offset, line: line + j, column: offset - S[j] + 1 };
+        \\  if (first === 1) {
+        \\    return (s, e) => {
+        \\      let j = blocks[s >> 6];
+        \\      while (S[j + 1] <= s) j++;
+        \\      const start = point(s, j);
+        \\      if (S[j + 1] <= e) {
+        \\        j = blocks[e >> 6];
+        \\        while (S[j + 1] <= e) j++;
+        \\      }
+        \\      return { source: file, start, end: point(e, j) };
+        \\    };
+        \\  }
+        \\  // one literal, so that the three objects are allocated together
         \\  return (s, e) => {
         \\    let j = blocks[s >> 6];
-        \\    while (starts[j] <= s) j++;
-        \\    const start = point(s, j);
-        \\    if (starts[j] <= e) {
+        \\    while (S[j + 1] <= s) j++;
+        \\    const startLine = line + j, startColumn = s - S[j] + 1;
+        \\    if (S[j + 1] <= e) {
         \\      j = blocks[e >> 6];
-        \\      while (starts[j] <= e) j++;
+        \\      while (S[j + 1] <= e) j++;
         \\    }
-        \\    return { source: file, start, end: point(e, j) };
+        \\    return {
+        \\      source: file,
+        \\      start: { offset: base + s, line: startLine, column: startColumn },
+        \\      end: { offset: base + e, line: line + j, column: e - S[j] + 1 },
+        \\    };
         \\  };
         \\}
         \\
