@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="172" viewBox="0 0 640 172">
+  <style>
+    text { font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif; fill: #848d97; dominant-baseline: central; font-variant-numeric: tabular-nums }
+    .ratio { font-size: 12px; fill: #fff }
+  </style>
+  <text x="200" y="11" text-anchor="end">yuku-css</text>
+  <rect x="210" y="0" width="39" height="22" rx="4" fill="#FF6B35"/>
+  <text x="257" y="11">13.0 µs</text>
+  <text x="200" y="41" text-anchor="end">css-tree, same work</text>
+  <rect x="210" y="30" width="113" height="22" rx="4" fill="#3A86FF"/>
+  <text x="331" y="41">37.5 µs</text>
+  <text class="ratio" x="315" y="41" text-anchor="end">2.90×</text>
+  <text x="200" y="71" text-anchor="end">css-tree, defaults</text>
+  <rect x="210" y="60" width="121" height="22" rx="4" fill="#3A86FF"/>
+  <text x="339" y="71">40.3 µs</text>
+  <text class="ratio" x="323" y="71" text-anchor="end">3.11×</text>
+  <text x="200" y="101" text-anchor="end">lightningcss</text>
+  <rect x="210" y="90" width="76" height="22" rx="4" fill="#F7B801"/>
+  <text x="294" y="101">25.2 µs</text>
+  <text class="ratio" x="278" y="101" text-anchor="end">1.94×</text>
+  <text x="200" y="131" text-anchor="end">lightningcss-wasm</text>
+  <rect x="210" y="120" width="350" height="22" rx="4" fill="#2EC4B6"/>
+  <text x="568" y="131">116.1 µs</text>
+  <text class="ratio" x="552" y="131" text-anchor="end">8.97×</text>
+  <text x="200" y="161" text-anchor="end">postcss</text>
+  <rect x="210" y="150" width="60" height="22" rx="4" fill="#8338EC"/>
+  <text x="278" y="161">20.0 µs</text>
+  <text class="ratio" x="262" y="161" text-anchor="end">1.54×</text>
+</svg>
