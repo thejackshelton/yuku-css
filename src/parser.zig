@@ -642,22 +642,26 @@ pub const Parser = struct {
         p.prev_start = ws;
     }
 
-    pub fn eat(p: *Parser, comptime tag: Tag) ParseError!void {
-        if (p.tag != tag) {
-            switch (tag) {
-                .ident => if (p.tag == .function or p.tag == .url)
-                    return p.fail(.identifier_expected_function_found, p.end - 1),
-                .hash => if (p.isDelim('#')) {
-                    const offset = p.start + 1;
-                    p.next();
-                    return p.fail(.name_expected, offset);
-                },
-                .percentage => if (p.tag == .number) return p.fail(.percent_sign_expected, p.end),
-                else => {},
-            }
-            return p.fail(comptime expected(tag), null);
-        }
+    pub inline fn eat(p: *Parser, comptime tag: Tag) ParseError!void {
+        if (p.tag != tag) return p.eatFailed(tag);
         p.next();
+    }
+
+    fn eatFailed(p: *Parser, comptime tag: Tag) error{Syntax} {
+        @branchHint(.cold);
+        std.debug.assert(p.tag != tag);
+        switch (tag) {
+            .ident => if (p.tag == .function or p.tag == .url)
+                return p.fail(.identifier_expected_function_found, p.end - 1),
+            .hash => if (p.isDelim('#')) {
+                const offset = p.start + 1;
+                p.next();
+                return p.fail(.name_expected, offset);
+            },
+            .percentage => if (p.tag == .number) return p.fail(.percent_sign_expected, p.end),
+            else => {},
+        }
+        return p.fail(comptime expected(tag), null);
     }
 
     pub fn eatDelim(p: *Parser, comptime c: u8, comptime message: Message) ParseError!void {
@@ -672,6 +676,7 @@ pub const Parser = struct {
     }
 
     pub fn fail(p: *Parser, message: Message, offset: ?u32) error{Syntax} {
+        @branchHint(.cold);
         const len: u32 = @intCast(p.src.len);
         const at_offset: u32 = if (offset != null and offset.? < len)
             offset.?
