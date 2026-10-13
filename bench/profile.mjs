@@ -12,6 +12,8 @@ const yukuFiles = yukuAt >= 0 ? [args.splice(yukuAt, 2)[1]] : [];
 const cssFiles = args.length > 0 ? args : ["tailwind.css", "bulma.css", "bootstrap.css"].map((f) => `${NPM}/${f}`);
 const withCssTree = process.env.CSSTREE !== "0";
 const ROUNDS = Number(process.env.ROUNDS ?? 15);
+// values parsed, as parse() does by default, unless VALUES=raw
+const parseValue = process.env.VALUES !== "raw";
 
 const encoder = new TextEncoder();
 
@@ -61,8 +63,8 @@ async function profileCss() {
       return [p, cap, n];
     };
     for (const positions of [false, true]) {
-      const flags = 1 | (positions ? 2 : 0);
-      const opts = { positions };
+      const flags = 1 | (positions ? 2 : 0) | (parseValue ? 1 << 7 : 0);
+      const opts = { positions, parseValue };
       const enc = time(() => {
         const [p, cap] = encode();
         ex.free(p, cap);
@@ -81,7 +83,7 @@ async function profileCss() {
       const pp = prof.alloc(cap0);
       const pn = encoder.encodeInto(source, new Uint8Array(prof.memory.buffer, pp, cap0)).written;
       const lex = time(() => prof.lexOnly(pp, pn));
-      const tree = time(() => prof.parseOnly(pp, pn, 1));
+      const tree = time(() => prof.parseOnly(pp, pn, flags & ~2));
       prof.free(pp, cap0);
       const [p, cap, n] = encode();
       const r = ex.parse(p, n, flags);
@@ -99,7 +101,7 @@ async function profileCss() {
         "full parse()": full,
       });
       if (withCssTree) {
-        const ct = time(() => cssTreeParse(source, { positions, parseValue: false, parseAtrulePrelude: false, parseCustomProperty: false }));
+        const ct = time(() => cssTreeParse(source, { positions, parseValue, parseAtrulePrelude: false, parseCustomProperty: false }));
         console.log(`    css-tree${positions ? " loc" : ""}           ${ct.toFixed(2).padStart(8)} ms  ${(bytes / 1e6 / (ct / 1e3)).toFixed(0)} MB/s  ${(ct / full).toFixed(2)}x slower`);
       }
     }
