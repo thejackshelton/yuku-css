@@ -70,6 +70,17 @@ generate(stylesheet, { sourceMap: true }); // { css, map }, map.toString() the J
 
 `yuku-css/codegen` prints css-tree's tree, any of its 49 node types, byte for byte as css-tree's `generate` does, from yuku-css or from css-tree, with arrays or `List`s for children. It takes css-tree's options: `sourceMap`, `mode` (`"safe"`, the default, or `"spec"`, which spaces only the token pairs the CSS Syntax needs spaced), and `decorator`, which wraps css-tree's generator handlers. A source map maps where each `Atrule`, `Selector`, and `Declaration` with a `loc` starts, as css-tree's does.
 
+### Transforming
+
+```ts
+import { transform } from "yuku-css";
+
+const { code, map, diagnostics } = transform(source, { filename: "card.css", sourceMap: true });
+code; // ".card:has(>img){color:red!important;&:hover{color:blue}}"
+```
+
+`transform` parses and prints in one WebAssembly call, building no tree in JavaScript: `code` is byte for byte what `generate(parse(source).ast)` prints, and with `sourceMap: true`, `map` is the JSON of the map `generate` makes from a tree parsed with `positions`. It takes `mode`, `context`, `atrule`, `parseRulePrelude`, `parseValue`, `parseAtrulePrelude` and `parseCustomProperty` as `parse` and `generate` do. Like `parse`, it never throws on bad CSS and returns the same `diagnostics`. Its output drops whitespace and comments other than `/*!`, as css-tree's `generate` does, and minifies no further.
+
 ### Walking
 
 ```ts
@@ -137,6 +148,25 @@ Median time per file over 3 runs, each in a fresh Node.js 24 process on an Apple
 | 13 npm style sheets (Bootstrap, Bulma, Font Awesome, …), per file | 3,337 µs | 69,191 µs | 2,832 µs | 18,749 µs |
 
 `node bench/index.ts match` calls `matchProperty` on every declaration's text, the same reads: 32.9 µs a file against 123.5 µs for css-tree in Node, 25.6 against 53.4 µs in Bun.
+
+`transform` against parsing and printing in JavaScript and against [Lightning CSS](https://lightningcss.dev)'s `transform` with `minify: false`, native and WebAssembly, in MB/s of source on 13 npm style sheets and a synthetic one of long selector lists. Each library and file runs in a fresh process, warmed for 1 s, then the median of 2 s of runs, the median of 3 processes, on an Apple M5 Pro. Every library is given a string, so Lightning CSS's time includes encoding it; it returns bytes, not text, and pretty-prints where `transform` prints compactly. Run it with `LIGHTNINGCSS=<a directory that installs lightningcss and lightningcss-wasm> node bench/transform.ts <files>`, or `bun bench/transform.ts`:
+
+| file | Node.js `transform` | `parse` + `generate` | lightningcss | lightningcss-wasm | Bun `transform` | `parse` + `generate` | lightningcss | lightningcss-wasm |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| animate.css | 206 | 100 | 101 | 34 | 255 | 101 | 103 | 27 |
+| bootstrap.css | 202 | 102 | 66 | 27 | 289 | 106 | 59 | 18 |
+| bootstrap.min.css | 189 | 89 | 56 | 24 | 265 | 96 | 69 | 16 |
+| bulma.css | 238 | 124 | 70 | 31 | 353 | 140 | 77 | 23 |
+| font-awesome.css | 147 | 73 | 63 | 23 | 183 | 86 | 65 | 15 |
+| foundation.css | 178 | 84 | 66 | 27 | 247 | 96 | 75 | 22 |
+| github-markdown.css | 239 | 109 | 82 | 20 | 269 | 105 | 86 | 17 |
+| normalize.css | 391 | 204 | 152 | 57 | 517 | 237 | 170 | 47 |
+| preflight.css | 370 | 186 | 133 | 49 | 480 | 213 | 145 | 32 |
+| primer.css | 243 | 124 | 71 | 32 | 301 | 137 | 75 | 21 |
+| pure.css | 262 | 122 | 100 | 27 | 333 | 132 | 97 | 22 |
+| tailwind.css | 248 | 91 | 64 | 28 | 315 | 134 | 65 | 19 |
+| tailwind.min.css | 233 | 82 | 53 | 24 | 304 | 120 | 59 | 16 |
+| long-selector-list.css | 155 | 58 | 74 | 30 | 201 | 74 | 80 | 28 |
 
 ## Development
 

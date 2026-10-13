@@ -17,6 +17,8 @@ const flag = struct {
     const parse_atrule_prelude = 1 << 9;
     const atrule = 10;
     const atrule_mask = 0xF;
+    const spec = 1 << 14;
+    const source_map = 1 << 15;
 };
 
 export fn alloc(len: usize) [*]u8 {
@@ -39,8 +41,14 @@ export fn tokenize(ptr: [*]const u8, len: usize) usize {
     return @intFromPtr(out.ptr);
 }
 
-fn parseBuffer(source: []const u8, flags: u32) ![]u8 {
-    var tree = try css.parse(gpa, source, .{
+/// The printed text, its map and its diagnostics, behind a u32 length, or 0 when out of memory.
+export fn transform(ptr: [*]const u8, len: usize, flags: u32) usize {
+    const out = transformBuffer(ptr[0..len], flags) catch return 0;
+    return @intFromPtr(out.ptr);
+}
+
+fn parseOptions(flags: u32) css.parser.Options {
+    return .{
         .parse_rule_prelude = flags & flag.parse_rule_prelude != 0,
         .parse_value = flags & flag.parse_value != 0,
         .parse_custom_property = flags & flag.parse_custom_property != 0,
@@ -54,7 +62,11 @@ fn parseBuffer(source: []const u8, flags: u32) ![]u8 {
             css.parser.Context,
             (flags >> flag.context) & flag.context_mask,
         ) orelse .stylesheet,
-    });
+    };
+}
+
+fn parseBuffer(source: []const u8, flags: u32) ![]u8 {
+    var tree = try css.parse(gpa, source, parseOptions(flags));
     defer tree.deinit();
     const tokens = flags & flag.tokens != 0;
     if (tokens) {
@@ -66,6 +78,69 @@ fn parseBuffer(source: []const u8, flags: u32) ![]u8 {
     const out = try prefixed(css.transfer.bufferSize(&tree, utf16, tokens));
     _ = css.transfer.serializeInto(&tree, utf16, tokens, out[4..]);
     return out;
+}
+
+// after the length: code, mappings and diagnostic counts and whether the map names the source, the
+// code, the mappings, then 4-byte aligned each diagnostic's UTF-16 start and end and the length of
+// its message, then the messages
+fn transformBuffer(source: []const u8, flags: u32) ![]u8 {
+    var tree = try css.parse(gpa, source, parseOptions(flags & ~@as(u32, flag.positions)));
+    defer tree.deinit();
+    const header = 4 + 4 * 4;
+    var out: std.ArrayList(u8) = .empty;
+    errdefer out.deinit(gpa);
+    try out.ensureTotalCapacity(gpa, header + source.len + source.len / 8 + 64);
+    out.items.len = header;
+    var mappings: std.ArrayList(u8) = .empty;
+    defer mappings.deinit(gpa);
+    const sourced = try css.codegen.generate(gpa, &tree, .{
+        .mode = if (flags & flag.spec != 0) .spec else .safe,
+        .source_map = flags & flag.source_map != 0,
+    }, &out, &mappings);
+    const code_len = out.items.len - header;
+    try out.appendSlice(gpa, mappings.items);
+    try out.appendNTimes(gpa, 0, (4 - out.items.len % 4) % 4);
+    const diagnostics = tree.diagnostics.items;
+    var cursor: css.codegen.Cursor = .init(source);
+    var messages: std.ArrayList(u8) = .empty;
+    defer messages.deinit(gpa);
+    for (diagnostics) |diagnostic| {
+        const start = messages.items.len;
+        try appendMessage(gpa, &messages, &tree, diagnostic);
+        const record = [_]u32{
+            cursor.utf16At(diagnostic.span.start),
+            cursor.utf16At(diagnostic.span.end),
+            @intCast(messages.items.len - start),
+        };
+        try out.appendSlice(gpa, std.mem.asBytes(&record));
+    }
+    try out.appendSlice(gpa, messages.items);
+    const fields = [_]u32{
+        @intCast(out.capacity - 4),
+        @intCast(code_len),
+        @intCast(mappings.items.len),
+        @intCast(diagnostics.len),
+        @intFromBool(sourced),
+    };
+    @memcpy(out.items[0..header], std.mem.sliceAsBytes(&fields));
+    return out.items.ptr[0..out.capacity];
+}
+
+// css-tree's wording, its `{}` filled with the argument
+fn appendMessage(
+    allocator: std.mem.Allocator,
+    out: *std.ArrayList(u8),
+    tree: *const css.ast.Tree,
+    diagnostic: css.ast.Diagnostic,
+) !void {
+    const text = diagnostic.message.text();
+    if (diagnostic.argument.start == css.ast.String.none.start) {
+        return out.appendSlice(allocator, text);
+    }
+    const at = std.mem.find(u8, text, "{}").?;
+    try out.appendSlice(allocator, text[0..at]);
+    try out.appendSlice(allocator, tree.string(diagnostic.argument));
+    try out.appendSlice(allocator, text[at + 2 ..]);
 }
 
 fn tokenizeBuffer(source: []const u8) ![]u8 {

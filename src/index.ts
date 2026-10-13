@@ -1,5 +1,5 @@
 import { css } from "#module";
-import type { Contexts, Location, Offsets, ParseResult, Position, Positions } from "./ast";
+import type { Contexts, Diagnostic, Location, Offsets, ParseResult, Position, Positions } from "./ast";
 import { atrules, decode, decodeTokens, tokenNames, tokenTypes } from "./decode.js";
 
 export type * from "./ast";
@@ -73,12 +73,43 @@ export interface ParseOptions {
   parseCustomProperty?: boolean;
 }
 
+export interface TransformOptions
+  extends Pick<
+    ParseOptions,
+    "context" | "atrule" | "parseRulePrelude" | "parseValue" | "parseAtrulePrelude" | "parseCustomProperty"
+  > {
+  /** The map's source. @default "<unknown>" */
+  filename?: string;
+  /**
+   * Return a source map in {@link TransformResult.map}, mapping where each at-rule, selector and
+   * declaration starts, as css-tree's `generate` maps a tree parsed with `positions`.
+   * @default false
+   */
+  sourceMap?: boolean;
+  /**
+   * Where spaces go between tokens. `"spec"` adds only those the CSS Syntax needs for the text to
+   * read back the same; `"safe"` adds a few more, where old browsers misread the pair.
+   * @default "safe"
+   */
+  mode?: "safe" | "spec";
+}
+
+export interface TransformResult {
+  /** The CSS as css-tree's `generate` prints the tree `parse` reads: no comments but `/*!`, no spaces but those between tokens that need them. */
+  code: string;
+  /** The source map as JSON, version 3, with `sourceMap: true`. */
+  map?: string;
+  /** Empty when the source parsed without error. */
+  diagnostics: Diagnostic[];
+}
+
 interface Exports {
   memory: WebAssembly.Memory;
   alloc(len: number): number;
   free(pointer: number, len: number): void;
   parse(pointer: number, len: number, flags: number): number;
   tokenize(pointer: number, len: number): number;
+  transform(pointer: number, len: number, flags: number): number;
 }
 
 // memory never shrinks, so a source needing far less, at most 64 bytes a character, starts fresh
@@ -101,6 +132,7 @@ const CONTEXTS: Record<ParseContext, number> = {
 };
 
 const encoder = new TextEncoder();
+const decoder = new TextDecoder();
 let exports: Exports | undefined;
 
 /**
@@ -117,19 +149,9 @@ export function parse<C extends ParseContext = "stylesheet">(
   options?: ParseOptions & { context?: C },
 ): ParseResult<Offsets, C>;
 export function parse(source: string, options: ParseOptions = {}): ParseResult<Position, ParseContext> {
-  const context = CONTEXTS[options.context ?? "stylesheet"];
-  if (context === undefined) throw new TypeError(`yuku-css: unknown context \`${options.context}\``);
   const tokens = options.tokens === true || options.onToken !== undefined;
   if (tokens && source.length > TOKEN_END_MAX) throw new RangeError("yuku-css: tokens take at most 16 MiB of source");
-  const flags =
-    (options.parseRulePrelude === false ? 0 : 1) |
-    (options.positions === true ? 2 : 0) |
-    (tokens ? 4 : 0) |
-    (context << 3) |
-    (options.parseValue === false ? 0 : 1 << 7) |
-    (options.parseCustomProperty === true ? 1 << 8 : 0) |
-    (options.parseAtrulePrelude === false ? 0 : 1 << 9) |
-    (atruleOf(options.atrule) << 10);
+  const flags = flagsOf(options) | (options.positions === true ? 2 : 0) | (tokens ? 4 : 0);
   const result = run(
     source,
     (pointer, len) => exports!.parse(pointer, len, flags),
@@ -144,6 +166,58 @@ export function parse(source: string, options: ParseOptions = {}): ParseResult<P
   }
   if (options.tokens !== true) delete result.tokens;
   return result;
+}
+
+/**
+ * Parses CSS and prints it back as {@link parse} and `yuku-css/codegen`'s `generate` would, in one
+ * WebAssembly call that builds no tree in JavaScript. Like `parse`, it never throws on bad CSS:
+ * check `diagnostics.length`. It removes whitespace and comments, and minifies no further.
+ */
+export function transform(source: string, options: TransformOptions & { sourceMap: true }): TransformResult & { map: string };
+export function transform(source: string, options?: TransformOptions): TransformResult;
+export function transform(source: string, options: TransformOptions = {}): TransformResult {
+  const sourceMap = options.sourceMap === true;
+  const flags = flagsOf(options) | (options.mode === "spec" ? 1 << 14 : 0) | (sourceMap ? 1 << 15 : 0);
+  return run(
+    source,
+    (pointer, len) => exports!.transform(pointer, len, flags),
+    (at) => {
+      const header = new Uint32Array(memoryOf(), at, 4);
+      const codeLength = header[0]!;
+      const mappingsLength = header[1]!;
+      const count = header[2]!;
+      const bytes = new Uint8Array(memoryOf(), at + 16, codeLength + mappingsLength);
+      const result: TransformResult = { code: decoder.decode(bytes.subarray(0, codeLength)), diagnostics: new Array(count) };
+      if (sourceMap) {
+        const sources = header[3] === 1 ? [options.filename || "<unknown>"] : [];
+        const mappings = decoder.decode(bytes.subarray(codeLength));
+        result.map = JSON.stringify({ version: 3, sources, names: [], mappings });
+      }
+      const base = (at + 16 + codeLength + mappingsLength + 3) & ~3;
+      const records = new Uint32Array(memoryOf(), base, count * 3);
+      const path = options.filename ?? null;
+      for (let i = 0, text = base + count * 12; i < count; i++) {
+        const message = decoder.decode(new Uint8Array(memoryOf(), text, records[3 * i + 2]!));
+        text += records[3 * i + 2]!;
+        result.diagnostics[i] = { severity: "error", message, path, start: records[3 * i]!, end: records[3 * i + 1]!, labels: [], help: null };
+      }
+      return result;
+    },
+  );
+}
+
+// the options `parse` and `transform` share, packed as src/wasm.zig reads them
+function flagsOf(options: TransformOptions): number {
+  const context = CONTEXTS[options.context ?? "stylesheet"];
+  if (context === undefined) throw new TypeError(`yuku-css: unknown context \`${options.context}\``);
+  return (
+    (options.parseRulePrelude === false ? 0 : 1) |
+    (context << 3) |
+    (options.parseValue === false ? 0 : 1 << 7) |
+    (options.parseCustomProperty === true ? 1 << 8 : 0) |
+    (options.parseAtrulePrelude === false ? 0 : 1 << 9) |
+    (atruleOf(options.atrule) << 10)
+  );
 }
 
 function atruleOf(name: string | undefined): number {
