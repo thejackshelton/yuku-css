@@ -4,4 +4,5 @@
 - Where css-tree accepts what the CSS specs reject, yuku-css follows the specs; every such case is listed in `test/divergences.ts`.
 - The lexer validates against `@webref/css` (W3C spec extracts), not mdn-data; where the two disagree with css-tree's fixtures, the case is listed as a divergence.
 - The benchmark compares against css-tree, PostCSS, and Lightning CSS (native and wasm), always on equal work.
-- The tree is css-tree's, but every CSS Syntax 3 "parse error" css-tree recovers from silently is still reported as a diagnostic, and Selectors 4 syntax css-tree lacks (`||`) is parsed; both are listed divergences.
+- The tree is css-tree's; parse errors the current CSS Syntax 3 draft defines (unclosed comment, string or url, bad escapes, newline in a string) are reported even where css-tree is silent, end of input inside a block is not (the current draft dropped it), and Selectors 4 syntax css-tree lacks (`||`) is parsed; all listed as divergences.
+- `yuku-css/codegen` and `yuku-css/ast` are TypeScript over the decoded tree, as Yuku's are, and keep css-tree's function names. They take any css-tree tree, with arrays or `List`s, and `generate` matches css-tree's output and source maps byte for byte, so they are tested on trees css-tree parses.
