@@ -21,6 +21,15 @@ const PARSERS: Parser[] = [
     },
   },
   {
+    name: "yuku-css loc",
+    color: "#FFA07A",
+    async load() {
+      const { parse } = await import("yuku-css");
+      // with lines and columns, as css-tree gives them below
+      return (source) => parse(source, { positions: true }).stylesheet;
+    },
+  },
+  {
     name: "css-tree",
     color: "#3A86FF",
     async load() {
@@ -116,7 +125,7 @@ function format(microseconds: number): string {
 
 function chart(results: (Parser & { microseconds: number })[]): string {
   const width = 640;
-  const barX = 96;
+  const barX = 110;
   const fastest = Math.min(...results.map((result) => result.microseconds));
   const slowest = Math.max(...results.map((result) => result.microseconds));
   const rows = results.map(({ name, color, microseconds }, index) => {

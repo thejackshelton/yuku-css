@@ -1,6 +1,6 @@
 # yuku-css
 
-A fast CSS parser, written in Zig and compiled to WebAssembly.
+A fast CSS parser, written in Zig and compiled to WebAssembly, that builds [css-tree](https://github.com/csstree/csstree)'s tree.
 
 ```bash
 npm install yuku-css
@@ -19,27 +19,49 @@ const source = `.card:has(> img) {
 const { stylesheet, diagnostics } = parse(source);
 
 const rule = stylesheet.children[0] as Rule;
-rule.prelude; // SelectorList of ComplexSelector, each of CompoundSelector and Combinator
-rule.block.children; // Declaration { property: "color", value: Raw { value: "red" }, important: true }, then Rule
+rule.prelude; // SelectorList of Selector, each of simple selectors and Combinator, as css-tree has them
+rule.block.children; // Declaration { important: true, property: "color", value: Raw { value: "red" } }, then Rule
 ```
 
 It runs in Node.js 18 or newer, Bun, Deno, Workers, and browsers.
 
-`parse` never throws on bad CSS. It returns what parses, with a diagnostic for each error, so a caller that must reject bad CSS checks `diagnostics.length`.
+The tree is css-tree 3.2.1's, node for node and field for field, with arrays in place of css-tree's `List`. Every node has `start` and `end`, UTF-16 offsets into the source, so `source.slice(node.start, node.end)` is its text. With `positions: true`, each node has css-tree's `loc` instead, with lines and columns. Its nodes are typed in [src/ast.ts](src/ast.ts).
 
-Every node has `start` and `end`, offsets into the source string, so `source.slice(node.start, node.end)` is its text. The tree follows [CSS Syntax Level 3](https://www.w3.org/TR/css-syntax-3/), with [nesting](https://www.w3.org/TR/css-nesting-1/), and [Selectors Level 4](https://www.w3.org/TR/selectors-4/). Its nodes are typed in [src/ast.ts](src/ast.ts):
+`parse` never throws on bad CSS. What does not parse is kept as `Raw`, as css-tree keeps it, with a diagnostic carrying css-tree's message, so a caller that must reject bad CSS checks `diagnostics.length`.
 
-- `StyleSheet`, `Rule`, `AtRule`, `Block`, `Declaration`, and `Raw` for text kept as written: declaration values, at-rule preludes, and keyframe selectors.
-- `SelectorList`, `ComplexSelector`, `CompoundSelector`, and `Combinator`.
-- `TypeSelector`, `IdSelector`, `ClassSelector`, `AttributeSelector`, `PseudoClassSelector`, `PseudoElementSelector`, `NestingSelector`, and `Nth` for the argument of `:nth-child()` and its kin.
+### Options
+
+| Option | Default | |
+|---|---|---|
+| `positions` | `false` | `loc` in place of `start` and `end` |
+| `filename`, `offset`, `line`, `column` | `"<unknown>"`, `0`, `1`, `1` | where `loc` says the source is |
+| `parseRulePrelude` | `true` | `false` keeps each selector as `Raw` |
+| `parseValue`, `parseAtrulePrelude`, `parseCustomProperty` | `true`, `true`, `false` | accepted, but declaration values and at-rule preludes are `Raw` for now |
+
+### Tokens
+
+```ts
+import { tokenize, tokenNames } from "yuku-css";
+
+for (const token of tokenize("a { color: red }")) {
+  tokenNames[token >>> 24]; // "ident-token", "whitespace-token", "{-token", …
+  token & 0xffffff; // the UTF-16 offset where the token ends
+}
+```
+
+`tokenize` packs each token as css-tree's `offsetAndType` does, with the 26 token types of `tokenTypes`.
+
+### Where it differs from css-tree
+
+Where css-tree reads CSS otherwise than the CSS Syntax, Nesting, and Selectors specifications, yuku-css follows the specifications. Most visibly, css-tree reads a nested rule that does not start with `&`, such as `.a { .b {} }`, as a broken declaration. [test/divergences.ts](test/divergences.ts) lists every difference, with its reason, as a fork of css-tree that the tests compare against.
 
 ## Benchmark
 
-Parsing the 252 style sheets of [test/corpus](test/corpus) against [css-tree](https://github.com/csstree/csstree), set to build the same tree, with selectors parsed and values kept raw, and [PostCSS](https://postcss.org), which leaves selectors as strings.
+Parsing the 252 style sheets of [test/corpus](test/corpus) against [css-tree](https://github.com/csstree/csstree), set to keep values and at-rule preludes raw as yuku-css does and to give positions, and [PostCSS](https://postcss.org), which leaves selectors as strings. `yuku-css loc` parses with `positions: true`, so it builds the very tree css-tree does.
 
 ![Time per file to parse with yuku-css, css-tree, and PostCSS](bench/chart.svg)
 
-Median time per file over 3 runs, each in a fresh Node.js 24 process on an Apple M5 Pro. Run it with `bun run bench`.
+Median time per file over 3 runs, each in a fresh Node.js 24 process on an Apple M5 Pro. Run it with `bun run bench`, or `node bench/index.ts tokenize` to time tokenizing.
 
 ## Development
 
@@ -47,14 +69,14 @@ Needs [Zig](https://ziglang.org) 0.17 and [Bun](https://bun.sh).
 
 ```bash
 bun install
-bun run build      # zig build && tsdown
+bun run build      # zig build, which also writes src/decode.js from the Zig layouts, then tsdown
 bun run typecheck
 bun run test
 zig build test     # the Zig tests
 bun run corpus     # copies the CSS of a Markless checkout into test/corpus
 ```
 
-The tests cover every node, and check yuku-css against css-tree on every file of the corpus, the `<style>` blocks and `.css` files of the [Markless](https://github.com/compiled-run/markless) repository. [test/parity.test.ts](test/parity.test.ts) lists where the two trees differ on purpose.
+The tests check every token, node, position, and error against css-tree on every file of the corpus, the `<style>` blocks and `.css` files of the [Markless](https://github.com/compiled-run/markless) repository, on broken CSS, and on the corpus mutated at random.
 
 ## License
 
