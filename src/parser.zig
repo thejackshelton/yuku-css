@@ -260,10 +260,9 @@ pub const Parser = struct {
         }
         if (p.lex.pos < p.src.len) {
             p.start = p.end;
-            p.tag = p.lex.next();
-            p.end = p.lex.pos;
+            p.closes = none;
+            p.lexTracked();
             std.debug.assert(p.end > p.start);
-            p.track();
         } else {
             p.eof = true;
             p.tag = .eof;
@@ -273,9 +272,46 @@ pub const Parser = struct {
         }
     }
 
+    // the lexer's dispatch, with block tracking only on the arms whose tokens may need it
+    inline fn lexTracked(p: *Parser) void {
+        const l = &p.lex;
+        const c = p.src[l.pos];
+        var plain = true;
+        const tag: Tag = switch (lexer.class[c]) {
+            .simple => blk: {
+                l.pos += 1;
+                const tag = lexer.simple_tag[c];
+                plain = role[@backingInt(tag)] == .plain;
+                break :blk tag;
+            },
+            .whitespace => blk: {
+                l.pos = l.whitespaceEnd(l.pos + 1);
+                plain = !p.options.lines;
+                break :blk .whitespace;
+            },
+            .name => blk: {
+                const tag = l.identLike();
+                plain = tag == .ident;
+                break :blk tag;
+            },
+            .digit => l.numeric(),
+            .delim => blk: {
+                l.pos += 1;
+                break :blk .delim;
+            },
+            else => blk: {
+                const tag = l.nextSlow(c);
+                plain = role[@backingInt(tag)] == .plain;
+                break :blk tag;
+            },
+        };
+        p.tag = tag;
+        p.end = l.pos;
+        if (!plain) p.track();
+    }
+
     // the block structure and comments of the token just lexed
     inline fn track(p: *Parser) void {
-        p.closes = none;
         switch (role[@backingInt(p.tag)]) {
             .plain => {},
             .opener => p.pushOpen(token.closer[@backingInt(p.tag)], p.start),

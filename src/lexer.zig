@@ -35,7 +35,7 @@ inline fn is(c: u8, comptime bits: u8) bool {
     return char[c] & bits != 0;
 }
 
-const Class = enum(u8) {
+pub const Class = enum(u8) {
     delim,
     simple,
     whitespace,
@@ -52,7 +52,7 @@ const Class = enum(u8) {
     backslash,
 };
 
-const simple_tag: [256]Tag = blk: {
+pub const simple_tag: [256]Tag = blk: {
     var t: [256]Tag = @splat(.eof);
     t['('] = .left_parenthesis;
     t[')'] = .right_parenthesis;
@@ -66,7 +66,7 @@ const simple_tag: [256]Tag = blk: {
     break :blk t;
 };
 
-const class: [256]Class = blk: {
+pub const class: [256]Class = blk: {
     @setEvalBranchQuota(10_000);
     var t: [256]Class = @splat(.delim);
     for (0..256) |c| {
@@ -133,7 +133,7 @@ pub const Lexer = struct {
         }
     }
 
-    fn nextSlow(l: *Lexer, c: u8) Tag {
+    pub fn nextSlow(l: *Lexer, c: u8) Tag {
         const i = l.pos;
         switch (class[c]) {
             .quote => return l.string(c),
@@ -177,7 +177,7 @@ pub const Lexer = struct {
         return .delim;
     }
 
-    fn identLike(l: *Lexer) Tag {
+    pub fn identLike(l: *Lexer) Tag {
         const start = l.pos;
         l.pos = l.nameEnd(start);
         if (l.at(l.pos) != '(') return .ident;
@@ -195,7 +195,7 @@ pub const Lexer = struct {
         return .function;
     }
 
-    fn numeric(l: *Lexer) Tag {
+    pub fn numeric(l: *Lexer) Tag {
         l.pos = l.numberEnd(l.pos);
         const c = l.at(l.pos);
         if (identStart(c, l.at(l.pos + 1), l.at(l.pos + 2))) {
