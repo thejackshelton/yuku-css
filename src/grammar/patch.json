@@ -195,6 +195,18 @@
     "url()": {
       "syntax": "url( <string> <url-modifier>* )",
       "reason": "<url-token> moved to <url>, see there"
+    },
+    "paint": {
+      "syntax": "| <color>",
+      "reason": "css-fill-stroke-3's <paint> lists none | <image> | <svg-paint>, but SVG 2 defines <color> as a paint and every browser reads `fill: red`; a validator must not reject working CSS"
+    },
+    "color-hdr()": {
+      "syntax": "color-hdr( [ <color> && <number [0,∞]>? ]#{2} )",
+      "reason": "css-color-hdr-1 names the type <hdr-color()> but its grammar and every example write `color-hdr(`, so the function is color-hdr(); the lexer files a function type under its name, so the type must be named for it"
+    },
+    "color-function": {
+      "syntax": "| <color-hdr()>",
+      "reason": "<hdr-color()> can never match `color-hdr(`, see <color-hdr()>"
     }
   },
   "properties": {},

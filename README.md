@@ -100,7 +100,7 @@ definitionSyntax.parse("<length> | auto"); // css-tree's tree of the CSS Value D
 
 The grammar is the W3C's own, [@webref/css](https://www.npmjs.com/package/@webref/css) 8.7.5, where css-tree's is mdn-data. Every definition is parsed at build time, by `tools/gen_grammar.zig`, into compact trees the WebAssembly embeds, so the lexer parses no grammar at startup. A definition webref lacks, and css-tree's fixtures need, is added in [src/grammar/patch.json](src/grammar/patch.json) with the reason. The grammar lives in its own WebAssembly module, so `yuku-css` does not carry it.
 
-Matching is css-tree's algorithm, in Zig: the same match graph, the same backtracking, the same iteration budget. Over the same grammar it gives every declaration of [test/corpus](test/corpus) the same tree, iteration count and error as css-tree. Over their two grammars, yuku-css and css-tree disagree on 48 of the corpus's 12,945 declarations, each listed in [test/divergences.ts](test/divergences.ts) with the reason.
+Matching is css-tree's algorithm, in Zig: the same match graph, the same backtracking, the same iteration budget. Over the same grammar it gives every declaration of [test/corpus](test/corpus) the same tree, iteration count and error as css-tree. Over their two grammars, yuku-css and css-tree disagree on 3 of the corpus's 12,945 declarations, each listed in [test/divergences.ts](test/divergences.ts) with the reason.
 
 ### Where it differs from css-tree
 

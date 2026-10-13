@@ -247,14 +247,6 @@ export const pending: Record<string, string> = {
  */
 export const grammarDivergences: { property: string; reason: string }[] = [
   {
-    property: "fill does not match",
-    reason: "css-fill-stroke-3 defines `<paint> = none | <image> | <svg-paint>`, with no <color>; mdn-data keeps SVG 2's",
-  },
-  {
-    property: "stroke does not match",
-    reason: "css-fill-stroke-3 defines `<paint> = none | <image> | <svg-paint>`, with no <color>; mdn-data keeps SVG 2's",
-  },
-  {
     property: "position-visibility does not match",
     reason: "css-anchor-position-1 renamed `anchors-visible` to `anchor-visible`; mdn-data keeps the old name",
   },
