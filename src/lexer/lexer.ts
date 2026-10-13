@@ -10,6 +10,7 @@ import { MESSAGES } from "./tables";
 import {
   customError,
   definitionSyntaxError,
+  plainError,
   generate,
   parse,
   SyntaxReader,
@@ -146,7 +147,7 @@ export interface SyntaxReferenceError extends SyntaxError {
 }
 
 export function syntaxReferenceError(type: string, referenceName?: string): SyntaxReferenceError {
-  const error = customError("SyntaxReferenceError", type + (referenceName ? " `" + referenceName + "`" : ""));
+  const error = customError("SyntaxReferenceError", type + (referenceName ? " `" + referenceName + "`" : ""), false);
   return Object.assign(error, { reference: referenceName });
 }
 
@@ -292,7 +293,7 @@ function syntaxMatchError(
   mismatchLength: number,
   atEnd: boolean,
 ): SyntaxMatchError {
-  const error = customError("SyntaxMatchError", message);
+  const error = customError("SyntaxMatchError", message, false);
   const origin = { offset: 0, line: 1, column: 1 };
   let start: Position;
   let end: Position;
@@ -631,7 +632,7 @@ export class Lexer {
     const status = words[0]!;
     const iterations = words[1]!;
     if (status === 4) {
-      return new Result(null, () => new Error("Matching for a tree with var() is not supported"));
+      return new Result(null, () => plainError("Matching for a tree with var() is not supported"));
     }
     if (status === 3) {
       const node = syntaxAt(words[6]!) as { type: string; name: string };
@@ -781,7 +782,7 @@ export class Lexer {
   }
 
   matchDeclaration(node: { type: string; property: string; value: unknown }): MatchResult {
-    if (node.type !== "Declaration") return buildMatchResult(null, new Error("Not a Declaration node"));
+    if (node.type !== "Declaration") return buildMatchResult(null, plainError("Not a Declaration node"));
     return this.matchProperty(node.property, node.value);
   }
 
@@ -792,7 +793,7 @@ export class Lexer {
     let target = this.propertyTargets.get(propertyName);
     if (target === undefined) {
       if (property(propertyName).custom) {
-        target = () => new Error("Lexer matching doesn't applicable for custom properties");
+        target = () => plainError("Lexer matching doesn't applicable for custom properties");
       } else {
         const descriptor = this.getProperty(propertyName);
         target = descriptor ? [descriptor, this.idOf(descriptor)] : () => syntaxReferenceError("Unknown property", propertyName);

@@ -63,17 +63,29 @@ export interface DefinitionSyntaxError extends SyntaxError {
 
 const COMBINATORS = [" ", "&&", "||", "|"] as const;
 
-// css-tree's custom errors: a SyntaxError prototype, named, with the stack starting at the message
-export function customError(name: string, message: string): SyntaxError {
+// css-tree's custom errors: a SyntaxError prototype, named, with the stack starting at the message;
+// one a match result carries has no frames, since capturing them costs more than the match
+export function customError(name: string, message: string, frames = true): SyntaxError {
   const error = Object.create(SyntaxError.prototype) as SyntaxError;
-  const stack = new Error();
+  const stack = frames ? new Error() : null;
   return Object.assign(error, {
     name,
     message,
     get stack() {
-      return (stack.stack || "").replace(/^(.+\n){1,3}/, `${name}: ${message}\n`);
+      return stack === null ? `${name}: ${message}\n` : (stack.stack || "").replace(/^(.+\n){1,3}/, `${name}: ${message}\n`);
     },
   });
+}
+
+/** An `Error` with no stack frames, which a match result carries. */
+export function plainError(message: string): Error {
+  const limit = Error.stackTraceLimit;
+  Error.stackTraceLimit = 0;
+  try {
+    return new Error(message);
+  } finally {
+    Error.stackTraceLimit = limit;
+  }
 }
 
 export function definitionSyntaxError(message: string, input: string, offset: number): DefinitionSyntaxError {
