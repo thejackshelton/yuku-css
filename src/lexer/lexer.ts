@@ -209,9 +209,9 @@ const trace: Pick<MatchResult, "getTrace" | "isType" | "isProperty" | "isKeyword
 
 // a match result whose tree and error are built on first read, so checking a value pays for neither
 class Result implements MatchResult {
-  iterations: number | undefined;
-  private tree: MatchNode | null | (() => MatchNode);
-  private failure: MatchResult["error"] | (() => MatchResult["error"]);
+  declare iterations: number | undefined;
+  declare private tree: MatchNode | null | (() => MatchNode);
+  declare private failure: MatchResult["error"] | (() => MatchResult["error"]);
 
   constructor(
     matched: MatchNode | null | (() => MatchNode),
@@ -531,13 +531,22 @@ export class Lexer {
     return this.matchProperty(node.property, node.value);
   }
 
+  // what `matchProperty` resolves a name to: its descriptor and id, or why it matches nothing
+  private readonly propertyTargets = new Map<string, [Descriptor, number] | (() => Error)>();
+
   matchProperty(propertyName: string, value: unknown): MatchResult {
-    if (property(propertyName).custom) {
-      return buildMatchResult(null, new Error("Lexer matching doesn't applicable for custom properties"));
+    let target = this.propertyTargets.get(propertyName);
+    if (target === undefined) {
+      if (property(propertyName).custom) {
+        target = () => new Error("Lexer matching doesn't applicable for custom properties");
+      } else {
+        const descriptor = this.getProperty(propertyName);
+        target = descriptor ? [descriptor, this.idOf(descriptor)] : () => syntaxReferenceError("Unknown property", propertyName);
+      }
+      this.propertyTargets.set(propertyName, target);
     }
-    const error = this.checkPropertyName(propertyName);
-    if (error) return buildMatchResult(null, error);
-    return this.matchDescriptor(this.getProperty(propertyName)!, value, true);
+    if (typeof target === "function") return new Result(null, target);
+    return this.matchSyntax(target[1], target[0], value, true);
   }
 
   matchType(typeName: string, value: unknown): MatchResult {

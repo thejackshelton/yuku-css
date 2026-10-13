@@ -87,11 +87,11 @@ export function definitionSyntaxError(message: string, input: string, offset: nu
 
 /** Reads the tree at node `index` of `words`, two words a node, naming spans through `textOf`. */
 export class SyntaxReader {
-  private readonly words: Uint32Array;
-  private readonly textOf: (start: number, len: number) => string;
-  private readonly memo: (SyntaxNode | SyntaxRange | undefined)[] | undefined;
-  private readonly base: number;
-  private readonly compact: boolean;
+  declare private readonly words: Uint32Array;
+  declare private readonly textOf: (start: number, len: number) => string;
+  declare private readonly memo: (SyntaxNode | SyntaxRange | undefined)[] | undefined;
+  declare private readonly base: number;
+  declare private readonly compact: boolean;
 
   /**
    * `compact` reads a node from one word, the compiled grammar's packing of tag, flags, len and

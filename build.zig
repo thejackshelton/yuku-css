@@ -67,6 +67,7 @@ pub fn build(b: *std.Build) void {
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/grammar/wasm.zig"),
             .target = wasm_target,
+            // small saves 28 kB, 7 kB gzipped, at the cost of 38% of the matching speed
             .optimize = .ReleaseFast,
             .strip = true,
             .imports = &.{
