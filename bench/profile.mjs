@@ -93,8 +93,9 @@ async function profileCss() {
       const [p, cap, n] = encode();
       const r = ex.parse(p, n, flags);
       ex.free(p, cap);
-      // main decodes as decode(buffer, at, source, options, withTokens) too
-      const dec = time(() => decode(ex.memory.buffer, r + 4, source, opts, false).ast);
+      // a ROOT before the lazy tree takes no `open` and ignores it; reading `ast` builds the tree either way
+      const open = (build) => build(ex.memory.buffer, r + 4);
+      const dec = time(() => decode(ex.memory.buffer, r + 4, source, opts, false, open).ast);
       ex.free(r, 4 + size);
       const full = time(() => parse(source, opts).ast);
       row(`yuku-css${positions ? " loc" : ""}`, file, bytes, nodes, size, {

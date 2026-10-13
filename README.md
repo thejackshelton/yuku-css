@@ -127,46 +127,22 @@ css-tree's own fixtures run as the suite, `bun test test/suite.test.ts`, refresh
 
 ## Benchmark
 
-Parsing the 252 style sheets of [test/corpus](test/corpus) against [css-tree](https://github.com/csstree/csstree), set to parse values and at-rule preludes as yuku-css does, and to give positions, and [PostCSS](https://postcss.org), which leaves selectors as strings. `yuku-css loc` parses with `positions: true`, so it builds the very tree css-tree does.
+Parsing the 231 style sheets of [test/corpus](test/corpus) that every parser here reads without an error. [css-tree](https://github.com/csstree/csstree) is set to build the tree `yuku-css loc` builds: selectors, values and at-rule preludes parsed, with positions; `yuku-css` gives offsets in their place. [PostCSS](https://postcss.org) keeps selectors, values and preludes as strings, so it does less.
 
 ![Time per file to parse with yuku-css, css-tree, and PostCSS](bench/chart.svg)
 
-Median time per file over 3 runs, each in a fresh Node.js 24 process on an Apple M5 Pro. Run it with `bun run bench`, `node bench/index.ts tokenize` to time tokenizing, or `node bench/index.ts generate` to time printing css-tree's tree of each file, values parsed:
+Against `yuku-css loc`, css-tree takes 3.21× as long. The rest of the API, per file of the same corpus, each row on the files both sides read cleanly:
 
-| generator | per file |
-|---|---|
-| yuku-css | 10.0 µs |
-| css-tree | 18.4 µs |
-| yuku-css, with a source map | 23.7 µs |
-| css-tree, with a source map | 53.5 µs |
+| Task | yuku-css | Against | Same work |
+|---|---|---|---|
+| Tokenize | `tokenize`, 3.8 µs | css-tree `tokenize`, 6.7 µs (1.78×) | yes |
+| Print css-tree's tree | `generate`, 6.0 µs | css-tree `generate`, 10.3 µs (1.71×) | yes |
+| Print css-tree's tree with a source map | `generate`, 15.1 µs | css-tree `generate`, 29.7 µs (1.97×) | yes |
+| Validate every declaration | `lexer.matchStylesheet`, 18.6 µs | css-tree `parse` and `matchDeclaration`, 155.3 µs (8.37×) | yes, over a different grammar: @webref/css, where css-tree's is mdn-data |
+| Check for parse errors | `parse`, reading only `diagnostics`, 7.8 µs | css-tree `parse` with `onParseError`, no positions, 41.7 µs (5.33×) | no: diagnostics only, yuku-css builds no tree in JS, where css-tree builds its whole tree |
+| Parse and print | `transform`, 10.8 µs | Lightning CSS `transform`: native, 33.0 µs (3.06×); WebAssembly, 86.1 µs (7.99×) | no: Lightning CSS types every value and pretty-prints, yuku-css prints compactly |
 
-`node bench/index.ts validate` checks every declaration of each file, reading each result's `matched` and `error`: yuku-css with `lexer.matchStylesheet`, css-tree by parsing with values and calling `matchDeclaration` on each; `CORPUS=<dir>` times another directory. In Node 24 and Bun 1.3:
-
-| style sheets | yuku-css, Node | css-tree, Node | yuku-css, Bun | css-tree, Bun |
-|---|---|---|---|---|
-| [test/corpus](test/corpus), per file | 30.5 µs | 222.0 µs | 29.8 µs | 126.1 µs |
-| 13 npm style sheets (Bootstrap, Bulma, Font Awesome, …), per file | 3,337 µs | 69,191 µs | 2,832 µs | 18,749 µs |
-
-`node bench/index.ts match` calls `matchProperty` on every declaration's text, the same reads: 32.9 µs a file against 123.5 µs for css-tree in Node, 25.6 against 53.4 µs in Bun.
-
-`transform` against parsing and printing in JavaScript and against [Lightning CSS](https://lightningcss.dev)'s `transform` with `minify: false`, native and WebAssembly, in MB/s of source on 13 npm style sheets and a synthetic one of long selector lists. Each library and file runs in a fresh process, warmed for 1 s, then the median of 2 s of runs, the median of 3 processes, on an Apple M5 Pro. Every library is given a string, so Lightning CSS's time includes encoding it; it returns bytes, not text, and pretty-prints where `transform` prints compactly. Run it with `LIGHTNINGCSS=<a directory that installs lightningcss and lightningcss-wasm> node bench/transform.ts <files>`, or `bun bench/transform.ts`:
-
-| file | Node.js `transform` | `parse` + `generate` | lightningcss | lightningcss-wasm | Bun `transform` | `parse` + `generate` | lightningcss | lightningcss-wasm |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| animate.css | 206 | 100 | 101 | 34 | 255 | 101 | 103 | 27 |
-| bootstrap.css | 202 | 102 | 66 | 27 | 289 | 106 | 59 | 18 |
-| bootstrap.min.css | 189 | 89 | 56 | 24 | 265 | 96 | 69 | 16 |
-| bulma.css | 238 | 124 | 70 | 31 | 353 | 140 | 77 | 23 |
-| font-awesome.css | 147 | 73 | 63 | 23 | 183 | 86 | 65 | 15 |
-| foundation.css | 178 | 84 | 66 | 27 | 247 | 96 | 75 | 22 |
-| github-markdown.css | 239 | 109 | 82 | 20 | 269 | 105 | 86 | 17 |
-| normalize.css | 391 | 204 | 152 | 57 | 517 | 237 | 170 | 47 |
-| preflight.css | 370 | 186 | 133 | 49 | 480 | 213 | 145 | 32 |
-| primer.css | 243 | 124 | 71 | 32 | 301 | 137 | 75 | 21 |
-| pure.css | 262 | 122 | 100 | 27 | 333 | 132 | 97 | 22 |
-| tailwind.css | 248 | 91 | 64 | 28 | 315 | 134 | 65 | 19 |
-| tailwind.min.css | 233 | 82 | 53 | 24 | 304 | 120 | 59 | 16 |
-| long-selector-list.css | 155 | 58 | 74 | 30 | 201 | 74 | 80 | 28 |
+Median time per file over 1 runs, each in a fresh Node.js 24.15.0 process on an Apple M5 Pro, files timed smallest first. [docs/benchmark.md](docs/benchmark.md) has Lightning CSS by file size, Bun and Chromium, real-world and synthetic CSS, cold start, memory, bundle size and where yuku-css loses. Run it with `bun run bench:full`; `bun run bench` times the chart's parsers alone, and `bun run bench tokenize`, `generate`, `match` or `validate` one row, without touching the README.
 
 ## Development
 

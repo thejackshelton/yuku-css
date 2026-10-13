@@ -6,42 +6,42 @@
   </style>
   <text class="title" x="0" y="11">< 1 KB</text>
   <text x="200" y="41" text-anchor="end">yuku-css</text>
-  <rect x="210" y="30" width="343" height="22" rx="4" fill="#FF6B35"/>
-  <text x="561" y="41">120.7 MB/s</text>
+  <rect x="210" y="30" width="230" height="22" rx="4" fill="#FF6B35"/>
+  <text x="448" y="41">105.4 MB/s</text>
   <text x="200" y="71" text-anchor="end">css-tree, same work</text>
-  <rect x="210" y="60" width="120" height="22" rx="4" fill="#3A86FF"/>
-  <text x="338" y="71">42.1 MB/s</text>
-  <text class="ratio" x="322" y="71" text-anchor="end">2.87×</text>
+  <rect x="210" y="60" width="79" height="22" rx="4" fill="#3A86FF"/>
+  <text x="297" y="71">36.3 MB/s</text>
+  <text class="ratio" x="281" y="71" text-anchor="end">2.90×</text>
   <text class="title" x="0" y="111">1–10 KB</text>
   <text x="200" y="141" text-anchor="end">yuku-css</text>
-  <rect x="210" y="130" width="337" height="22" rx="4" fill="#FF6B35"/>
-  <text x="555" y="141">118.4 MB/s</text>
+  <rect x="210" y="130" width="249" height="22" rx="4" fill="#FF6B35"/>
+  <text x="467" y="141">113.8 MB/s</text>
   <text x="200" y="171" text-anchor="end">css-tree, same work</text>
-  <rect x="210" y="160" width="116" height="22" rx="4" fill="#3A86FF"/>
-  <text x="334" y="171">40.7 MB/s</text>
-  <text class="ratio" x="318" y="171" text-anchor="end">2.91×</text>
+  <rect x="210" y="160" width="77" height="22" rx="4" fill="#3A86FF"/>
+  <text x="295" y="171">35.1 MB/s</text>
+  <text class="ratio" x="279" y="171" text-anchor="end">3.24×</text>
   <text class="title" x="0" y="211">10–100 KB</text>
   <text x="200" y="241" text-anchor="end">yuku-css</text>
-  <rect x="210" y="230" width="350" height="22" rx="4" fill="#FF6B35"/>
-  <text x="568" y="241">123.0 MB/s</text>
+  <rect x="210" y="230" width="294" height="22" rx="4" fill="#FF6B35"/>
+  <text x="512" y="241">134.5 MB/s</text>
   <text x="200" y="271" text-anchor="end">css-tree, same work</text>
-  <rect x="210" y="260" width="132" height="22" rx="4" fill="#3A86FF"/>
-  <text x="350" y="271">46.3 MB/s</text>
-  <text class="ratio" x="334" y="271" text-anchor="end">2.66×</text>
+  <rect x="210" y="260" width="84" height="22" rx="4" fill="#3A86FF"/>
+  <text x="302" y="271">38.4 MB/s</text>
+  <text class="ratio" x="286" y="271" text-anchor="end">3.50×</text>
   <text class="title" x="0" y="311">100 KB–1 MB</text>
   <text x="200" y="341" text-anchor="end">yuku-css</text>
-  <rect x="210" y="330" width="304" height="22" rx="4" fill="#FF6B35"/>
-  <text x="522" y="341">106.8 MB/s</text>
+  <rect x="210" y="330" width="350" height="22" rx="4" fill="#FF6B35"/>
+  <text x="568" y="341">160.1 MB/s</text>
   <text x="200" y="371" text-anchor="end">css-tree, same work</text>
-  <rect x="210" y="360" width="104" height="22" rx="4" fill="#3A86FF"/>
-  <text x="322" y="371">36.5 MB/s</text>
-  <text class="ratio" x="306" y="371" text-anchor="end">2.93×</text>
+  <rect x="210" y="360" width="71" height="22" rx="4" fill="#3A86FF"/>
+  <text x="289" y="371">32.5 MB/s</text>
+  <text class="ratio" x="273" y="371" text-anchor="end">4.92×</text>
   <text class="title" x="0" y="411">> 1 MB</text>
   <text x="200" y="441" text-anchor="end">yuku-css</text>
-  <rect x="210" y="430" width="265" height="22" rx="4" fill="#FF6B35"/>
-  <text x="483" y="441">93.0 MB/s</text>
+  <rect x="210" y="430" width="145" height="22" rx="4" fill="#FF6B35"/>
+  <text x="363" y="441">66.1 MB/s</text>
   <text x="200" y="471" text-anchor="end">css-tree, same work</text>
-  <rect x="210" y="460" width="82" height="22" rx="4" fill="#3A86FF"/>
-  <text x="300" y="471">28.8 MB/s</text>
-  <text class="ratio" x="284" y="471" text-anchor="end">3.23×</text>
+  <rect x="210" y="460" width="55" height="22" rx="4" fill="#3A86FF"/>
+  <text x="273" y="471">25.3 MB/s</text>
+  <text class="ratio" x="257" y="471" text-anchor="end">2.61×</text>
 </svg>

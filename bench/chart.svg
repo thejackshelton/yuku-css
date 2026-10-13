@@ -5,17 +5,17 @@
   </style>
   <text x="100" y="11" text-anchor="end">yuku-css</text>
   <rect x="110" y="0" width="105" height="22" rx="4" fill="#FF6B35"/>
-  <text x="223" y="11">20.7 µs</text>
+  <text x="223" y="11">10.5 µs</text>
   <text x="100" y="41" text-anchor="end">yuku-css loc</text>
-  <rect x="110" y="30" width="143" height="22" rx="4" fill="#FFA07A"/>
-  <text x="261" y="41">28.2 µs</text>
-  <text class="ratio" x="245" y="41" text-anchor="end">1.36×</text>
+  <rect x="110" y="30" width="140" height="22" rx="4" fill="#FF6B35"/>
+  <text x="258" y="41">14.0 µs</text>
+  <text class="ratio" x="242" y="41" text-anchor="end">1.33×</text>
   <text x="100" y="71" text-anchor="end">css-tree</text>
   <rect x="110" y="60" width="450" height="22" rx="4" fill="#3A86FF"/>
-  <text x="568" y="71">88.7 µs</text>
-  <text class="ratio" x="552" y="71" text-anchor="end">4.29×</text>
+  <text x="568" y="71">44.9 µs</text>
+  <text class="ratio" x="552" y="71" text-anchor="end">4.28×</text>
   <text x="100" y="101" text-anchor="end">postcss</text>
-  <rect x="110" y="90" width="198" height="22" rx="4" fill="#8338EC"/>
-  <text x="316" y="101">39.0 µs</text>
-  <text class="ratio" x="300" y="101" text-anchor="end">1.89×</text>
+  <rect x="110" y="90" width="211" height="22" rx="4" fill="#8338EC"/>
+  <text x="329" y="101">21.1 µs</text>
+  <text class="ratio" x="313" y="101" text-anchor="end">2.01×</text>
 </svg>
