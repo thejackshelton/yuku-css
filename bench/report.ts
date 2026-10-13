@@ -625,7 +625,7 @@ export function report(results: Results): void {
       rows.push([
         "Check for parse errors",
         cell("`parse`, reading only `diagnostics`", own),
-        `${cell("css-tree `parse` with `onParseError`, no positions", other)} (${times(other, own)})`,
+        `${cell("css-tree `parse` at its defaults", other)} (${times(other, own)})`,
         "no: diagnostics only, yuku-css builds no tree in JS, where css-tree builds its whole tree",
       ]);
     }
