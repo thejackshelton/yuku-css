@@ -94,12 +94,15 @@ lexer.matchProperty("color", "rgb(1 2 3)").matched; // css-tree's match tree, or
 lexer.matchProperty("margin", "1px foo").error; // a SyntaxMatchError, mismatchOffset 4
 lexer.matchType("length", "2em");
 lexer.matchAtrulePrelude("media", "(width > 600px)");
+lexer.matchStylesheet(".a { color: red; margin: 1px foo }"); // a match result for each declaration
 definitionSyntax.parse("<length> | auto"); // css-tree's tree of the CSS Value Definition Syntax
 ```
 
 `yuku-css/lexer` is css-tree's lexer: `matchProperty`, `matchType`, `matchAtrulePrelude`, `matchAtruleDescriptor`, `matchDeclaration`, `match`, the `check*` and `get*` methods, `validate` and `dump`, with `createLexer` and `fork` for grammars of your own, and `definitionSyntax` with `parse`, `generate` and `walk`. A match result has css-tree's shape, `{ matched, iterations, error, getTrace, isType, isProperty, isKeyword }`, with its tree and error built when first read. A value is a string or a tree, from yuku-css or css-tree. A tree is matched as the tokens it prints, each naming the node that printed it, as css-tree matches one, so a match tree's `node`, `getTrace`, `isType`, `isKeyword` and the fragment search, `findValueFragments`, `findDeclarationValueFragments` and `findAllFragments`, point at its nodes. `checkStructure` checks a tree against css-tree's node structure, taking yuku-css's arrays for lists and its `start` and `end` for `loc`.
 
-The grammar is the W3C's own, [@webref/css](https://www.npmjs.com/package/@webref/css) 8.7.5, where css-tree's is mdn-data. Every definition is parsed at build time, by `tools/gen_grammar.zig`, into compact trees the WebAssembly embeds, so the lexer parses no grammar at startup. A definition webref lacks, and css-tree's fixtures need, is added in [src/grammar/patch.json](src/grammar/patch.json) with the reason. The grammar lives in its own WebAssembly module, so `yuku-css` does not carry it.
+The grammar is the W3C's own, [@webref/css](https://www.npmjs.com/package/@webref/css) 8.7.5, where css-tree's is mdn-data. Every definition is parsed at build time, by `tools/gen_grammar.zig`, into compact trees the WebAssembly embeds, so the lexer parses no grammar at startup. A definition webref lacks, and css-tree's fixtures need, is added in [src/grammar/patch.json](src/grammar/patch.json) with the reason. The grammar lives in its own WebAssembly module, 313.2 kB, 112.5 kB gzipped with the parser it carries for `matchStylesheet`, so `yuku-css` does not carry it.
+
+`matchStylesheet(source)` parses a whole style sheet and matches every declaration in one call into the WebAssembly, writing all results to one buffer; a declaration written as an earlier one reuses its result and shares its tree. Each result is a match result with the property and the value's offsets, its error placed in the sheet. Errors carry css-tree's prototype, name, message, offsets and location, but no stack frames, which cost more than the match.
 
 Matching is css-tree's algorithm, in Zig: the same match graph, the same backtracking, the same iteration budget. Over the same grammar it gives every declaration of [test/corpus](test/corpus) the same tree, iteration count and error as css-tree. Over their two grammars, yuku-css and css-tree disagree on 3 of the corpus's 12,945 declarations, each listed in [test/divergences.ts](test/divergences.ts) with the reason.
 
@@ -126,14 +129,14 @@ Median time per file over 3 runs, each in a fresh Node.js 24 process on an Apple
 | yuku-css, with a source map | 23.7 µs |
 | css-tree, with a source map | 53.5 µs |
 
-`node bench/index.ts match` matches every declaration of each file, 51 on average, with `matchProperty`. `yuku-css` reads each result's `matched` and `error`, so it builds the tree and error css-tree builds; `yuku-css unread` reads neither, as a caller that only keeps valid values; `css-tree webref` is css-tree over yuku-css's grammar:
+`node bench/index.ts validate` checks every declaration of each file, reading each result's `matched` and `error`: yuku-css with `lexer.matchStylesheet`, css-tree by parsing with values and calling `matchDeclaration` on each; `CORPUS=<dir>` times another directory. In Node 24 and Bun 1.3:
 
-| lexer | per file |
-|---|---|
-| yuku-css | 84.0 µs |
-| yuku-css unread | 29.0 µs |
-| css-tree webref | 127.8 µs |
-| css-tree | 132.3 µs |
+| style sheets | yuku-css, Node | css-tree, Node | yuku-css, Bun | css-tree, Bun |
+|---|---|---|---|---|
+| [test/corpus](test/corpus), per file | 30.5 µs | 222.0 µs | 29.8 µs | 126.1 µs |
+| 13 npm style sheets (Bootstrap, Bulma, Font Awesome, …), per file | 3,337 µs | 69,191 µs | 2,832 µs | 18,749 µs |
+
+`node bench/index.ts match` calls `matchProperty` on every declaration's text, the same reads: 32.9 µs a file against 123.5 µs for css-tree in Node, 25.6 against 53.4 µs in Bun.
 
 ## Development
 
