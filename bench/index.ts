@@ -120,6 +120,15 @@ const GENERATORS: Parser[] = [
   },
 ];
 
+// every declaration of a file as property and css-tree's tree of the value, which both lexers match
+// node for node
+async function declarationTrees(source: string): Promise<[string, unknown][]> {
+  const { parse, walk } = await import("css-tree");
+  const found: [string, unknown][] = [];
+  walk(parse(source), { visit: "Declaration", enter: (node) => found.push([node.property, node.value]) });
+  return found;
+}
+
 // every declaration of a file, as property and value text, which every lexer matches as a string
 async function declarations(source: string): Promise<[string, string][]> {
   const { parse, walk } = await import("css-tree");
@@ -168,6 +177,32 @@ const MATCHERS: Parser[] = [
       const { oracle } = (await import(oraclePath)) as typeof import("../test/grammar/webref");
       return (list: [string, string][]) => {
         for (const [property, value] of list) oracle.matchProperty(property, value);
+      };
+    },
+  },
+  {
+    name: "yuku-css tree",
+    color: "#FFBE0B",
+    prepare: declarationTrees,
+    async load() {
+      const { lexer } = await import("yuku-css/lexer");
+      return (list: [string, string][]) => {
+        for (const [property, value] of list) {
+          const result = lexer.matchProperty(property, value);
+          void result.matched;
+          void result.error;
+        }
+      };
+    },
+  },
+  {
+    name: "css-tree tree",
+    color: "#06D6A0",
+    prepare: declarationTrees,
+    async load() {
+      const { lexer } = await import("css-tree");
+      return (list: [string, string][]) => {
+        for (const [property, value] of list) lexer.matchProperty(property, value);
       };
     },
   },
