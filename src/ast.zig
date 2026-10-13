@@ -2,7 +2,7 @@ const std = @import("std");
 const token = @import("token.zig");
 
 /// Byte offsets into the source, `end` exclusive.
-pub const Span = struct {
+pub const Span = extern struct {
     start: u32,
     end: u32,
 };
@@ -242,9 +242,10 @@ pub const Tree = struct {
     /// Child lists of all nodes, resolved with `extra()`.
     extras: std.ArrayList(NodeIndex) = .empty,
     diagnostics: std.ArrayList(Diagnostic) = .empty,
-    /// The tokens the tree was parsed from, for comments and `tokens`.
+    /// The tokens of the source, when asked for.
     tokens: []const token.Token = &.{},
-    comment_count: u32 = 0,
+    /// Where each comment of the source starts and ends, in order.
+    comments: []const Span = &.{},
     source: []const u8,
     strings: StringPool,
     arena: std.heap.ArenaAllocator,

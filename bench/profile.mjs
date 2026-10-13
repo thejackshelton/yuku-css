@@ -92,9 +92,9 @@ async function profileCss() {
       row(`yuku-css${positions ? " loc" : ""}`, file, bytes, nodes, size, {
         encode: enc,
         "wasm parse+serialize": wasm - enc,
-        "  lex + balance": lex,
-        "  parse (no lex)": tree - lex,
+        "  parse": tree,
         "  serialize": wasm - enc - tree,
+        "  (lexing alone)": lex,
         "js decode": dec,
         "full parse()": full,
       });

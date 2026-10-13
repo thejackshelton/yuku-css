@@ -13,15 +13,12 @@ export fn free(ptr: [*]u8, len: usize) void {
     gpa.free(ptr[0..len]);
 }
 
-/// Tokenizes, with the bracket links the parser uses, and returns the token count.
+/// Tokenizes into a token list, as `tokenize` does, and returns the token count.
 export fn lexOnly(ptr: [*]const u8, len: usize) u32 {
     var tokens: css.token.TokenList = .empty;
     defer tokens.deinit(gpa);
-    var links: css.lexer.Links = .{};
-    defer links.open.deinit(gpa);
-    defer links.far.deinit(gpa);
     tokens.ensureTotalCapacity(gpa, len / 2 + 64) catch return 0;
-    _ = css.lexer.tokenize(gpa, &tokens, &links, ptr[0..len]) catch return 0;
+    _ = css.lexer.tokenize(gpa, &tokens, ptr[0..len]) catch return 0;
     return @intCast(tokens.items.len);
 }
 
@@ -30,15 +27,6 @@ export fn parseOnly(ptr: [*]const u8, len: usize, flags: u32) u32 {
     var tree = css.parse(gpa, ptr[0..len], .{ .parse_rule_prelude = flags & 1 != 0 }) catch return 0;
     defer tree.deinit();
     return @intCast(tree.nodes.len);
-}
-
-/// Tokenizes into the token list only.
-export fn lexNoBalance(ptr: [*]const u8, len: usize) u32 {
-    var tokens: css.token.TokenList = .empty;
-    defer tokens.deinit(gpa);
-    tokens.ensureTotalCapacity(gpa, len / 2 + 64) catch return 0;
-    _ = css.lexer.tokenize(gpa, &tokens, null, ptr[0..len]) catch return 0;
-    return @intCast(tokens.items.len);
 }
 
 /// Scans tokens without storing them.

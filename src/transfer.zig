@@ -31,7 +31,6 @@
 const std = @import("std");
 const ast = @import("ast.zig");
 const token = @import("token.zig");
-const lexer = @import("lexer.zig");
 
 // field order defines the wire layout
 const Header = extern struct {
@@ -167,7 +166,7 @@ pub fn totalFlagBits(comptime T: type) u8 {
 
 pub fn bufferSize(tree: *const ast.Tree, utf16: Utf16, tokens: bool) usize {
     return HEADER_SIZE +
-        tree.comment_count * 8 +
+        tree.comments.len * 8 +
         (if (tokens) tree.tokens.len * TOKEN_SIZE else 0) +
         tree.nodes.len * NODE_SIZE +
         tree.extras.items.len * 4 +
@@ -191,7 +190,7 @@ pub fn serializeInto(tree: *const ast.Tree, utf16: Utf16, tokens: bool, buf: []u
         .root = @backingInt(tree.root),
         .first_non_ascii = utf16.first,
         .utf16_count = utf16.count,
-        .comment_count = tree.comment_count,
+        .comment_count = @intCast(tree.comments.len),
         .token_count = if (tokens) @intCast(tree.tokens.len) else 0,
     };
     var pos: usize = 0;
@@ -217,26 +216,10 @@ pub fn serializeInto(tree: *const ast.Tree, utf16: Utf16, tokens: bool, buf: []u
     pos += tree.diagnostics.items.len * DIAGNOSTIC_SIZE;
 
     pos += utf16.write(tree.source, buf[pos..]);
-    if (tree.comment_count > 0) pos += writeComments(tree, buf[pos..]);
+    writeBytes(buf, &pos, std.mem.sliceAsBytes(tree.comments));
     if (tokens) writeBytes(buf, &pos, std.mem.sliceAsBytes(tree.tokens));
     std.debug.assert(pos == bufferSize(tree, utf16, tokens));
     return pos;
-}
-
-fn writeComments(tree: *const ast.Tree, buf: []u8) usize {
-    const out: [*]u32 = @ptrCast(@alignCast(buf.ptr));
-    var n: usize = 0;
-    var start = lexer.bomLen(tree.source);
-    for (tree.tokens) |t| {
-        if (t.tag == .comment) {
-            out[n] = start;
-            out[n + 1] = t.end;
-            n += 2;
-        }
-        start = t.end;
-    }
-    std.debug.assert(n == tree.comment_count * 2);
-    return n * 4;
 }
 
 pub fn tokensBufferSize(tokens: []const token.Token, utf16: Utf16) usize {

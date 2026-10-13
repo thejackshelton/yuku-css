@@ -46,8 +46,13 @@ fn parseBuffer(source: []const u8, flags: u32) ![]u8 {
         ) orelse .stylesheet,
     });
     defer tree.deinit();
-    const utf16: css.transfer.Utf16 = .init(source);
     const tokens = flags & flag.tokens != 0;
+    if (tokens) {
+        var list: css.token.TokenList = .empty;
+        try css.tokenize(tree.allocator(), &list, source);
+        tree.tokens = list.items;
+    }
+    const utf16: css.transfer.Utf16 = .init(source);
     const out = try prefixed(css.transfer.bufferSize(&tree, utf16, tokens));
     _ = css.transfer.serializeInto(&tree, utf16, tokens, out[4..]);
     return out;

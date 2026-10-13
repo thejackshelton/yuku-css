@@ -47,6 +47,37 @@ pub const max_depth = 128;
 
 pub const Stop = enum { balance_end, left_curly_bracket, left_curly_bracket_or_semicolon, exclamation_mark_or_semicolon, semicolon_included };
 
+fn stops(comptime stop: Stop, c: u8) bool {
+    return switch (stop) {
+        .balance_end => false,
+        .left_curly_bracket => c == '{',
+        .left_curly_bracket_or_semicolon => c == '{' or c == ';',
+        .exclamation_mark_or_semicolon => c == '!' or c == ';',
+        .semicolon_included => c == ';',
+    };
+}
+
+// the bytes a balanced skip looks at: brackets, stop characters, and what may hide them
+const balance_byte: [256]bool = blk: {
+    var t: [256]bool = @splat(false);
+    for ("()[]{};!\"'/\\<") |c| t[c] = true;
+    break :blk t;
+};
+
+const Role = enum(u8) { plain, opener, closer, comment };
+
+const role: [32]Role = blk: {
+    var t: [32]Role = @splat(.plain);
+    for (std.enums.values(Tag)) |tag| {
+        if (tag.isBlockOpener()) t[@backingInt(tag)] = .opener;
+    }
+    t[@backingInt(Tag.right_parenthesis)] = .closer;
+    t[@backingInt(Tag.right_square_bracket)] = .closer;
+    t[@backingInt(Tag.right_curly_bracket)] = .closer;
+    t[@backingInt(Tag.comment)] = .comment;
+    break :blk t;
+};
+
 const Pseudo = enum { selector_list, selector, nth, identifier, lang };
 
 const pseudos: std.StaticStringMapWithEql(Pseudo, std.static_string_map.eqlAsciiIgnoreCase) = .initComptime(.{
@@ -71,43 +102,73 @@ const pseudos: std.StaticStringMapWithEql(Pseudo, std.static_string_map.eqlAscii
 /// Parses `source` as `options.context`. Never fails on bad CSS: what does not parse becomes `Raw`,
 /// with a diagnostic.
 pub fn parse(gpa: Allocator, source: []const u8, options: Options) Error!ast.Tree {
-    var p: Parser = .{ .tree = .init(gpa, source), .src = source, .options = options };
+    var p: Parser = .{ .tree = .init(gpa, source), .src = source, .options = options, .lex = .init(source) };
     errdefer p.tree.deinit();
-    const scan = try p.tokenize();
+    try p.begin();
     p.tree.root = try p.root();
-    if (scan.suspect) try p.lexErrors();
+    p.drain();
+    if (p.oom) return error.OutOfMemory;
+    if (p.lex.suspect or p.comments_dropped) {
+        @branchHint(.unlikely);
+        try p.retokenize();
+    }
     try p.mergeSpecErrors();
-    p.tree.tokens = p.tokens;
-    p.tree.comment_count = scan.comments;
+    p.tree.comments = p.comments.items;
     return p.tree;
 }
 
 /// Tokenizes `source` into `tokens`, allocated from `gpa`.
 pub fn tokenize(gpa: Allocator, tokens: *token.TokenList, source: []const u8) Error!void {
-    try tokens.ensureTotalCapacity(gpa, tokenCapacity(source.len));
-    _ = try lexer.tokenize(gpa, tokens, null, source);
+    try tokens.ensureTotalCapacity(gpa, source.len / 2 + 64);
+    _ = try lexer.tokenize(gpa, tokens, source);
 }
 
-fn tokenCapacity(len: usize) usize {
-    return len / 2 + 64;
-}
+const none = std.math.maxInt(u32);
+
+// a block css-tree's tokenizer has open: a closer closes only the innermost one
+const Open = struct { closer: Tag, start: u32, parent: u32 };
+
+// where the parser is in the tokens, as `Checkpoint` saves it
+const Position = struct {
+    end: u32,
+    tag: Tag,
+    start: u32,
+    prev_tag: Tag,
+    prev_start: u32,
+    open: u32,
+    closes: u32,
+};
 
 pub const Parser = struct {
     tree: ast.Tree,
     src: []const u8,
     options: Options,
 
-    tokens: []const token.Token = &.{},
-    links: lexer.Links = .{},
-    count: u32 = 0,
+    // pulled one token at a time, as Yuku's parser pulls its lexer
+    lex: lexer.Lexer,
     first_offset: u32 = 0,
 
     // the current token, as css-tree's TokenStream keeps it
-    index: u32 = std.math.maxInt(u32),
     tag: Tag = .eof,
     start: u32 = 0,
     end: u32 = 0,
     eof: bool = false,
+    // the token before it, `eof` before the first
+    prev_tag: Tag = .eof,
+    prev_start: u32 = 0,
+    // the innermost open block, an index into `opens`, and where the block the current token closes opens
+    open: u32 = none,
+    closes: u32 = none,
+    opens: std.ArrayList(Open) = .empty,
+    // the closers of the blocks a balanced skip has opened
+    nest: std.ArrayList(Tag) = .empty,
+
+    // each comment once, in order: lexing past `comment_mark` again after a rewind finds none new
+    comments: std.ArrayList(ast.Span) = .empty,
+    comment_mark: u32 = 0,
+    comments_dropped: bool = false,
+    // allocation failed where the parser cannot report it, so `parse` does
+    oom: bool = false,
 
     scratch: std.ArrayList(NodeIndex) = .empty,
     // errors the specs read where css-tree reads none, merged into the diagnostics at the end
@@ -116,79 +177,157 @@ pub const Parser = struct {
     failure: ast.Diagnostic = undefined,
     space: String = .none,
 
-    fn tokenize(p: *Parser) Error!lexer.Scan {
+    fn begin(p: *Parser) Error!void {
         const gpa = p.tree.allocator();
-        var tokens: token.TokenList = .empty;
-        try tokens.ensureTotalCapacity(gpa, tokenCapacity(p.src.len));
-        try p.links.open.ensureTotalCapacity(gpa, 64);
-        const scan = try lexer.tokenize(gpa, &tokens, &p.links, p.src);
-        p.tokens = tokens.items;
-        p.count = @intCast(tokens.items.len);
-        p.first_offset = if (p.count > 0) lexer.bomLen(p.src) else 0;
-
+        // css-tree starts the first token past a byte order mark, and an empty source at 0
+        p.first_offset = if (p.lex.pos < p.src.len) p.lex.pos else 0;
         try p.tree.nodes.ensureTotalCapacity(gpa, p.src.len / 4 + 64);
         try p.tree.extras.ensureTotalCapacity(gpa, p.src.len / 8 + 64);
         try p.scratch.ensureTotalCapacity(gpa, 256);
-
+        try p.opens.ensureTotalCapacity(gpa, p.src.len / 32 + 64);
+        try p.nest.ensureTotalCapacity(gpa, 64);
+        try p.comments.ensureTotalCapacity(gpa, 64);
         p.end = p.first_offset;
         p.next();
-        return scan;
+    }
+
+    // the source again as a token list, for what only the whole list shows
+    fn retokenize(p: *Parser) Error!void {
+        const gpa = p.tree.allocator();
+        var tokens: token.TokenList = .empty;
+        try tokens.ensureTotalCapacity(gpa, p.src.len / 2 + 64);
+        const scan = try lexer.tokenize(gpa, &tokens, p.src);
+        if (p.comments_dropped) {
+            p.comments.clearRetainingCapacity();
+            var start = p.first_offset;
+            for (tokens.items) |t| {
+                if (t.tag == .comment) try p.comments.append(gpa, .{ .start = start, .end = t.end });
+                start = t.end;
+            }
+        }
+        if (scan.suspect) try p.lexErrors(tokens.items);
+    }
+
+    // lexes what parsing left, for its comments and the errors only the tokenizer sees
+    fn drain(p: *Parser) void {
+        p.lex.pos = p.end;
+        while (p.lex.pos < p.src.len) {
+            const start = p.lex.pos;
+            if (p.lex.next() == .comment) p.recordComment(start, p.lex.pos);
+        }
     }
 
     pub fn next(p: *Parser) void {
-        const n = p.index +% 1;
-        if (n < p.count) {
-            p.index = n;
+        if (p.tag != .eof) {
+            p.prev_start = p.tokenStart();
+            p.prev_tag = p.tag;
+        }
+        if (p.lex.pos < p.src.len) {
             p.start = p.end;
-            p.tag = p.tokens[n].tag;
-            p.end = p.tokens[n].end;
+            p.tag = p.lex.next();
+            p.end = p.lex.pos;
+            p.track();
         } else {
             p.eof = true;
-            p.index = p.count;
             p.tag = .eof;
             p.start = @intCast(p.src.len);
             p.end = p.start;
+            p.closes = none;
         }
     }
 
-    // css-tree's `skip`, which leaves `eof` set when it moves back
-    pub fn skipTo(p: *Parser, target: u32) void {
-        if (target < p.count) {
-            p.index = target;
-            p.start = if (target > 0) p.tokens[target - 1].end else 0;
-            p.tag = p.tokens[target].tag;
-            p.end = p.tokens[target].end;
+    // the block structure and comments of the token just lexed
+    inline fn track(p: *Parser) void {
+        p.closes = none;
+        switch (role[@backingInt(p.tag)]) {
+            .plain => {},
+            .opener => p.pushOpen(token.closer[@backingInt(p.tag)], p.start),
+            .closer => if (p.open != none and p.opens.items[p.open].closer == p.tag) {
+                p.closes = p.opens.items[p.open].start;
+                p.open = p.opens.items[p.open].parent;
+            },
+            .comment => p.recordComment(p.start, p.end),
+        }
+    }
+
+    /// Where the current token starts, which orders tokens as their indexes do, though css-tree's
+    /// `skip` back to the first token says 0 for `start`.
+    pub inline fn tokenStart(p: *const Parser) u32 {
+        return if (p.prev_tag == .eof and p.tag != .eof) p.first_offset else p.start;
+    }
+
+    fn pushOpen(p: *Parser, closer: Tag, start: u32) void {
+        const entry: Open = .{ .closer = closer, .start = start, .parent = p.open };
+        if (p.opens.items.len < p.opens.capacity) {
+            p.opens.appendAssumeCapacity(entry);
         } else {
-            p.index = p.count;
-            p.next();
+            p.opens.append(p.tree.allocator(), entry) catch {
+                p.oom = true;
+                return;
+            };
+        }
+        p.open = @intCast(p.opens.items.len - 1);
+    }
+
+    fn recordComment(p: *Parser, start: u32, end: u32) void {
+        if (start < p.comment_mark) return;
+        p.comment_mark = end;
+        if (p.comments.items.len < p.comments.capacity) {
+            p.comments.appendAssumeCapacity(.{ .start = start, .end = end });
+        } else {
+            p.comments.append(p.tree.allocator(), .{ .start = start, .end = end }) catch {
+                p.comments_dropped = true;
+            };
         }
     }
 
-    pub fn lookupType(p: *const Parser, offset: i32) Tag {
-        const i = @as(i64, p.index) + offset;
-        return if (i >= 0 and i < p.count) p.tokens[@intCast(i)].tag else .eof;
+    fn position(p: *const Parser) Position {
+        return .{
+            .end = p.end,
+            .tag = p.tag,
+            .start = p.start,
+            .prev_tag = p.prev_tag,
+            .prev_start = p.prev_start,
+            .open = p.open,
+            .closes = p.closes,
+        };
+    }
+
+    fn restore(p: *Parser, to: Position) void {
+        p.end = to.end;
+        p.lex.pos = to.end;
+        p.tag = to.tag;
+        p.start = to.start;
+        p.prev_tag = to.prev_tag;
+        p.prev_start = to.prev_start;
+        p.open = to.open;
+        p.closes = to.closes;
+    }
+
+    // a lexer over the tokens after the current one, which records nothing
+    fn peek(p: *const Parser) lexer.Lexer {
+        return .{ .src = p.src, .pos = p.end };
+    }
+
+    fn peekType(p: *const Parser) Tag {
+        var l = p.peek();
+        return if (l.pos < p.src.len) l.next() else .eof;
     }
 
     fn lookupNonWsType(p: *const Parser) Tag {
-        var i = p.index;
-        while (i < p.count) : (i += 1) {
-            const tag = p.tokens[i].tag;
+        if (p.tag != .whitespace and p.tag != .comment) return p.tag;
+        var l = p.peek();
+        while (l.pos < p.src.len) {
+            const tag = l.next();
             if (tag != .whitespace and tag != .comment) return tag;
         }
         return .eof;
     }
 
-    fn lookupValue(p: *const Parser, offset: u32, comptime text: []const u8) bool {
-        const i = p.index + offset;
-        if (i >= p.count) return false;
-        const start = if (i > 0) p.tokens[i - 1].end else 0;
-        return std.ascii.eqlIgnoreCase(p.src[start..p.tokens[i].end], text);
-    }
-
-    pub fn tokenStart(p: *const Parser, i: u32) u32 {
-        if (i == p.index) return p.start;
-        if (i > 0) return if (i < p.count) p.tokens[i - 1].end else @intCast(p.src.len);
-        return p.first_offset;
+    fn lookupValue(p: *const Parser, comptime text: []const u8) bool {
+        if (p.tag == .eof) return false;
+        const start = if (p.prev_tag == .eof) 0 else p.tokenStart();
+        return std.ascii.eqlIgnoreCase(p.src[start..p.end], text);
     }
 
     pub inline fn at(p: *const Parser, offset: u32) u8 {
@@ -199,60 +338,185 @@ pub const Parser = struct {
         return p.tag == .delim and p.src[p.start] == c;
     }
 
-    fn isDelimAt(p: *const Parser, comptime c: u8, offset: u32) bool {
-        if (offset == 0) return p.isDelim(c);
-        const i = p.index + offset;
-        return i < p.count and p.tokens[i].tag == .delim and p.src[p.tokens[i - 1].end] == c;
+    /// The first whitespace token from the token at `from` through the current one.
+    pub fn whitespaceSince(p: *const Parser, from: u32) ?ast.Span {
+        std.debug.assert(from <= p.tokenStart() or p.tag == .eof);
+        std.debug.assert(p.tokenStart() <= p.src.len);
+        const last = if (p.tag == .eof) p.src.len else p.tokenStart();
+        var l: lexer.Lexer = .{ .src = p.src, .pos = from };
+        while (l.pos <= last and l.pos < p.src.len) {
+            const start = l.pos;
+            if (l.next() == .whitespace) return .{ .start = start, .end = l.pos };
+        }
+        return null;
     }
 
-    pub fn isBalanceEdge(p: *const Parser, token_index: u32) bool {
-        return p.index < p.count and p.closesBefore(p.index, token_index);
+    fn isNextDelim(p: *const Parser, comptime c: u8) bool {
+        var l = p.peek();
+        return l.pos < p.src.len and l.next() == .delim and p.src[p.end] == c;
     }
 
-    // whether token `i` closes a block opened before token `limit`, which ends a balanced run there
-    inline fn closesBefore(p: *const Parser, i: u32, limit: u32) bool {
-        const t = p.tokens[i];
-        if (t.link == 0 or t.tag.isBlockOpener()) return false;
-        const opener = if (t.link != token.Token.link_far) i - t.link else p.links.partner(i);
-        return opener < limit;
-    }
-
-    // the index of the closer of the block opener `i`, or the token count when it is never closed
-    inline fn closerOf(p: *const Parser, i: u32) u32 {
-        const link = p.tokens[i].link;
-        if (link == 0) return p.count;
-        return if (link != token.Token.link_far) i + link else p.links.partner(i);
+    // whether the current token closes a block opened before `limit`, which ends a balanced run there
+    pub fn isBalanceEdge(p: *const Parser, limit: u32) bool {
+        return p.closes != none and p.closes < limit;
     }
 
     pub fn skipSC(p: *Parser) void {
         while (p.tag == .whitespace or p.tag == .comment) p.next();
     }
 
-    /// Returns whether it passed a `{}` block on the way.
-    pub fn skipUntilBalanced(p: *Parser, start_token: u32, comptime stop: Stop) bool {
-        var cursor = start_token;
-        var block = false;
-        while (cursor < p.count) : (cursor += 1) {
-            if (p.closesBefore(cursor, start_token)) break;
-            const c = p.src[if (cursor > 0) p.tokens[cursor - 1].end else p.first_offset];
-            switch (stop) {
-                .balance_end => {},
-                .left_curly_bracket => if (c == '{') break,
-                .left_curly_bracket_or_semicolon => if (c == '{' or c == ';') break,
-                .exclamation_mark_or_semicolon => if (c == '!' or c == ';') break,
-                .semicolon_included => if (c == ';') {
-                    cursor += 1;
-                    break;
-                },
-            }
-            const tag = p.tokens[cursor].tag;
-            if (tag.isBlockOpener()) {
-                block = block or tag == .left_curly_bracket;
-                cursor = p.closerOf(cursor);
-            }
+    const Balanced = struct {
+        /// Where the run stops: the start of the token it stops at, or the source length.
+        stop: u32,
+        /// Whether it passed a `{}` block on the way.
+        block: bool,
+        /// Where the last string, comment, url or escaped name it passed ends.
+        construct_end: u32,
+    };
+
+    // css-tree's balanced skip from the current token, over bytes rather than tokens: only brackets,
+    // the stop characters, and what can hide them (strings, comments, urls and escapes) matter
+    fn scanBalanced(p: *Parser, comptime stop: Stop, comptime record: bool) Balanced {
+        const src = p.src;
+        const len: u32 = @intCast(src.len);
+        const first = p.tokenStart();
+        // whitespace the current token ends with is its own
+        var result: Balanced = .{ .stop = first, .block = false, .construct_end = if (p.tag == .whitespace) first else p.end };
+        if (p.tag == .eof or p.closes != none) return result;
+        if (stops(stop, src[first])) return result;
+        p.nest.clearRetainingCapacity();
+        var base = p.open;
+        if (p.tag.isBlockOpener()) {
+            result.block = p.tag == .left_curly_bracket;
+            if (base != none) base = p.opens.items[base].parent;
+            p.pushNest(token.closer[@backingInt(p.tag)]);
         }
-        p.skipTo(cursor);
-        return block;
+        const closing: Tag = if (base != none) p.opens.items[base].closer else .eof;
+        const from = p.end;
+        var l: lexer.Lexer = .{ .src = src, .pos = from };
+        var i = from;
+        while (true) {
+            while (i < len and !balance_byte[src[i]]) i += 1;
+            if (i >= len) break;
+            const c = src[i];
+            switch (c) {
+                '(', '[', '{' => {
+                    if (p.nest.items.len == 0) {
+                        if (c == '{') {
+                            if (stops(stop, '{')) break;
+                            result.block = true;
+                        }
+                    }
+                    if (c == '(' and p.urlStart(from, i, result.construct_end)) {
+                        l.pos = l.whitespaceEnd(i + 1);
+                        const quote = l.at(l.pos);
+                        if (quote != '"' and quote != '\'') {
+                            _ = l.url();
+                            i = l.pos;
+                            result.construct_end = i;
+                            continue;
+                        }
+                    }
+                    p.pushNest(switch (c) {
+                        '(' => .right_parenthesis,
+                        '[' => .right_square_bracket,
+                        else => .right_curly_bracket,
+                    });
+                },
+                ')', ']', '}' => {
+                    const tag: Tag = switch (c) {
+                        ')' => .right_parenthesis,
+                        ']' => .right_square_bracket,
+                        else => .right_curly_bracket,
+                    };
+                    if (p.nest.items.len > 0) {
+                        if (p.nest.items[p.nest.items.len - 1] == tag) _ = p.nest.pop();
+                    } else if (tag == closing) break;
+                },
+                ';', '!' => if (p.nest.items.len == 0 and stops(stop, c)) break,
+                '"', '\'' => {
+                    l.pos = i;
+                    _ = l.string(c);
+                    i = l.pos;
+                    result.construct_end = i;
+                    continue;
+                },
+                '/' => if (l.at(i + 1) == '*') {
+                    const close = std.mem.findPos(u8, src, i + 2, "*/");
+                    const end: u32 = if (close) |offset| @intCast(offset + 2) else len;
+                    if (close == null) l.suspect = true;
+                    if (record) p.recordComment(i, end);
+                    i = end;
+                    result.construct_end = i;
+                    continue;
+                },
+                '\\' => if (lexer.validEscape(c, l.at(i + 1))) {
+                    i = l.nameEnd(i);
+                    result.construct_end = i;
+                    continue;
+                } else {
+                    l.suspect = true;
+                },
+                '<' => if (l.at(i + 1) == '!' and l.at(i + 2) == '-' and l.at(i + 3) == '-') {
+                    i += 4;
+                    continue;
+                },
+                else => unreachable,
+            }
+            i += 1;
+        }
+        if (record and l.suspect) p.lex.suspect = true;
+        result.stop = @min(i, len);
+        return result;
+    }
+
+    // whether the `(` at `i` ends a `url(` name that starts a token, given where the scan started
+    // and where its last string, comment, url or escaped name ended
+    fn urlStart(p: *const Parser, from: u32, i: u32, construct_end: u32) bool {
+        if (i < from + 3 or construct_end > i - 3) return false;
+        if (!std.ascii.eqlIgnoreCase(p.src[i - 3 .. i], "url")) return false;
+        if (i - 3 == from) return true;
+        const before = p.src[i - 4];
+        return !lexer.isName(before) and before != '#' and before != '@';
+    }
+
+    fn pushNest(p: *Parser, closer: Tag) void {
+        if (p.nest.items.len < p.nest.capacity) {
+            p.nest.appendAssumeCapacity(closer);
+        } else {
+            p.nest.append(p.tree.allocator(), closer) catch {
+                p.oom = true;
+            };
+        }
+    }
+
+    /// Returns whether it passed a `{}` block on the way.
+    pub fn skipUntilBalanced(p: *Parser, comptime stop: Stop) bool {
+        const run = p.scanBalanced(stop, true);
+        if (p.tag == .eof) {
+            p.eof = true;
+        } else if (run.stop == p.tokenStart()) {
+            // css-tree's `skip` to the token it is at, which starts the first token at 0
+            if (p.prev_tag == .eof) p.start = 0;
+        } else {
+            p.moveTo(run);
+        }
+        if (stop == .semicolon_included and p.tag == .semicolon) p.next();
+        return run.block;
+    }
+
+    // makes the token at `run.stop` current, with the block structure it had at the scan's start
+    fn moveTo(p: *Parser, run: Balanced) void {
+        if (p.tag.isBlockOpener() and p.open != none) p.open = p.opens.items[p.open].parent;
+        // the token before the stop is whitespace when the whitespace before it is no part of a construct
+        var ws = run.stop;
+        while (ws > run.construct_end and lexer.isSpace(p.src[ws - 1])) ws -= 1;
+        p.end = run.stop;
+        p.lex.pos = run.stop;
+        p.tag = .eof;
+        p.next();
+        p.prev_tag = if (ws < run.stop) .whitespace else .delim;
+        p.prev_start = ws;
     }
 
     pub fn eat(p: *Parser, comptime tag: Tag) ParseError!void {
@@ -298,11 +562,12 @@ pub const Parser = struct {
         try p.tree.diagnostics.append(p.tree.allocator(), diagnostic);
     }
 
-    pub const Checkpoint = struct { index: u32, eof: bool, nodes: usize, extras: usize, scratch: usize, spec: usize };
+    pub const Checkpoint = struct { at: Position, eof: bool, nodes: usize, extras: usize, scratch: usize, spec: usize, opens: usize };
 
     pub fn checkpoint(p: *const Parser) Checkpoint {
         return .{
-            .index = p.index,
+            .at = p.position(),
+            .opens = p.opens.items.len,
             .eof = p.eof,
             .nodes = p.tree.nodes.len,
             .extras = p.tree.extras.items.len,
@@ -316,7 +581,11 @@ pub const Parser = struct {
         p.tree.extras.shrinkRetainingCapacity(to.extras);
         p.scratch.shrinkRetainingCapacity(to.scratch);
         p.spec.shrinkRetainingCapacity(to.spec);
-        p.skipTo(to.index);
+        // what was opened since is reachable from no position before it
+        p.opens.shrinkRetainingCapacity(to.opens);
+        p.restore(to.at);
+        // css-tree's `skip` back, which leaves `eof` set, and starts the first token at 0
+        if (p.prev_tag == .eof and p.tag != .eof) p.start = 0;
     }
 
     /// Runs `consumer`; when it fails, rewinds and keeps the input as `Raw` up to `stop`.
@@ -394,10 +663,10 @@ pub const Parser = struct {
     }
 
     // CSS Syntax's tokenizer errors, which css-tree's tokenizer recovers from without one
-    fn lexErrors(p: *Parser) Error!void {
+    fn lexErrors(p: *Parser, tokens: []const token.Token) Error!void {
         const len: u32 = @intCast(p.src.len);
         var start = p.first_offset;
-        for (p.tokens) |t| {
+        for (tokens) |t| {
             defer start = t.end;
             const text = p.src[start..t.end];
             switch (t.tag) {
@@ -449,7 +718,8 @@ pub const Parser = struct {
             error.Syntax => {
                 const failure = p.failure;
                 p.rewind(start);
-                p.skipTo(p.count);
+                while (p.tag != .eof) p.next();
+                p.eof = true;
                 const node = try p.rawFrom(p.first_offset, false);
                 try p.report(failure);
                 return node;
@@ -543,15 +813,13 @@ pub const Parser = struct {
 
     pub fn raw(p: *Parser, comptime stop: Stop, exclude_whitespace: bool) Error!NodeIndex {
         const start = p.start;
-        _ = p.skipUntilBalanced(p.index, stop);
+        _ = p.skipUntilBalanced(stop);
         return p.rawFrom(start, exclude_whitespace);
     }
 
     pub fn rawFrom(p: *Parser, start: u32, exclude_whitespace: bool) Error!NodeIndex {
         var end = p.start;
-        if (exclude_whitespace and p.start > start and p.index > 0 and p.lookupType(-1) == .whitespace) {
-            end = if (p.index > 1) p.tokenStart(p.index - 1) else p.first_offset;
-        }
+        if (exclude_whitespace and p.start > start and p.prev_tag == .whitespace) end = p.prev_start;
         return p.add(.{ .raw = .{ .value = .{ .start = start, .end = end } } }, start, end);
     }
 
@@ -602,8 +870,8 @@ pub const Parser = struct {
 
     // css-tree guesses an unknown at-rule's block holds declarations when a `}` comes before any `{` or at-rule
     fn declarationBlockAhead(p: *const Parser) bool {
-        var i = p.index + 1;
-        while (i < p.count) : (i += 1) switch (p.tokens[i].tag) {
+        var l = p.peek();
+        while (l.pos < p.src.len) switch (l.next()) {
             .right_curly_bracket => return true,
             .left_curly_bracket, .at_keyword => return false,
             else => {},
@@ -689,35 +957,31 @@ pub const Parser = struct {
         return node;
     }
 
-    fn nestedRuleAhead(p: *const Parser) bool {
-        const first = p.index;
-        var i = first;
-        while (i < p.count) : (i += 1) {
-            if (p.closesBefore(i, first)) return false;
-            const tag = p.tokens[i].tag;
-            if (tag == .semicolon) return false;
-            if (tag == .left_curly_bracket) return !p.customPropertyAhead();
-            if (tag.isBlockOpener()) i = p.closerOf(i);
-        }
-        return false;
+    fn nestedRuleAhead(p: *Parser) bool {
+        const run = p.scanBalanced(.left_curly_bracket_or_semicolon, false);
+        return run.stop < p.src.len and p.src[run.stop] == '{' and !p.customPropertyAhead();
     }
 
     fn customPropertyAhead(p: *const Parser) bool {
         if (p.tag != .ident or p.end - p.start < 2 or p.src[p.start] != '-' or p.src[p.start + 1] != '-') return false;
-        var i = p.index + 1;
-        while (i < p.count and (p.tokens[i].tag == .whitespace or p.tokens[i].tag == .comment)) i += 1;
-        return i < p.count and p.tokens[i].tag == .colon;
+        var l = p.peek();
+        while (l.pos < p.src.len) switch (l.next()) {
+            .whitespace, .comment => {},
+            .colon => return true,
+            else => return false,
+        };
+        return false;
     }
 
     /// Null when `nested` and the value holds a `{}` block, which makes the statement a nested rule.
     fn declaration(p: *Parser, nested: bool) ParseError!NodeIndex {
         const start = p.start;
-        const start_token = p.index;
+        const first = p.tokenStart();
         const property = try p.parseProperty();
         const custom = property.end - property.start >= 2 and p.src[property.start] == '-' and p.src[property.start + 1] == '-';
         p.skipSC();
         try p.eat(.colon);
-        const value_token = p.index;
+        const value_token = p.tokenStart();
         if (!custom) p.skipSC();
         const parse_value = if (custom) p.options.parse_custom_property else p.options.parse_value;
         const value = if (parse_value)
@@ -732,7 +996,7 @@ pub const Parser = struct {
             important = try p.consume(.ident);
             p.skipSC();
         }
-        if (!p.eof and p.tag != .semicolon and !p.isBalanceEdge(start_token)) return p.fail(.unexpected_input, null);
+        if (!p.eof and p.tag != .semicolon and !p.isBalanceEdge(first)) return p.fail(.unexpected_input, null);
         return p.add(.{ .declaration = .{ .important = important, .property = property, .value = value } }, start, p.start);
     }
 
@@ -740,7 +1004,7 @@ pub const Parser = struct {
     pub fn rawValue(p: *Parser, custom: bool, nested: bool) Error!NodeIndex {
         std.debug.assert(custom or (p.tag != .whitespace and p.tag != .comment));
         const start = p.start;
-        const block = p.skipUntilBalanced(p.index, .exclamation_mark_or_semicolon);
+        const block = p.skipUntilBalanced(.exclamation_mark_or_semicolon);
         std.debug.assert(start <= p.start);
         if (block and nested and !custom) return .null;
         return p.rawFrom(start, !custom);
@@ -839,7 +1103,7 @@ pub const Parser = struct {
         return switch (p.tag) {
             .left_square_bracket => try p.attributeSelector(),
             .hash => try p.idSelector(),
-            .colon => try p.pseudo(p.lookupType(1) == .colon),
+            .colon => try p.pseudo(p.peekType() == .colon),
             .ident => try p.typeSelector(),
             .number, .percentage => try p.percentage(),
             .dimension => if (p.src[p.start] == '.') p.fail(.identifier_expected, p.start + 1) else null,
@@ -847,7 +1111,7 @@ pub const Parser = struct {
                 '+', '>', '~', '/' => try p.combinator(),
                 '.' => try p.classSelector(),
                 '*' => try p.typeSelector(),
-                '|' => if (p.isDelimAt('|', 1)) try p.combinator() else try p.typeSelector(),
+                '|' => if (p.isNextDelim('|')) try p.combinator() else try p.typeSelector(),
                 '#' => try p.idSelector(),
                 '&' => try p.nestingSelector(),
                 else => null,
@@ -863,7 +1127,7 @@ pub const Parser = struct {
             try p.identOrAsterisk();
         } else {
             try p.identOrAsterisk();
-            if (p.isDelim('|') and !p.isDelimAt('|', 1)) {
+            if (p.isDelim('|') and !p.isNextDelim('|')) {
                 p.next();
                 try p.identOrAsterisk();
             }
@@ -907,7 +1171,7 @@ pub const Parser = struct {
             },
             '/' => {
                 p.next();
-                if (p.tag != .ident or !p.lookupValue(0, "deep")) return p.fail(.deep_expected, null);
+                if (p.tag != .ident or !p.lookupValue("deep")) return p.fail(.deep_expected, null);
                 p.next();
                 try p.eatDelim('/', .solidus_expected);
             },
@@ -1111,11 +1375,11 @@ pub const Parser = struct {
     fn nth(p: *Parser) ParseError!NodeIndex {
         p.skipSC();
         const start = p.start;
-        const value = if (p.lookupValue(0, "odd") or p.lookupValue(0, "even")) try p.identifier() else try p.anPlusB();
+        const value = if (p.lookupValue("odd") or p.lookupValue("even")) try p.identifier() else try p.anPlusB();
         var end = p.start;
         p.skipSC();
         var of: NodeIndex = .null;
-        if (p.lookupValue(0, "of")) {
+        if (p.lookupValue("of")) {
             p.next();
             of = try p.selectorList(false);
             end = p.start;
@@ -1149,7 +1413,7 @@ pub const Parser = struct {
                     b = .{ .start = start + 2, .end = p.start };
                 },
             }
-        } else if (p.tag == .ident or (p.isDelim('+') and p.lookupType(1) == .ident)) {
+        } else if (p.tag == .ident or (p.isDelim('+') and p.peekType() == .ident)) {
             var sign: u32 = 0;
             a = try p.pooled("1");
             if (p.isDelim('+')) {
@@ -1223,30 +1487,21 @@ pub const Parser = struct {
 
     // the `B` of `An+B` after the `n`: a signed integer, or a sign then an integer
     fn anPlusBTail(p: *Parser) ParseError!String {
-        var offset: u32 = 0;
+        const before = p.position();
+        const eof = p.eof;
         var sign: u8 = 0;
-        var tag = p.tag;
-        while (tag == .whitespace or tag == .comment) {
-            offset += 1;
-            tag = p.lookupType(@intCast(offset));
-        }
-        if (tag != .number) {
-            if (p.isDelimAt('+', offset) or p.isDelimAt('-', offset)) {
-                sign = if (p.isDelimAt('+', offset)) '+' else '-';
-                while (true) {
-                    offset += 1;
-                    tag = p.lookupType(@intCast(offset));
-                    if (tag != .whitespace and tag != .comment) break;
-                }
-                if (tag != .number) {
-                    p.skipTo(p.index + offset);
-                    try p.checkInteger(0, true);
-                }
-            } else {
+        p.skipSC();
+        if (p.tag != .number) {
+            if (!p.isDelim('+') and !p.isDelim('-')) {
+                p.restore(before);
+                p.eof = eof;
                 return .none;
             }
+            sign = p.src[p.start];
+            p.next();
+            p.skipSC();
+            if (p.tag != .number) try p.checkInteger(0, true);
         }
-        if (offset > 0) p.skipTo(p.index + offset);
         if (sign == 0) {
             const c = p.at(p.start);
             if (c != '+' and c != '-') return p.fail(.number_sign_expected, null);
