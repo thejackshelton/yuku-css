@@ -92,20 +92,22 @@ css-tree's own fixtures run as the suite, `bun test test/suite.test.ts`, refresh
 
 ## Benchmark
 
-Parsing the 252 style sheets of [test/corpus](test/corpus) against [css-tree](https://github.com/csstree/csstree), set to keep values and at-rule preludes raw as yuku-css does and to give positions, and [PostCSS](https://postcss.org), which leaves selectors as strings. `yuku-css loc` parses with `positions: true`, so it builds the very tree css-tree does.
+Parsing the 231 style sheets of [test/corpus](test/corpus) that yuku-css, css-tree and PostCSS all parse without an error, against [css-tree](https://github.com/csstree/csstree), set to keep values and at-rule preludes raw as yuku-css does and to give positions, and [PostCSS](https://postcss.org), which leaves selectors as strings. `yuku-css loc` parses with `positions: true`, so it builds the very tree css-tree does; `yuku-css` gives offsets in its place.
 
 ![Time per file to parse with yuku-css, css-tree, and PostCSS](bench/chart.svg)
 
-Median time per file over 3 runs, each in a fresh Node.js 24 process on an Apple M5 Pro. Run it with `bun run bench`, `node bench/index.ts tokenize` to time tokenizing, or `node bench/index.ts generate` to time printing css-tree's tree of each file, values parsed:
+Each ratio is against the fastest bar; against `yuku-css loc`, which builds the same tree, css-tree takes 2.95× as long. Median time per file over 3 runs, each in a fresh Node.js 24 process on an Apple M5 Pro. Each process times its files smallest first, since css-tree's token buffers keep the size of the largest file it has parsed. Run it with `bun run bench`, `node bench/index.ts tokenize` to time tokenizing, or `node bench/index.ts generate` to time printing css-tree's tree of each file, values parsed:
 
-| generator | per file |
+| | per file |
 |---|---|
-| yuku-css | 10.0 µs |
-| css-tree | 18.4 µs |
-| yuku-css, with a source map | 23.7 µs |
-| css-tree, with a source map | 53.5 µs |
+| yuku-css `tokenize` | 4.0 µs |
+| css-tree `tokenize` | 6.6 µs |
+| yuku-css `generate` | 5.8 µs |
+| css-tree `generate` | 10.9 µs |
+| yuku-css `generate`, with a source map | 14.4 µs |
+| css-tree `generate`, with a source map | 29.6 µs |
 
-[docs/benchmark.md](docs/benchmark.md) goes further: real-world and synthetic CSS by size, Bun and Chromium, css-tree's defaults, Lightning CSS, cold start, memory, and bundle size. Run it with `bun run bench:full`.
+[docs/benchmark.md](docs/benchmark.md) goes further: [Lightning CSS](https://lightningcss.dev) first, then real-world and synthetic CSS by size, Bun and Chromium, css-tree's defaults, cold start, memory, and bundle size. Run it with `bun run bench:full`.
 
 ## Development
 
