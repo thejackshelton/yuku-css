@@ -584,6 +584,26 @@ export interface DeclarationMatch extends MatchResult {
   readonly end: number;
 }
 
+// fills `match` from the entries at `at`, each open entry sized by the count the wasm wrote, and
+// returns the entry past them
+function fill(sheet: Sheet, match: MatchNode[], at: number): number {
+  const words = sheet.words;
+  const source = sheet.source;
+  for (let i = 0; i < match.length; i++, at += 4) {
+    const kind = words[at]! & 0xff;
+    const syntax = words[at + 1]!;
+    if (kind === ENTRY.token) {
+      match[i] = { syntax: syntax === NONE ? null : syntaxAt(syntax), token: source.slice(words[at + 2]!, words[at + 3]!), node: null };
+    } else {
+      const inner: MatchNode[] = new Array(words[at + 3]!);
+      match[i] = { syntax: syntaxAt(syntax), match: inner };
+      // past the inner entries and the close entry
+      at = fill(sheet, inner, at + 4);
+    }
+  }
+  return at;
+}
+
 // a declaration's result, read from the words the WebAssembly wrote when first asked
 class Declaration implements DeclarationMatch {
   declare private readonly sheet: Sheet;
@@ -649,30 +669,9 @@ class Declaration implements DeclarationMatch {
   private buildTree(): MatchNode {
     const sheet = this.sheet;
     const descriptor = this.word(RECORD.wide) ? null : this.descriptor();
-    const root: MatchNode = { syntax: descriptor === null ? null : sheet.lexer.referenceOf(descriptor), match: [] };
-    const stack: { match: MatchNode[] }[] = [root];
-    let host = root as { match: MatchNode[] };
-    const words = sheet.words;
-    const end = this.word(RECORD.entries) + 4 * this.word(RECORD.entryCount);
-    for (let at = this.word(RECORD.entries); at < end; at += 4) {
-      const kind = words[at]! & 0xff;
-      const syntax = words[at + 1]!;
-      if (kind === ENTRY.token) {
-        host.match.push({
-          syntax: syntax === NONE ? null : syntaxAt(syntax),
-          token: sheet.source.slice(sheet.at(words[at + 2]!), sheet.at(words[at + 3]!)),
-          node: null,
-        });
-      } else if (kind === ENTRY.open) {
-        const next = { syntax: syntaxAt(syntax), match: [] as MatchNode[] };
-        host.match.push(next);
-        stack.push(next);
-        host = next;
-      } else {
-        stack.pop();
-        host = stack[stack.length - 1]!;
-      }
-    }
+    const match: MatchNode[] = new Array(this.word(RECORD.children));
+    const root: MatchNode = { syntax: descriptor === null ? null : sheet.lexer.referenceOf(descriptor), match };
+    fill(sheet, match, this.word(RECORD.entries));
     return root;
   }
 

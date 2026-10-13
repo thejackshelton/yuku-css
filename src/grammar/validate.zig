@@ -37,6 +37,9 @@ pub const Record = enum(u32) {
     entry_count,
     reference,
     wide,
+    /// How many entries the root of the match tree holds; an open entry holds its own count in
+    /// its last word.
+    children,
 };
 
 pub const record_words = @typeInfo(Record).@"enum".field_names.len;
@@ -278,6 +281,37 @@ fn matchInto(
         };
         at = c.prev;
     }
+    record[@backingInt(Record.children)] = countChildren(entries.items[start..]);
+}
+
+// sets each open entry's last word to how many entries it holds, and returns the root's count
+fn countChildren(entries: []u32) u32 {
+    assert(entries.len % 4 == 0);
+    return countFrom(entries, 0, entries.len);
+}
+
+// the entries directly inside `start..end`, setting the count of each open entry among them
+fn countFrom(entries: []u32, start: usize, end: usize) u32 {
+    assert(start <= end and end <= entries.len);
+    var count: u32 = 0;
+    var at = start;
+    while (at < end) : (at += 4) {
+        count += 1;
+        if (entries[at] & 0xFF != @backingInt(match_.Entry.open)) continue;
+        // the open entry's own close is where its depth returns to zero
+        var depth: u32 = 1;
+        var close = at + 4;
+        while (close < end) : (close += 4) {
+            const kind = entries[close] & 0xFF;
+            if (kind == @backingInt(match_.Entry.open)) depth += 1;
+            if (kind == @backingInt(match_.Entry.close)) depth -= 1;
+            if (depth == 0) break;
+        }
+        assert(close < end);
+        entries[at + 3] = countFrom(entries, at + 4, close);
+        at = close;
+    }
+    return count;
 }
 
 test propertyName {

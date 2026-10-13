@@ -54,6 +54,7 @@ export const RECORD = {
   entryCount: 9,
   reference: 10,
   wide: 11,
+  children: 12,
 } as const;
-export const RECORD_WORDS = 12;
+export const RECORD_WORDS = 13;
 export const SHEET_HEADER_WORDS = 3;
