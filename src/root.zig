@@ -3,6 +3,7 @@ pub const token = @import("token.zig");
 pub const lexer = @import("lexer.zig");
 pub const transfer = @import("transfer.zig");
 pub const parser = @import("parser.zig");
+pub const codegen = @import("codegen/root.zig");
 pub const parse = parser.parse;
 pub const tokenize = parser.tokenize;
 
@@ -17,4 +18,5 @@ test {
     _ = @import("syntax/atrule/import.zig");
     _ = @import("syntax/atrule/layer.zig");
     _ = @import("syntax/atrule/scope.zig");
+    _ = codegen;
 }
