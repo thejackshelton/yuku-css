@@ -135,10 +135,17 @@ fn padOperator(p: *Parser, node: NodeIndex, comptime side: Side) Error!void {
     const last = text[text.len - 1];
     if (last != '+' and last != '-') return;
     var buffer: [3]u8 = undefined;
-    const padded = switch (side) {
-        .before => std.fmt.bufPrint(&buffer, " {s}", .{text}),
-        .after => std.fmt.bufPrint(&buffer, "{s} ", .{text}),
-    } catch unreachable;
+    const padded = buffer[0 .. text.len + 1];
+    switch (side) {
+        .before => {
+            buffer[0] = ' ';
+            @memcpy(buffer[1..][0..text.len], text);
+        },
+        .after => {
+            @memcpy(buffer[0..text.len], text);
+            buffer[text.len] = ' ';
+        },
+    }
     std.debug.assert(padded.len == text.len + 1);
     data.operator.value = try p.pooled(padded);
 }
