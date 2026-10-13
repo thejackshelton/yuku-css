@@ -36,8 +36,8 @@ const PARSERS: Parser[] = [
     color: "#3A86FF",
     async load() {
       const { parse } = await import("css-tree");
-      // selectors and values parsed, at-rule preludes kept raw, as yuku-css does
-      const options = { positions: true, parseAtrulePrelude: false };
+      // selectors, values and at-rule preludes parsed, as yuku-css does
+      const options = { positions: true };
       return (source) => parse(source, options);
     },
   },

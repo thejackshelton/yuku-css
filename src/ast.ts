@@ -44,8 +44,8 @@ export type CDC<P extends Position = Offsets> = P & { type: "CDC" };
 export type Atrule<P extends Position = Offsets> = P & {
   type: "Atrule";
   name: string;
-  /** Kept as written for now. */
-  prelude: Raw<P> | null;
+  /** A `Raw` when the prelude does not parse, or with `parseAtrulePrelude: false`. */
+  prelude: AtrulePrelude<P> | Raw<P> | null;
   block: Block<P> | null;
 };
 
@@ -243,6 +243,98 @@ export type Ratio<P extends Position = Offsets> = P & {
 /** The `" "` css-tree places in an empty custom property value, or `var()` fallback, that has whitespace. */
 export type WhiteSpace<P extends Position = Offsets> = P & { type: "WhiteSpace"; value: " " };
 
+/**
+ * An at-rule's prelude: for `@media`, a `MediaQueryList`; for `@supports`, a `Condition`; for
+ * `@container`, an optional name `Identifier` and a `Condition`; for `@import`, a `StringNode` or
+ * `Url`, then `layer` or a `layer()` and a `supports()` `FunctionNode`, then a `MediaQueryList`; for
+ * `@layer`, a `LayerList`; for `@scope`, a `Scope`; for `@page` and `@nest`, a `SelectorList`; for
+ * any other, component values.
+ */
+export type AtrulePrelude<P extends Position = Offsets> = P & {
+  type: "AtrulePrelude";
+  children: (MediaQueryList<P> | Condition<P> | LayerList<P> | Scope<P> | SelectorList<P> | ValueChild<P>)[];
+};
+
+export type MediaQueryList<P extends Position = Offsets> = P & { type: "MediaQueryList"; children: MediaQuery<P>[] };
+
+export type MediaQuery<P extends Position = Offsets> = P & {
+  type: "MediaQuery";
+  /** Lowercased. */
+  modifier: "not" | "only" | null;
+  mediaType: string | null;
+  condition: Condition<P> | null;
+};
+
+export type ConditionKind = "media" | "supports" | "container";
+
+/** Terms, the `and`, `or` and `not` between them as identifiers, and conditions in parentheses. */
+export type Condition<P extends Position = Offsets> = P & {
+  type: "Condition";
+  kind: ConditionKind;
+  children: (
+    | Identifier<P>
+    | Feature<P>
+    | FeatureRange<P>
+    | FeatureFunction<P>
+    | GeneralEnclosed<P>
+    | SupportsDeclaration<P>
+    | Condition<P>
+  )[];
+};
+
+/** `(name)` or `(name: value)`. */
+export type Feature<P extends Position = Offsets> = P & {
+  type: "Feature";
+  kind: ConditionKind;
+  name: string;
+  value: NumberNode<P> | Dimension<P> | Identifier<P> | Ratio<P> | FunctionNode<P> | null;
+};
+
+export type FeatureRangeTerm<P extends Position = Offsets> = NumberNode<P> | Dimension<P> | Identifier<P> | Ratio<P> | FunctionNode<P>;
+
+/** `(left < middle)` or `(left < middle < right)`. */
+export type FeatureRange<P extends Position = Offsets> = P & {
+  type: "FeatureRange";
+  kind: ConditionKind;
+  left: FeatureRangeTerm<P>;
+  leftComparison: "<" | "<=" | ">" | ">=" | "=";
+  middle: FeatureRangeTerm<P>;
+  rightComparison: "<" | "<=" | ">" | ">=" | "=" | null;
+  right: FeatureRangeTerm<P> | null;
+};
+
+/** `selector()` in `@supports`, `style()` in `@container`. */
+export type FeatureFunction<P extends Position = Offsets> = P & {
+  type: "FeatureFunction";
+  kind: ConditionKind;
+  /** As written, without `(`. */
+  feature: string;
+  value: Selector<P> | Declaration<P> | Raw<P>;
+};
+
+/** A function or parentheses no other term reads; its contents a `Raw` when they do not parse. */
+export type GeneralEnclosed<P extends Position = Offsets> = P & {
+  type: "GeneralEnclosed";
+  kind: ConditionKind;
+  /** Null for parentheses. */
+  function: string | null;
+  children: ValueChild<P>[];
+};
+
+export type SupportsDeclaration<P extends Position = Offsets> = P & { type: "SupportsDeclaration"; declaration: Declaration<P> };
+
+/** A layer name as written, such as `a.b`. */
+export type Layer<P extends Position = Offsets> = P & { type: "Layer"; name: string };
+
+export type LayerList<P extends Position = Offsets> = P & { type: "LayerList"; children: Layer<P>[] };
+
+/** `@scope`'s root and limit selectors, each a `Raw` when it does not parse. */
+export type Scope<P extends Position = Offsets> = P & {
+  type: "Scope";
+  root: SelectorList<P> | Raw<P> | null;
+  limit: SelectorList<P> | Raw<P> | null;
+};
+
 export type CssNode<P extends Position = Offsets> =
   | StyleSheet<P>
   | Comment<P>
@@ -274,7 +366,19 @@ export type CssNode<P extends Position = Offsets> =
   | Brackets<P>
   | UnicodeRange<P>
   | Ratio<P>
-  | WhiteSpace<P>;
+  | WhiteSpace<P>
+  | AtrulePrelude<P>
+  | MediaQueryList<P>
+  | MediaQuery<P>
+  | Condition<P>
+  | Feature<P>
+  | FeatureRange<P>
+  | FeatureFunction<P>
+  | GeneralEnclosed<P>
+  | SupportsDeclaration<P>
+  | Layer<P>
+  | LayerList<P>
+  | Scope<P>;
 
 /** A problem in the source, in the shape Yuku gives it. */
 export interface Diagnostic extends Offsets {
@@ -291,12 +395,9 @@ export interface Diagnostic extends Offsets {
 export interface Contexts<P extends Position = Offsets> {
   stylesheet: StyleSheet<P>;
   atrule: Atrule<P>;
-  /** Kept as written for now. */
-  atrulePrelude: Raw<P>;
-  /** Kept as written for now. */
-  mediaQueryList: Raw<P>;
-  /** Kept as written for now. */
-  mediaQuery: Raw<P>;
+  atrulePrelude: AtrulePrelude<P>;
+  mediaQueryList: MediaQueryList<P>;
+  mediaQuery: MediaQuery<P>;
   rule: Rule<P>;
   selectorList: SelectorList<P>;
   selector: Selector<P>;

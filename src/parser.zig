@@ -6,6 +6,8 @@ const ast = @import("ast.zig");
 const token = @import("token.zig");
 const lexer = @import("lexer.zig");
 const values = @import("syntax/value.zig");
+const atrules = @import("syntax/atrule.zig");
+const media_queries = @import("syntax/media_query.zig");
 
 const Allocator = std.mem.Allocator;
 const NodeIndex = ast.NodeIndex;
@@ -29,6 +31,8 @@ pub const Context = enum(u4) {
     value,
 };
 
+pub const Atrule = atrules.Atrule;
+
 pub const Options = struct {
     /// When false, a rule's prelude is a `Raw`.
     parse_rule_prelude: bool = true,
@@ -36,9 +40,13 @@ pub const Options = struct {
     parse_value: bool = true,
     /// When true, a custom property's value, and a `var()` fallback, is a `Value`, not a `Raw`.
     parse_custom_property: bool = false,
+    /// When false, an at-rule's prelude is a `Raw`.
+    parse_atrule_prelude: bool = true,
     context: Context = .stylesheet,
     /// Record where each line starts, for `loc`.
     lines: bool = false,
+    /// The at-rule whose prelude the `atrule_prelude` context reads.
+    atrule: Atrule = .unknown,
 };
 
 pub const Error = error{OutOfMemory};
@@ -713,7 +721,9 @@ pub const Parser = struct {
         return range;
     }
 
-    fn spanOfList(p: *const Parser, range: ast.IndexRange) ast.Span {
+    /// css-tree's `getLocationFromList`: from the first child to the last, or empty at the current
+    /// token.
+    pub fn spanOfList(p: *const Parser, range: ast.IndexRange) ast.Span {
         if (range.len == 0) return .{ .start = p.start, .end = p.start };
         const children = p.tree.extra(range);
         const spans = p.tree.nodes.items(.span);
@@ -724,7 +734,7 @@ pub const Parser = struct {
         return p.tree.addString(text);
     }
 
-    fn specError(p: *Parser, message: Message, start: u32, end: u32) Error!void {
+    pub fn specError(p: *Parser, message: Message, start: u32, end: u32) Error!void {
         try p.spec.append(p.tree.allocator(), .{ .message = message, .span = .{ .start = start, .end = end } });
     }
 
@@ -829,10 +839,9 @@ pub const Parser = struct {
             .declaration_list => p.declarationList(),
             .declaration => p.declaration(false),
             .value => values.value(p),
-            .atrule_prelude, .media_query_list, .media_query => {
-                p.skipSC();
-                return p.raw(.balance_end, true);
-            },
+            .atrule_prelude => atrules.prelude(p, p.options.atrule),
+            .media_query_list => media_queries.list(p),
+            .media_query => media_queries.query(p),
         };
     }
 
@@ -918,7 +927,13 @@ pub const Parser = struct {
         p.skipSC();
         var prelude: NodeIndex = .null;
         if (!p.eof and p.tag != .left_curly_bracket and p.tag != .semicolon) {
-            prelude = try p.raw(.left_curly_bracket_or_semicolon, true);
+            if (p.options.parse_atrule_prelude) {
+                const known: Atrule = .fromName(p.src[name.start..name.end]);
+                const stop: Stop = .left_curly_bracket_or_semicolon;
+                prelude = try p.withFallback(atrules.prelude, .{known}, stop, true);
+            } else {
+                prelude = try p.raw(.left_curly_bracket_or_semicolon, true);
+            }
             p.skipSC();
         }
         var block: NodeIndex = .null;
@@ -1062,7 +1077,7 @@ pub const Parser = struct {
     }
 
     /// Null when `nested` and the value holds a `{}` block, which makes the statement a nested rule.
-    fn declaration(p: *Parser, nested: bool) ParseError!NodeIndex {
+    pub fn declaration(p: *Parser, nested: bool) ParseError!NodeIndex {
         const start = p.start;
         const first = p.tokenStart();
         const property = try p.parseProperty();
@@ -1115,7 +1130,7 @@ pub const Parser = struct {
     }
 
     /// `relative`: a selector may start with a combinator, as in `:has()` and nested rules.
-    fn selectorList(p: *Parser, relative: bool) ParseError!NodeIndex {
+    pub fn selectorList(p: *Parser, relative: bool) ParseError!NodeIndex {
         const base = p.scratch.items.len;
         while (!p.eof) {
             try p.push(try p.selector(relative));
@@ -1128,7 +1143,7 @@ pub const Parser = struct {
     }
 
     // what Selectors 4's grammar rejects and css-tree reads keeps css-tree's tree, with a spec error
-    fn selector(p: *Parser, relative: bool) ParseError!NodeIndex {
+    pub fn selector(p: *Parser, relative: bool) ParseError!NodeIndex {
         const base = p.scratch.items.len;
         var space = false;
         var after_combinator = false;
@@ -1637,6 +1652,7 @@ fn expected(comptime tag: Tag) Message {
         .left_square_bracket => .left_square_bracket_expected,
         .right_square_bracket => .right_square_bracket_expected,
         .right_parenthesis => .right_parenthesis_expected,
+        .left_parenthesis => .left_parenthesis_expected,
         .left_curly_bracket => .left_curly_bracket_expected,
         .right_curly_bracket => .right_curly_bracket_expected,
         .at_keyword => .at_keyword_expected,

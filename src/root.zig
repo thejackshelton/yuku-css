@@ -10,4 +10,11 @@ test {
     _ = @import("lexer.zig");
     _ = parser;
     _ = transfer;
+    _ = @import("syntax/atrule.zig");
+    _ = @import("syntax/media_query.zig");
+    _ = @import("syntax/condition.zig");
+    _ = @import("syntax/atrule/container.zig");
+    _ = @import("syntax/atrule/import.zig");
+    _ = @import("syntax/atrule/layer.zig");
+    _ = @import("syntax/atrule/scope.zig");
 }

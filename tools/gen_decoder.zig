@@ -15,6 +15,22 @@ pub fn main(init: std.process.Init) !void {
     try stdout.interface.flush();
 }
 
+// the enums of node fields, each decoded through a table of its `strings`
+const enums = .{ ast.Matcher, ast.MediaModifier, ast.ConditionKind, ast.Comparison };
+
+fn enumTable(comptime E: type) []const u8 {
+    comptime {
+        const name = @typeName(E);
+        const short = name[(std.mem.findScalarLast(u8, name, '.') orelse return name) + 1 ..];
+        var out: []const u8 = "";
+        for (short, 0..) |c, i| {
+            if (i > 0 and std.ascii.isUpper(c)) out = out ++ "_";
+            out = out ++ &[_]u8{std.ascii.toUpper(c)};
+        }
+        return out;
+    }
+}
+
 // css-tree's types that pascal casing gets wrong
 fn typeName(comptime name: []const u8) []const u8 {
     if (comptime std.mem.eql(u8, name, "cdo")) return "CDO";
@@ -30,6 +46,8 @@ fn isNullable(comptime tag: []const u8, comptime field: []const u8) bool {
         .{ "pseudo_element_selector", "children" },
         .{ "an_plus_b", "a" },
         .{ "an_plus_b", "b" },
+        .{ "media_query", "media_type" },
+        .{ "general_enclosed", "function" },
     };
     inline for (nullable) |entry| {
         if (comptime std.mem.eql(u8, entry[0], tag) and std.mem.eql(u8, entry[1], field)) return true;
@@ -49,16 +67,24 @@ fn generate(w: *Writer) Writer.Error!void {
     try writeLines(w);
     try writeDecode(w);
     try writeDecodeTokens(w);
-    try w.writeAll("export { decode, decodeTokens, tokenNames, tokenTypes };\n");
+    try w.writeAll("export { atrules, decode, decodeTokens, tokenNames, tokenTypes };\n");
 }
 
 fn writeTables(w: *Writer) !void {
-    try w.writeAll("const MATCHERS = [");
-    for (ast.Matcher.strings, 0..) |matcher, i| {
-        if (i > 0) try w.writeAll(", ");
-        if (matcher) |text| try w.print("\"{s}\"", .{text}) else try w.writeAll("null");
+    inline for (enums) |E| {
+        try w.print("const {s} = [", .{comptime enumTable(E)});
+        for (E.strings, 0..) |text, i| {
+            if (i > 0) try w.writeAll(", ");
+            if (text) |t| try w.print("\"{s}\"", .{t}) else try w.writeAll("null");
+        }
+        try w.writeAll("];\n");
     }
-    try w.writeAll("];\nconst MESSAGES = [\n");
+    try w.writeAll("const atrules = Object.freeze({\n");
+    inline for (comptime std.enums.values(css.parser.Atrule)) |name| {
+        if (name == .unknown) continue;
+        try w.print("  \"{s}\": {d},\n", .{ comptime name.text(), @backingInt(name) });
+    }
+    try w.writeAll("});\nconst MESSAGES = [\n");
     inline for (comptime std.enums.values(ast.Message)) |message| {
         try w.print("  \"{f}\",\n", .{std.zig.fmtString(message.text())});
     }
@@ -228,7 +254,13 @@ fn writeDecode(w: *Writer) !void {
         \\  const diagnostics = new Array(diagCount);
         \\  for (let j = 0; j < diagCount; j++) {{
         \\    const d = _dBase + j * {[stride]d};
-        \\    diagnostics[j] = {{ severity: "error", message: MESSAGES[_u32[d + {[m]d}]], path, start: _p(_u32[d + {[s]d}]), end: _p(_u32[d + {[e]d}]), labels: [], help: null }};
+        \\    const a = _u32[d + {[a]d}], text = MESSAGES[_u32[d + {[m]d}]];
+        \\    const b = _u32[d + {[a]d} + 1];
+        \\    // diagnostic offsets are bytes, so a source argument is mapped as they are
+        \\    const argument = a === NULL ? "" : a >= _srcLen ? str(a, b) : str(_p(a), _p(b));
+        \\    const message = a === NULL ? text : text.replace("{{}}", argument);
+        \\    const start = _p(_u32[d + {[s]d}]), end = _p(_u32[d + {[e]d}]);
+        \\    diagnostics[j] = {{ severity: "error", message, path, start, end, labels: [], help: null }};
         \\  }}
         \\  const spans = commentCount === 0 ? null : new Int32Array(commentCount * 2);
         \\  for (let j = 0; j < commentCount * 2; j++) spans[j] = _p(_u32[commentBase + j]);
@@ -262,6 +294,7 @@ fn writeDecode(w: *Writer) !void {
         .m = rt.DIAGNOSTIC_MESSAGE_U32,
         .s = rt.DIAGNOSTIC_START_U32,
         .e = rt.DIAGNOSTIC_END_U32,
+        .a = rt.DIAGNOSTIC_ARGUMENT_U32,
         .tstride = rt.TOKEN_SIZE / 4,
         .ttag = rt.TOKEN_TAG_U32,
         .tend = rt.TOKEN_END_U32,
@@ -341,10 +374,10 @@ fn writeCase(w: *Writer, comptime mode: Mode, comptime tag: usize, comptime name
                 if (nullable) try w.print("f{d} === NULL ? null : ", .{s});
                 try w.print("str(f{d}, f{d})", .{ s, s + 1 });
             }
-        } else if (Field == ast.Matcher) {
+        } else if (@typeInfo(Field) == .@"enum" and @hasDecl(Field, "strings")) {
             const bit = comptime rt.flagBitForField(T, i);
             const mask = comptime (1 << rt.enumBitWidth(Field)) - 1;
-            try w.print("MATCHERS[(flags >> {d}) & {d}]", .{ bit, mask });
+            try w.print("{s}[(flags >> {d}) & {d}]", .{ comptime enumTable(Field), bit, mask });
         } else {
             @compileError("no decoder for " ++ @typeName(Field));
         }

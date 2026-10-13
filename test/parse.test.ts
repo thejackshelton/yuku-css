@@ -132,9 +132,35 @@ describe("at-rules", () => {
       start: 0,
       end: 26,
       name: "import",
-      prelude: { type: "Raw", start: 8, end: 25, value: "url(a.css) screen" },
+      prelude: {
+        type: "AtrulePrelude",
+        start: 8,
+        end: 25,
+        children: [
+          { type: "Url", start: 8, end: 18, value: "a.css" },
+          {
+            type: "MediaQueryList",
+            start: 19,
+            end: 25,
+            children: [{ type: "MediaQuery", start: 19, end: 25, modifier: null, mediaType: "screen", condition: null }],
+          },
+        ],
+      },
       block: null,
     });
+    const raw = parse("@import url(a.css) screen;", { parseAtrulePrelude: false }).ast.children[0] as Atrule;
+    expect(raw.prelude).toEqual({ type: "Raw", start: 8, end: 25, value: "url(a.css) screen" });
+  });
+
+  test("an unknown feature function is named in its error, past non-ASCII text", () => {
+    expect(errors("é{} @supports fé(a: b) {}")).toEqual([["Unknown feature fé()", 17], ["Unexpected input", 18]]);
+  });
+
+  test("a prelude of the atrulePrelude context reads the grammar of `atrule`", () => {
+    const prelude = (atrule?: string) => parse("screen and (x)", { context: "atrulePrelude", atrule }).ast;
+    expect(prelude("MEDIA")).toMatchObject({ children: [{ type: "MediaQueryList" }] });
+    expect(prelude()).toMatchObject({ children: [{ type: "Identifier" }, { type: "Identifier" }, { type: "Parentheses" }] });
+    expect(prelude("unknown")).toMatchObject({ children: [{ type: "Identifier" }, { type: "Identifier" }, { type: "Parentheses" }] });
   });
 
   test("blocks of rules and blocks of declarations", () => {
@@ -389,9 +415,9 @@ describe("contexts", () => {
       ["declarationList", "a: b; c {} & d {}", "DeclarationList"],
       ["declaration", "a: b", "Declaration"],
       ["value", "1px solid", "Value"],
-      ["atrulePrelude", "screen and (x)", "Raw"],
-      ["mediaQueryList", "screen, print", "Raw"],
-      ["mediaQuery", "screen", "Raw"],
+      ["atrulePrelude", "screen and (x)", "AtrulePrelude"],
+      ["mediaQueryList", "screen, print", "MediaQueryList"],
+      ["mediaQuery", "screen", "MediaQuery"],
     ];
     for (const [context, source, type] of roots) {
       const { ast, diagnostics } = parse(source, { context });

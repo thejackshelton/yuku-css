@@ -63,6 +63,9 @@ const PackedDiagnostic = extern struct {
     message: u32,
     start: u32,
     end: u32,
+    // a String, 0xFFFFFFFF for a message without an argument
+    argument_start: u32,
+    argument_end: u32,
 };
 
 const TokensHeader = extern struct {
@@ -104,6 +107,7 @@ pub const NODE_SPAN_END_U32: u8 = @offsetOf(PackedNode, "span_end") / 4;
 pub const DIAGNOSTIC_MESSAGE_U32: u8 = @offsetOf(PackedDiagnostic, "message") / 4;
 pub const DIAGNOSTIC_START_U32: u8 = @offsetOf(PackedDiagnostic, "start") / 4;
 pub const DIAGNOSTIC_END_U32: u8 = @offsetOf(PackedDiagnostic, "end") / 4;
+pub const DIAGNOSTIC_ARGUMENT_U32: u8 = @offsetOf(PackedDiagnostic, "argument_start") / 4;
 
 const NODE_DATA_SLOTS: u8 = NODE_SPAN_START_U32 - NODE_HEADER_U32S;
 const NODE_FLAG_BITS: u8 = @bitSizeOf(@FieldType(PackedNode, "flags"));
@@ -230,7 +234,13 @@ pub fn serializeInto(tree: *const ast.Tree, utf16: Utf16, tokens: bool, buf: []u
 
     const diagnostics_out: [*]PackedDiagnostic = @ptrCast(@alignCast(buf.ptr + pos));
     for (tree.diagnostics.items, 0..) |d, i| {
-        diagnostics_out[i] = .{ .message = @backingInt(d.message), .start = d.span.start, .end = d.span.end };
+        diagnostics_out[i] = .{
+            .message = @backingInt(d.message),
+            .start = d.span.start,
+            .end = d.span.end,
+            .argument_start = d.argument.start,
+            .argument_end = d.argument.end,
+        };
     }
     pos += tree.diagnostics.items.len * DIAGNOSTIC_SIZE;
 
