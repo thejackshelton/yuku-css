@@ -11,5 +11,13 @@ export declare const tokenTypes: Readonly<Record<
 export declare const tokenNames: readonly string[];
 /** The at-rules whose prelude has a grammar of its own, by lowercased name. */
 export declare const atrules: Readonly<Record<string, number>>;
-export declare function decode(buffer: ArrayBuffer, at: number, source: string, options: ParseOptions, withTokens: boolean): ParseResult<Position, keyof Contexts>;
+/** `open` calls `build` with the buffer the tree is in, when `ast` is first read. */
+export declare function decode(
+  buffer: ArrayBuffer,
+  at: number,
+  source: string,
+  options: ParseOptions,
+  withTokens: boolean,
+  open: <R>(build: (buffer: ArrayBuffer, at: number) => R) => R,
+): ParseResult<Position, keyof Contexts>;
 export declare function decodeTokens(buffer: ArrayBuffer, at: number, source: string): Uint32Array;

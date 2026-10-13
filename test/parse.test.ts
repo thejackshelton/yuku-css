@@ -398,6 +398,19 @@ describe("instances", () => {
     expect(stylesheet.children).toHaveLength(100_000);
     expect(stylesheet.children.at(-1)!.end).toBe(source.length - 1);
   });
+
+  // the tree is built when `ast` is read, from wasm memory or, after another call, a copy
+  test("a tree read after other calls", () => {
+    const sources = ["a { b: c }", ".d é { e: f(1px, \"g\") }", "@media (h) { i { j: k !important } }"];
+    const expected = sources.map((source) => JSON.stringify(parse(source, { positions: true }).ast));
+    const results = sources.map((source) => parse(source, { positions: true }));
+    tokenize(".x { y: z }");
+    parse("a".repeat(10_000)).diagnostics;
+    expect(results.map((result) => JSON.stringify(result.ast))).toEqual(expected);
+    const read = parse("a {}");
+    read.ast = null as never;
+    expect(read.ast).toBeNull();
+  });
 });
 
 const errors = (source: string, options?: ParseOptions) =>

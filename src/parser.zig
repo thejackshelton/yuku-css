@@ -808,12 +808,8 @@ pub const Parser = struct {
     // the diagnostics in css-tree's order, each spec error placed before the first that starts after it
     fn mergeSpecErrors(p: *Parser) Error!void {
         if (p.spec.items.len == 0) return;
-        const byStart = struct {
-            fn less(_: void, a: ast.Diagnostic, b: ast.Diagnostic) bool {
-                return a.span.start < b.span.start;
-            }
-        }.less;
-        std.sort.block(ast.Diagnostic, p.spec.items, {}, byStart);
+        const scratch = try p.tree.allocator().alloc(ast.Diagnostic, p.spec.items.len);
+        sortByStart(p.spec.items, scratch);
         const own = p.tree.diagnostics.items;
         var merged: std.ArrayList(ast.Diagnostic) = try .initCapacity(p.tree.allocator(), own.len + p.spec.items.len);
         var i: usize = 0;
@@ -823,6 +819,37 @@ pub const Parser = struct {
         }
         merged.appendSliceAssumeCapacity(own[i..]);
         p.tree.diagnostics = merged;
+    }
+
+    // a stable merge sort, where std.sort.block costs 28 kB of wasm on this cold path
+    fn sortByStart(items: []ast.Diagnostic, scratch: []ast.Diagnostic) void {
+        std.debug.assert(scratch.len == items.len);
+        std.debug.assert(items.len < std.math.maxInt(u32));
+        var source = items;
+        var target = scratch;
+        var width: usize = 1;
+        while (width < items.len) : (width *= 2) {
+            var start: usize = 0;
+            while (start < items.len) : (start += 2 * width) {
+                const mid = @min(start + width, items.len);
+                const end = @min(start + 2 * width, items.len);
+                var left = start;
+                var right = mid;
+                for (target[start..end]) |*slot| {
+                    const take_left = left < mid and
+                        (right == end or source[left].span.start <= source[right].span.start);
+                    if (take_left) {
+                        slot.* = source[left];
+                        left += 1;
+                    } else {
+                        slot.* = source[right];
+                        right += 1;
+                    }
+                }
+            }
+            std.mem.swap([]ast.Diagnostic, &source, &target);
+        }
+        if (source.ptr != items.ptr) @memcpy(items, source);
     }
 
     // CSS Syntax's tokenizer errors, which css-tree's tokenizer recovers from without one

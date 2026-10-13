@@ -152,10 +152,8 @@ export function parse(source: string, options: ParseOptions = {}): ParseResult<P
   const tokens = options.tokens === true || options.onToken !== undefined;
   if (tokens && source.length > TOKEN_END_MAX) throw new RangeError("yuku-css: tokens take at most 16 MiB of source");
   const flags = flagsOf(options) | (options.positions === true ? 2 : 0) | (tokens ? 4 : 0);
-  const result = run(
-    source,
-    (pointer, len) => exports!.parse(pointer, len, flags),
-    (at) => decode(memoryOf(), at, source, options, tokens),
+  const result = lend(source, (pointer, len) => exports!.parse(pointer, len, flags), (at, open) =>
+    decode(memoryOf(), at, source, options, tokens, open),
   );
   if (options.onToken !== undefined) deliverTokens(result.tokens!, source, options.onToken);
   if (options.onComment !== undefined) {
@@ -261,7 +259,66 @@ export function tokenize(source: string): Uint32Array {
   return run(source, (pointer, len) => exports!.tokenize(pointer, len), (at) => decodeTokens(memoryOf(), at, source));
 }
 
-function run<T>(source: string, call: (pointer: number, len: number) => number, read: (at: number) => T): T {
+// the buffer read by `read` and freed, as nothing else holds it
+function run<T>(source: string, wasm: (pointer: number, len: number) => number, read: (at: number) => T): T {
+  const result = call(source, wasm);
+  try {
+    return read(result + 4);
+  } finally {
+    exports!.free(result, 4 + new DataView(memoryOf()).getUint32(result, true));
+  }
+}
+
+// a parse result whose tree is still in wasm memory, held there until `ast` is read
+interface Lease {
+  pointer: number;
+  size: number;
+  // the buffer, once copied out for the next call
+  bytes: ArrayBuffer | undefined;
+}
+
+let lease: Lease | undefined;
+
+// the buffer left in wasm memory, read by `read` with a function that builds the tree from it
+function lend<T>(
+  source: string,
+  run: (pointer: number, len: number) => number,
+  read: (at: number, open: <R>(build: (buffer: ArrayBuffer, at: number) => R) => R) => T,
+): T {
+  const result = call(source, run);
+  const own: Lease = { pointer: result, size: new DataView(memoryOf()).getUint32(result, true), bytes: undefined };
+  lease = own;
+  const open = <R>(build: (buffer: ArrayBuffer, at: number) => R): R => {
+    if (lease !== own) return build(own.bytes!, 0);
+    lease = undefined;
+    try {
+      return build(memoryOf(), own.pointer + 4);
+    } finally {
+      exports!.free(own.pointer, 4 + own.size);
+    }
+  };
+  try {
+    return read(result + 4, open);
+  } catch (error) {
+    if (lease === own) {
+      lease = undefined;
+      exports!.free(own.pointer, 4 + own.size);
+    }
+    throw error;
+  }
+}
+
+// copies a tree not yet read out of wasm memory, before a call can reuse or grow it
+function settle(): void {
+  if (lease === undefined) return;
+  const { pointer, size } = lease;
+  lease.bytes = exports!.memory.buffer.slice(pointer + 4, pointer + 4 + size);
+  exports!.free(pointer, 4 + size);
+  lease = undefined;
+}
+
+function call(source: string, run: (pointer: number, len: number) => number): number {
+  settle();
   if (
     exports === undefined ||
     (exports.memory.buffer.byteLength > MEMORY_BYTES_MAX && source.length * 64 < MEMORY_BYTES_MAX)
@@ -271,16 +328,10 @@ function run<T>(source: string, call: (pointer: number, len: number) => number, 
   const capacity = source.length * 3 || 1;
   const pointer = exports.alloc(capacity);
   const written = encoder.encodeInto(source, new Uint8Array(exports.memory.buffer, pointer, capacity)).written;
-  const result = call(pointer, written);
+  const result = run(pointer, written);
   exports.free(pointer, capacity);
   if (result === 0) throw new Error("yuku-css: out of memory");
-  const size = new DataView(exports.memory.buffer).getUint32(result, true);
-  // decoding calls no WebAssembly, so the memory cannot grow under it
-  try {
-    return read(result + 4);
-  } finally {
-    exports.free(result, 4 + size);
-  }
+  return result;
 }
 
 function memoryOf(): ArrayBuffer {

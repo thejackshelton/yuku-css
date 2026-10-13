@@ -408,7 +408,10 @@ export interface Contexts<P extends Position = Offsets> {
 }
 
 export interface ParseResult<P extends Position = Offsets, C extends keyof Contexts = "stylesheet"> {
-  /** The node of the context; for any context but `stylesheet`, a `Raw` of the source when it does not parse as one. */
+  /**
+   * The node of the context; for any context but `stylesheet`, a `Raw` of the source when it does not
+   * parse as one. Built when first read.
+   */
   ast: C extends "stylesheet" ? StyleSheet<P> : Contexts<P>[C] | Raw<P>;
   /** Every comment, in source order. */
   comments: Comment<P>[];
