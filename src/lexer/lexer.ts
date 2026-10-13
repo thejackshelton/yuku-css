@@ -1,6 +1,7 @@
 // css-tree's `Lexer` over the wasm matcher: names resolve and values match in Zig, and the match
 // tree, errors and dictionaries are built here in css-tree's shapes
 import { keyword, property } from "../ast/names";
+import { generate as generateCss } from "../codegen";
 import { MESSAGES } from "./tables";
 import {
   customError,
@@ -770,12 +771,13 @@ export class Lexer {
   }
 }
 
-// a css-tree tree as text: `Raw` and value nodes hold their source
+// a css-tree tree as text, which the lexer matches; its nodes are not kept, so no match names one
 function valueText(value: unknown): string {
   if (value === null || typeof value !== "object") return String(value ?? "");
   const node = value as { type?: string; value?: string };
   if (node.type === "Raw" && typeof node.value === "string") return node.value;
-  throw new TypeError("yuku-css: the lexer matches strings and `Raw` nodes until values are parsed");
+  if (typeof node.type === "string") return generateCss(node as Parameters<typeof generateCss>[0]);
+  throw new TypeError("yuku-css: the lexer matches a string or a css-tree node");
 }
 
 function create(builtin: boolean, config: LexerConfig): Lexer {
