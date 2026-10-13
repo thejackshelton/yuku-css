@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="782" viewBox="0 0 640 782">
+  <style>
+    text { font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif; fill: #848d97; dominant-baseline: central; font-variant-numeric: tabular-nums }
+    .ratio { font-size: 12px; fill: #fff }
+    .title { font-weight: 600 }
+  </style>
+  <text class="title" x="0" y="11">< 1 KB</text>
+  <text x="200" y="41" text-anchor="end">yuku-css, parse and print</text>
+  <rect x="210" y="30" width="194" height="22" rx="4" fill="#FFA07A"/>
+  <text x="412" y="41">102.3 MB/s</text>
+  <text class="ratio" x="396" y="41" text-anchor="end">1.60×</text>
+  <text x="200" y="71" text-anchor="end">yuku-css, parse only</text>
+  <rect x="210" y="60" width="309" height="22" rx="4" fill="#FF6B35"/>
+  <text x="527" y="71">163.2 MB/s</text>
+  <text x="200" y="101" text-anchor="end">lightningcss</text>
+  <rect x="210" y="90" width="89" height="22" rx="4" fill="#F7B801"/>
+  <text x="307" y="101">46.9 MB/s</text>
+  <text class="ratio" x="291" y="101" text-anchor="end">3.48×</text>
+  <text x="200" y="131" text-anchor="end">lightningcss-wasm</text>
+  <rect x="210" y="120" width="36" height="22" rx="4" fill="#2EC4B6"/>
+  <text x="254" y="131">19.2 MB/s</text>
+  <text class="title" x="0" y="171">1–10 KB</text>
+  <text x="200" y="201" text-anchor="end">yuku-css, parse and print</text>
+  <rect x="210" y="190" width="196" height="22" rx="4" fill="#FFA07A"/>
+  <text x="414" y="201">103.3 MB/s</text>
+  <text class="ratio" x="398" y="201" text-anchor="end">1.66×</text>
+  <text x="200" y="231" text-anchor="end">yuku-css, parse only</text>
+  <rect x="210" y="220" width="325" height="22" rx="4" fill="#FF6B35"/>
+  <text x="543" y="231">171.7 MB/s</text>
+  <text x="200" y="261" text-anchor="end">lightningcss</text>
+  <rect x="210" y="250" width="120" height="22" rx="4" fill="#F7B801"/>
+  <text x="338" y="261">63.6 MB/s</text>
+  <text class="ratio" x="322" y="261" text-anchor="end">2.70×</text>
+  <text x="200" y="291" text-anchor="end">lightningcss-wasm</text>
+  <rect x="210" y="280" width="22" height="22" rx="4" fill="#2EC4B6"/>
+  <text x="240" y="291">11.5 MB/s</text>
+  <text class="title" x="0" y="331">10–100 KB</text>
+  <text x="200" y="361" text-anchor="end">yuku-css, parse and print</text>
+  <rect x="210" y="350" width="200" height="22" rx="4" fill="#FFA07A"/>
+  <text x="418" y="361">105.5 MB/s</text>
+  <text class="ratio" x="402" y="361" text-anchor="end">1.75×</text>
+  <text x="200" y="391" text-anchor="end">yuku-css, parse only</text>
+  <rect x="210" y="380" width="350" height="22" rx="4" fill="#FF6B35"/>
+  <text x="568" y="391">184.8 MB/s</text>
+  <text x="200" y="421" text-anchor="end">lightningcss</text>
+  <rect x="210" y="410" width="160" height="22" rx="4" fill="#F7B801"/>
+  <text x="378" y="421">84.7 MB/s</text>
+  <text class="ratio" x="362" y="421" text-anchor="end">2.18×</text>
+  <text x="200" y="451" text-anchor="end">lightningcss-wasm</text>
+  <rect x="210" y="440" width="5" height="22" rx="4" fill="#2EC4B6"/>
+  <text x="223" y="451">2.8 MB/s</text>
+  <text class="title" x="0" y="491">100 KB–1 MB</text>
+  <text x="200" y="521" text-anchor="end">yuku-css, parse and print</text>
+  <rect x="210" y="510" width="144" height="22" rx="4" fill="#FFA07A"/>
+  <text x="362" y="521">76.2 MB/s</text>
+  <text class="ratio" x="346" y="521" text-anchor="end">1.80×</text>
+  <text x="200" y="551" text-anchor="end">yuku-css, parse only</text>
+  <rect x="210" y="540" width="259" height="22" rx="4" fill="#FF6B35"/>
+  <text x="477" y="551">136.9 MB/s</text>
+  <text x="200" y="581" text-anchor="end">lightningcss</text>
+  <rect x="210" y="570" width="95" height="22" rx="4" fill="#F7B801"/>
+  <text x="313" y="581">50.0 MB/s</text>
+  <text class="ratio" x="297" y="581" text-anchor="end">2.73×</text>
+  <text x="200" y="611" text-anchor="end">lightningcss-wasm</text>
+  <rect x="210" y="600" width="37" height="22" rx="4" fill="#2EC4B6"/>
+  <text x="255" y="611">19.7 MB/s</text>
+  <text class="title" x="0" y="651">> 1 MB</text>
+  <text x="200" y="681" text-anchor="end">yuku-css, parse and print</text>
+  <rect x="210" y="670" width="169" height="22" rx="4" fill="#FFA07A"/>
+  <text x="387" y="681">89.2 MB/s</text>
+  <text class="ratio" x="371" y="681" text-anchor="end">1.63×</text>
+  <text x="200" y="711" text-anchor="end">yuku-css, parse only</text>
+  <rect x="210" y="700" width="275" height="22" rx="4" fill="#FF6B35"/>
+  <text x="493" y="711">145.1 MB/s</text>
+  <text x="200" y="741" text-anchor="end">lightningcss</text>
+  <rect x="210" y="730" width="117" height="22" rx="4" fill="#F7B801"/>
+  <text x="335" y="741">61.6 MB/s</text>
+  <text class="ratio" x="319" y="741" text-anchor="end">2.35×</text>
+  <text x="200" y="771" text-anchor="end">lightningcss-wasm</text>
+  <rect x="210" y="760" width="50" height="22" rx="4" fill="#2EC4B6"/>
+  <text x="268" y="771">26.5 MB/s</text>
+  <text class="ratio" x="252" y="771" text-anchor="end">5.47×</text>
+</svg>

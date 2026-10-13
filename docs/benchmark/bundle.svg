@@ -1,21 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="640" height="112" viewBox="0 0 640 112">
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="142" viewBox="0 0 640 142">
   <style>
     text { font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif; fill: #848d97; dominant-baseline: central; font-variant-numeric: tabular-nums }
     .ratio { font-size: 12px; fill: #fff }
   </style>
   <text x="200" y="11" text-anchor="end">yuku-css</text>
-  <rect x="210" y="0" width="129" height="22" rx="4" fill="#FF6B35"/>
-  <text x="347" y="11">19.6 KB</text>
-  <text class="ratio" x="331" y="11" text-anchor="end">1.55×</text>
-  <text x="200" y="41" text-anchor="end">css-tree</text>
-  <rect x="210" y="30" width="350" height="22" rx="4" fill="#3A86FF"/>
-  <text x="568" y="41">53.2 KB</text>
-  <text class="ratio" x="552" y="41" text-anchor="end">4.22×</text>
-  <text x="200" y="71" text-anchor="end">css-tree/parser</text>
-  <rect x="210" y="60" width="83" height="22" rx="4" fill="#3A86FF"/>
-  <text x="301" y="71">12.6 KB</text>
-  <text x="200" y="101" text-anchor="end">postcss</text>
-  <rect x="210" y="90" width="113" height="22" rx="4" fill="#8338EC"/>
-  <text x="331" y="101">17.2 KB</text>
-  <text class="ratio" x="315" y="101" text-anchor="end">1.37×</text>
+  <rect x="210" y="0" width="330" height="22" rx="4" fill="#FF6B35"/>
+  <text x="548" y="11">50.2 KB</text>
+  <text class="ratio" x="532" y="11" text-anchor="end">9.37×</text>
+  <text x="200" y="41" text-anchor="end">yuku-css/codegen</text>
+  <rect x="210" y="30" width="35" height="22" rx="4" fill="#FFA07A"/>
+  <text x="253" y="41">5.4 KB</text>
+  <text x="200" y="71" text-anchor="end">css-tree</text>
+  <rect x="210" y="60" width="350" height="22" rx="4" fill="#3A86FF"/>
+  <text x="568" y="71">53.2 KB</text>
+  <text class="ratio" x="552" y="71" text-anchor="end">9.94×</text>
+  <text x="200" y="101" text-anchor="end">css-tree/parser</text>
+  <rect x="210" y="90" width="83" height="22" rx="4" fill="#3A86FF"/>
+  <text x="301" y="101">12.6 KB</text>
+  <text class="ratio" x="285" y="101" text-anchor="end">2.35×</text>
+  <text x="200" y="131" text-anchor="end">postcss</text>
+  <rect x="210" y="120" width="113" height="22" rx="4" fill="#8338EC"/>
+  <text x="331" y="131">17.2 KB</text>
+  <text class="ratio" x="315" y="131" text-anchor="end">3.22×</text>
 </svg>
