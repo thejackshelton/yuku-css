@@ -1,5 +1,6 @@
 pub const ast = @import("ast.zig");
 pub const token = @import("token.zig");
+pub const lexer = @import("lexer.zig");
 pub const transfer = @import("transfer.zig");
 pub const parser = @import("parser.zig");
 pub const parse = parser.parse;
