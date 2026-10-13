@@ -769,9 +769,23 @@ pub const Parser = struct {
     }
 
     pub fn flush(p: *Parser, base: usize) Error!ast.IndexRange {
-        const range = try p.tree.addExtra(p.scratch.items[base..]);
+        const children = p.scratch.items[base..];
+        const extras = &p.tree.extras;
+        if (extras.items.len + children.len > extras.capacity) {
+            @branchHint(.unlikely);
+            const range = try p.tree.addExtra(children);
+            p.scratch.shrinkRetainingCapacity(base);
+            return range;
+        }
+        // child lists are short, so four at a time beats a memcpy call
+        const start = extras.items.len;
+        extras.items.len += children.len;
+        const out = extras.items[start..];
+        var i: usize = 0;
+        while (i + 4 <= children.len) : (i += 4) out[i..][0..4].* = children[i..][0..4].*;
+        while (i < children.len) : (i += 1) out[i] = children[i];
         p.scratch.shrinkRetainingCapacity(base);
-        return range;
+        return .{ .start = @intCast(start), .len = @intCast(children.len) };
     }
 
     /// css-tree's `getLocationFromList`: from the first child to the last, or empty at the current
