@@ -451,9 +451,10 @@ pub const Parser = struct {
         return null;
     }
 
+    // the byte is its own delim token wherever it stands
     fn isNextDelim(p: *const Parser, comptime c: u8) bool {
-        var l = p.peek();
-        return l.pos < p.src.len and l.next() == .delim and p.src[p.end] == c;
+        comptime std.debug.assert(lexer.class[c] == .delim);
+        return p.at(p.end) == c;
     }
 
     // whether the current token closes a block opened before `limit`, ending a balanced run there
@@ -1196,26 +1197,23 @@ pub const Parser = struct {
                 },
                 else => {},
             }
+            const kind = p.selectorKind();
             const child = try p.selectorNode() orelse break;
             const first = p.scratch.items.len == base;
-            const span = p.tree.span(child);
-            switch (p.tree.data(child)) {
-                .combinator => {
-                    if (first and !relative) {
-                        try p.specError(.relative_selector_not_allowed, span.start, span.end);
-                    } else if (after_combinator) {
-                        try p.specError(.compound_selector_expected, span.start, span.end);
-                    }
-                    after_combinator = true;
-                },
-                else => |data| {
-                    if (data == .type_selector and !first and !space and !after_combinator) {
-                        try p.specError(.type_selector_not_first, span.start, span.end);
-                    }
-                    after_combinator = false;
-                },
+            const is_combinator = kind == .combinator;
+            if (is_combinator) {
+                if (first and !relative) {
+                    try p.specErrorAt(.relative_selector_not_allowed, child);
+                } else if (after_combinator) {
+                    try p.specErrorAt(.compound_selector_expected, child);
+                }
+            } else if (kind == .type_selector and !first and !space and !after_combinator) {
+                try p.specErrorAt(.type_selector_not_first, child);
             }
-            if (space and !first) try p.descendant(p.scratch.items[p.scratch.items.len - 1], child);
+            if (space and !first and !after_combinator and !is_combinator) {
+                try p.descendant(p.scratch.items[p.scratch.items.len - 1], child);
+            }
+            after_combinator = is_combinator;
             space = false;
             try p.push(child);
         }
@@ -1229,10 +1227,32 @@ pub const Parser = struct {
         return p.add(.{ .selector = .{ .children = children } }, span.start, span.end);
     }
 
+    fn specErrorAt(p: *Parser, message: Message, node: NodeIndex) Error!void {
+        @branchHint(.cold);
+        const span = p.tree.span(node);
+        try p.specError(message, span.start, span.end);
+    }
+
+    const SelectorKind = enum { combinator, type_selector, other };
+
+    // what `selectorNode` builds from the current token, so the selector loop reads no node back
+    inline fn selectorKind(p: *const Parser) SelectorKind {
+        return switch (p.tag) {
+            .ident => .type_selector,
+            .delim => switch (p.src[p.start]) {
+                '+', '>', '~', '/' => .combinator,
+                '*' => .type_selector,
+                '|' => if (p.isNextDelim('|')) .combinator else .type_selector,
+                else => .other,
+            },
+            else => .other,
+        };
+    }
+
     // css-tree adds no position to the descendant combinator; its span here is the space it stands for
     fn descendant(p: *Parser, last: NodeIndex, child: NodeIndex) Error!void {
-        const data = p.tree.nodes.items(.data);
-        if (data[@backingInt(last)] == .combinator or data[@backingInt(child)] == .combinator) return;
+        std.debug.assert(p.tree.data(last) != .combinator);
+        std.debug.assert(p.tree.data(child) != .combinator);
         if (p.space.start == String.none.start) p.space = try p.pooled(" ");
         const spans = p.tree.nodes.items(.span);
         const start = spans[@backingInt(last)].end;
@@ -1244,7 +1264,8 @@ pub const Parser = struct {
         return switch (p.tag) {
             .left_square_bracket => try p.attributeSelector(),
             .hash => try p.idSelector(),
-            .colon => try p.pseudo(p.peekType() == .colon),
+            // a colon is a token of its own byte
+            .colon => try p.pseudo(p.at(p.end) == ':'),
             .ident => try p.typeSelector(),
             .number, .percentage => try p.percentage(),
             .dimension => if (p.src[p.start] == '.') p.fail(.identifier_expected, p.start + 1) else null,
