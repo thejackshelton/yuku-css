@@ -156,6 +156,18 @@ describe("at-rules", () => {
     expect(errors("é{} @supports fé(a: b) {}")).toEqual([["Unknown feature fé()", 17], ["Unexpected input", 18]]);
   });
 
+  test("a condition in parentheses parses with no error", () => {
+    const sources = [
+      "@supports (display: grid) and (not (display: inline-grid)) {}",
+      "@supports not (not (a: b)) {}",
+      "@supports ((a: b) or (c: d)) and (e: f) {}",
+      "@container (not (width > 1px)) {}",
+      "@media (not (hover)) {}",
+      "@media ((a) or (b)) and (not (c: 1)) {}",
+    ];
+    for (const source of sources) clean(source);
+  });
+
   test("a prelude of the atrulePrelude context reads the grammar of `atrule`", () => {
     const prelude = (atrule?: string) => parse("screen and (x)", { context: "atrulePrelude", atrule }).ast;
     expect(prelude("MEDIA")).toMatchObject({ children: [{ type: "MediaQueryList" }] });

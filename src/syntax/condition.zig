@@ -52,15 +52,48 @@ pub fn condition(p: *Parser, kind: Kind, grammar: Grammar) ParseError!NodeIndex 
     return p.add(.{ .condition = .{ .kind = kind, .children = children } }, span.start, span.end);
 }
 
-// a feature, a range or a supports declaration, else a nested condition, else general-enclosed
+// a feature, a range or a supports declaration, else a nested condition, else general-enclosed,
+// each as valid as the others, so none reports the errors of those tried before it
+// (css-conditional-3 §6.1, mediaqueries-4 §3, css-contain-3 §6.1)
 fn parenthesized(p: *Parser, kind: Kind) ParseError!NodeIndex {
     std.debug.assert(p.tag == .left_parenthesis);
-    const term = switch (kind) {
-        .supports => try atrule.attempt(p, supportsDeclaration, .{}),
-        .media, .container => try atrule.attempt(p, featureOrRange, .{kind}),
+    const start = p.checkpoint();
+    const reported = p.tree.diagnostics.items.len;
+    if (term(p, kind)) |node| return node else |err| switch (err) {
+        error.OutOfMemory => |e| return e,
+        error.Syntax => p.rewind(start),
+    }
+    p.tree.diagnostics.shrinkRetainingCapacity(reported);
+    if (nested(p, kind)) |node| return node else |err| switch (err) {
+        error.OutOfMemory => |e| return e,
+        error.Syntax => p.rewind(start),
+    }
+    return parenthesizedEnclosed(p, kind, reported, p.failure);
+}
+
+// `( <any-value>? )` reads any balanced tokens, so its Raw reports nothing either, while the bound
+// on nesting is still reported
+fn parenthesizedEnclosed(
+    p: *Parser,
+    kind: Kind,
+    reported: usize,
+    failure: ast.Diagnostic,
+) ParseError!NodeIndex {
+    @branchHint(.cold);
+    std.debug.assert(p.tag == .left_parenthesis);
+    p.tree.diagnostics.shrinkRetainingCapacity(reported);
+    const node = try generalEnclosed(p, kind);
+    p.tree.diagnostics.shrinkRetainingCapacity(reported);
+    if (failure.message == .nesting_too_deep) try p.report(failure);
+    std.debug.assert(p.tree.data(node) == .general_enclosed);
+    return node;
+}
+
+fn term(p: *Parser, kind: Kind) ParseError!NodeIndex {
+    return switch (kind) {
+        .supports => supportsDeclaration(p),
+        .media, .container => featureOrRange(p, kind),
     };
-    if (term) |node| return node;
-    return atrule.fallback(p, nested, .{kind}, generalEnclosed, .{kind});
 }
 
 fn nested(p: *Parser, kind: Kind) ParseError!NodeIndex {
@@ -206,11 +239,7 @@ pub fn featureFunction(p: *Parser, kind: Kind) ParseError!NodeIndex {
         .container => if (std.ascii.eqlIgnoreCase(text, "style")) .declaration else .none,
         .media => .none,
     };
-    if (reads == .none) {
-        const failure = p.fail(.unknown_feature, null);
-        p.failure.argument = name;
-        return failure;
-    }
+    if (reads == .none) return unknownFeature(p, name);
     p.skipSC();
     const value = try atrule.fallback(p, featureValue, .{reads}, atrule.rawBalanced, .{false});
     if (!p.eof) try p.eat(.right_parenthesis);
@@ -224,6 +253,23 @@ pub fn featureFunction(p: *Parser, kind: Kind) ParseError!NodeIndex {
 }
 
 const Reads = enum { none, selector, declaration };
+
+// css-tree names the function in lower case
+fn unknownFeature(p: *Parser, name: String) ParseError {
+    @branchHint(.cold);
+    std.debug.assert(name.start < name.end);
+    const text = p.src[name.start..name.end];
+    var argument = name;
+    for (text) |c| {
+        if (!std.ascii.isUpper(c)) continue;
+        const lower = try std.ascii.allocLowerString(p.tree.allocator(), text);
+        argument = try p.pooled(lower);
+        break;
+    }
+    const failure = p.fail(.unknown_feature, null);
+    p.failure.argument = argument;
+    return failure;
+}
 
 fn featureValue(p: *Parser, reads: Reads) ParseError!NodeIndex {
     std.debug.assert(reads != .none);
@@ -379,8 +425,38 @@ test "reads the terms of conditions" {
     try std.testing.expectEqualSlices(ast.Tag, &want, &tags);
 }
 
-test "names the unknown feature function" {
-    var tree = try parser.parse(std.testing.allocator, "@supports func(a: b) {}", .{});
+test "reads a condition in parentheses with no error" {
+    const sources = .{
+        "@supports (display: grid) and (not (display: inline-grid)) {}",
+        "@supports not (not (a: b)) {}",
+        "@supports ((a: b) or (c: d)) and (e: f) {}",
+        "@container (not (width > 1px)) {}",
+        "@media (not (hover)) {}",
+        "@media ((a) or (b)) {}",
+    };
+    inline for (sources) |source| {
+        var tree = try parser.parse(std.testing.allocator, source, .{});
+        defer tree.deinit();
+        try std.testing.expectEqual(0, tree.diagnostics.items.len);
+    }
+}
+
+test "reads parentheses that hold no condition as general-enclosed with no error" {
+    const source = "@media (max-width: calc(1px) and (max-height: 2px)) {}";
+    var tree = try parser.parse(std.testing.allocator, source, .{});
+    defer tree.deinit();
+    try std.testing.expectEqual(0, tree.diagnostics.items.len);
+    const sheet = tree.data(tree.root).style_sheet;
+    const at = tree.data(tree.extra(sheet.children)[0]).atrule;
+    const list = tree.data(tree.extra(tree.data(at.prelude).atrule_prelude.children)[0]);
+    const query = tree.data(tree.extra(list.media_query_list.children)[0]).media_query;
+    const children = tree.extra(tree.data(query.condition).condition.children);
+    const tag = std.meta.activeTag(tree.data(children[0]));
+    try std.testing.expectEqual(ast.Tag.general_enclosed, tag);
+}
+
+test "names the unknown feature function in lower case" {
+    var tree = try parser.parse(std.testing.allocator, "@supports FUNC(a: b) {}", .{});
     defer tree.deinit();
     const diagnostic = tree.diagnostics.items[0];
     try std.testing.expectEqual(ast.Message.unknown_feature, diagnostic.message);
@@ -389,14 +465,20 @@ test "names the unknown feature function" {
 
 test "reads ranges as css-tree does" {
     const cases = .{
-        .{ "@media (1px < width <= 2px) {}", 0 },
-        .{ "@media (width = 1px) {}", 3 },
-        .{ "@media (foo 123) {}", 2 },
+        .{ "@media (1px < width <= 2px) {}", ast.Tag.feature_range },
+        .{ "@media (width = 1px) {}", ast.Tag.general_enclosed },
+        .{ "@media (foo 123) {}", ast.Tag.general_enclosed },
     };
     inline for (cases) |case| {
         var tree = try parser.parse(std.testing.allocator, case[0], .{});
         defer tree.deinit();
-        try std.testing.expectEqual(case[1], tree.diagnostics.items.len);
+        try std.testing.expectEqual(0, tree.diagnostics.items.len);
+        const sheet = tree.data(tree.root).style_sheet;
+        const at = tree.data(tree.extra(sheet.children)[0]).atrule;
+        const list = tree.data(tree.extra(tree.data(at.prelude).atrule_prelude.children)[0]);
+        const query = tree.data(tree.extra(list.media_query_list.children)[0]).media_query;
+        const term_node = tree.extra(tree.data(query.condition).condition.children)[0];
+        try std.testing.expectEqual(case[1], std.meta.activeTag(tree.data(term_node)));
     }
 }
 

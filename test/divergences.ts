@@ -85,6 +85,34 @@ export const divergences: Divergence[] = [
     fixtures: ["ast/mediaQuery/MediaQuery.json error#4"],
   },
   {
+    rule:
+      "Parentheses in a condition read as a nested condition, as `(not (a: b))`, or as general-enclosed, as " +
+      "`(a: b and (c))`, report none of the errors of the feature, range or supports declaration first tried there, " +
+      "nor the Raw of general-enclosed; css-tree reports each and reads the same tree",
+    spec:
+      "css-conditional-3 §6.1 <supports-in-parens>, mediaqueries-4 §3 <media-in-parens> and <general-enclosed>, " +
+      "css-contain-3 §6.1 <query-in-parens>",
+    fixtures: [
+      "ast/atrule/atrule/container.json complex query",
+      "ast/atrule/atrule/media.json a list of conditions",
+      "ast/atrule/atrule/supports.json complex prelude",
+      "ast/mediaQuery/FeatureRange.json error#1",
+      "ast/mediaQuery/GeneralEnclosed.json parentheses",
+      "ast/mediaQuery/GeneralEnclosed.json empty parentheses",
+      "ast/mediaQuery/GeneralEnclosed.json mixed",
+      "ast/mediaQuery/GeneralEnclosed.json mixed empty",
+      "ast/mediaQuery/MediaQuery.json error#1",
+      "ast/mediaQuery/MediaQuery.json error#2",
+      "ast/mediaQuery/MediaQuery.json error#3",
+      "ast/mediaQuery/Ratio.json error#1",
+    ],
+  },
+  {
+    rule: "The function named in `Unknown feature` is lowercased in ASCII only, where css-tree uses JavaScript's Unicode `toLowerCase`",
+    spec: "none: the name is lowercased where it is reported, without a Unicode case table",
+    fixtures: [],
+  },
+  {
     rule: "A media type of `only`, `not`, `and`, `or` or `layer` is reported",
     spec: "mediaqueries-4 §3 syntax, <media-type>",
     fixtures: [],

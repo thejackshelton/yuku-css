@@ -16,6 +16,7 @@ export interface Options {
 /** `options` go to both parsers. */
 export function expectParity(source: string, options: Options = {}): void {
   const errors: Error[] = [];
+  reported = errors;
   const expected = csstree.toPlainObject(
     reference.parse(source, {
       ...options,
@@ -23,6 +24,7 @@ export function expectParity(source: string, options: Options = {}): void {
       onParseError: (error) => errors.push([error.message, (error as unknown as { offset: number }).offset]),
     }),
   );
+  reported = [];
   const located = parse(source, { ...options, positions: true });
   expect(located.ast).toEqual(expected as never);
   const sheet = expected as unknown as Node;
@@ -316,6 +318,7 @@ interface Parser {
   Condition(kind: string): unknown;
   Combinator(): unknown;
   next(): void;
+  skip(count: number): void;
   eat(type: number): void;
   createList(): { push(node: unknown): void; isEmpty: boolean };
   createSingleNodeList(node: unknown): unknown;
@@ -473,6 +476,21 @@ function FeatureRange(this: Parser, kind: string): unknown {
   return { type: "FeatureRange", loc: this.getLocation(start, this.tokenStart), kind, left, leftComparison, middle, rightComparison, right };
 }
 
+// the errors css-tree reports while the fork parses, so a reading it drops takes back its errors
+let reported: Error[] = [];
+
+function silently(this: Parser, consumer: () => unknown): unknown {
+  const start = this.tokenIndex;
+  const count = reported.length;
+  try {
+    return consumer();
+  } catch {
+    this.skip(start - this.tokenIndex);
+    reported.length = count;
+    return null;
+  }
+}
+
 function Condition(this: Parser, kind = "media"): unknown {
   const children = this.createList();
   const inParens = () => {
@@ -490,14 +508,18 @@ function Condition(this: Parser, kind = "media"): unknown {
         children.push(this.Identifier());
         break;
       case LeftParenthesis: {
-        let term = this.parseWithFallback(inParens, () => null);
+        const nested = () => {
+          this.eat(LeftParenthesis);
+          const node = this.Condition(kind);
+          if (!this.eof) this.eat(RightParenthesis);
+          return node;
+        };
+        // each reading is as valid as the others, so none reports the errors of those tried before it
+        let term = silently.call(this, inParens) ?? silently.call(this, nested);
         if (!term) {
-          term = this.parseWithFallback(() => {
-            this.eat(LeftParenthesis);
-            const node = this.Condition(kind);
-            if (!this.eof) this.eat(RightParenthesis);
-            return node;
-          }, () => this.GeneralEnclosed(kind));
+          const count = reported.length;
+          term = this.GeneralEnclosed(kind);
+          reported.length = count;
         }
         children.push(term);
         break;
