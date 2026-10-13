@@ -41,23 +41,49 @@ const PARSERS: Parser[] = [
   },
 ];
 
-const child = PARSERS.find((parser) => parser.name === process.argv[2]);
+const TOKENIZERS: Parser[] = [
+  {
+    name: "yuku-css",
+    color: "#FF6B35",
+    async load() {
+      const { tokenize } = await import("yuku-css");
+      return (source) => tokenize(source);
+    },
+  },
+  {
+    name: "css-tree",
+    color: "#3A86FF",
+    async load() {
+      const { tokenize } = await import("css-tree");
+      return (source) => {
+        let count = 0;
+        tokenize(source, () => count++);
+        return count;
+      };
+    },
+  },
+];
+
+// `node bench/index.ts tokenize` times tokenizing instead, and leaves the chart alone
+const task = process.argv[2] === "tokenize" ? "tokenize" : "parse";
+const suite = task === "tokenize" ? TOKENIZERS : PARSERS;
+const child = suite.find((parser) => parser.name === process.argv[3]);
 if (child === undefined) main();
 else process.stdout.write(String(await time(child)));
 
 function main(): void {
-  const results = PARSERS.map((parser) => {
+  const results = suite.map((parser) => {
     const runs = Array.from({ length: RUNS }, () => spawn(parser));
     return { ...parser, microseconds: median(runs) };
   });
   console.table(
-    results.map(({ name, microseconds }) => ({ parser: name, "per file": format(microseconds) })),
+    results.map(({ name, microseconds }) => ({ [task === "parse" ? "parser" : "tokenizer"]: name, "per file": format(microseconds) })),
   );
-  writeFileSync(new URL("chart.svg", import.meta.url), chart(results));
+  if (task === "parse") writeFileSync(new URL("chart.svg", import.meta.url), chart(results));
 }
 
 function spawn(parser: Parser): number {
-  const { status, stdout } = spawnSync(process.execPath, [import.meta.filename, parser.name], {
+  const { status, stdout } = spawnSync(process.execPath, [import.meta.filename, task, parser.name], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "inherit"],
   });
