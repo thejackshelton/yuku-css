@@ -5,6 +5,12 @@ const css = @import("root.zig");
 
 const gpa = std.heap.wasm_allocator;
 
+// packed by src/index.ts
+const flag = struct {
+    const parse_rule_prelude = 1 << 0;
+    const positions = 1 << 1;
+};
+
 export fn alloc(len: usize) [*]u8 {
     return (gpa.alloc(u8, len) catch @trap()).ptr;
 }
@@ -13,32 +19,41 @@ export fn free(ptr: [*]u8, len: usize) void {
     gpa.free(ptr[0..len]);
 }
 
-/// Returns the transfer stream, or 0 when out of memory.
-export fn parse(ptr: [*]const u8, len: usize) usize {
-    const out = parseBuffer(ptr[0..len]) catch return 0;
+/// The transfer buffer behind a u32 length, or 0 when out of memory.
+export fn parse(ptr: [*]const u8, len: usize, flags: u32) usize {
+    const out = parseBuffer(ptr[0..len], flags) catch return 0;
     return @intFromPtr(out.ptr);
 }
 
-/// `len` is the length the stream's header gives for its allocation.
-export fn release(ptr: [*]u32, len: usize) void {
-    gpa.free(ptr[0..len]);
+/// The token list behind a u32 length, or 0 when out of memory.
+export fn tokenize(ptr: [*]const u8, len: usize) usize {
+    const out = tokenizeBuffer(ptr[0..len]) catch return 0;
+    return @intFromPtr(out.ptr);
 }
 
-// static, so the host reads it without freeing
-export fn description() usize {
-    return @intFromPtr(&described);
-}
-
-const described = blk: {
-    const json = css.transfer.description;
-    var bytes: [4 + json.len]u8 = undefined;
-    std.mem.writeInt(u32, bytes[0..4], json.len, .little);
-    @memcpy(bytes[4..], json);
-    break :blk bytes;
-};
-
-fn parseBuffer(source: []const u8) ![]u32 {
-    var tree = try css.parse(gpa, source);
+fn parseBuffer(source: []const u8, flags: u32) ![]u8 {
+    var tree = try css.parse(gpa, source, .{ .parse_rule_prelude = flags & flag.parse_rule_prelude != 0 });
     defer tree.deinit();
-    return css.transfer.serialize(gpa, &tree);
+    const utf16: css.transfer.Utf16 = .init(source);
+    const lines: css.transfer.Lines = if (flags & flag.positions != 0) .init(source) else .none;
+    const out = try prefixed(css.transfer.bufferSize(&tree, utf16, lines));
+    _ = css.transfer.serializeInto(&tree, utf16, lines, out[4..]);
+    return out;
+}
+
+fn tokenizeBuffer(source: []const u8) ![]u8 {
+    var tokens: css.token.TokenList = .empty;
+    defer tokens.deinit(gpa);
+    try css.tokenize(gpa, &tokens, source);
+    const utf16: css.transfer.Utf16 = .init(source);
+    const out = try prefixed(css.transfer.tokensBufferSize(tokens.items, utf16));
+    _ = css.transfer.serializeTokens(tokens.items, source, utf16, out[4..]);
+    return out;
+}
+
+// the length prefix tells the host how much to free
+fn prefixed(size: usize) ![]u8 {
+    const out = try gpa.alloc(u8, 4 + size);
+    std.mem.writeInt(u32, out[0..4], @intCast(size), .little);
+    return out;
 }

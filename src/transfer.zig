@@ -1,202 +1,414 @@
-// The tree crosses to JavaScript as a pre-order stream of u32s, decoded by the shapes in `description`.
+// AST transfer format, little endian; tools/gen_decoder.zig generates the decoder from the layouts below
 //
-//   [0]       length of the stream after the header
-//   [1]       length of the whole allocation, header included, to free it with
-//   node      tag, start, end, then each field of its shape in order; 0xFFFFFFFF alone for null
-//   nodes     count, then each node
-//   string    start, end, both 0xFFFFFFFF for null
-//   bool      0 or 1
-//   enum      the index into the field's `values`
-//   then      diagnostic count, then per diagnostic message index, start, end
+// sections, in order
 //
-// offsets are UTF-16 code units, so JavaScript slices the source string with them
+//   header        HEADER_SIZE bytes
+//   nodes         node_count * NODE_SIZE, one PackedNode each, children before their parent
+//   extras        extra_count * 4, the u32 array backing IndexRange
+//   strings       string_pool_len bytes of UTF-8, zero-padded to a 4-byte boundary
+//   diagnostics   diagnostic_count * DIAGNOSTIC_SIZE
+//   utf16         utf16_count * 2 u32, see `Utf16`
+//   lines         line_count u32, the byte offset where each line after the first starts
+//
+// node fields
+//
+//   NodeIndex     1 u32 slot, 0xFFFFFFFF for null
+//   IndexRange    2 u32 slots (start, len), start 0xFFFFFFFF for null
+//   String        2 u32 slots (start, end), start 0xFFFFFFFF for null
+//   enum          ceil(log2(n)) flag bits for n variants
+//
+// a String starting below source_len slices the source, else the pool at start - source_len
+//
+// offsets are bytes; past first_non_ascii, the utf16 section maps them to UTF-16 code units
+//
+// the token list, from `serializeTokens`
+//
+//   header        TOKENS_HEADER_SIZE bytes
+//   tokens        token_count * TOKEN_SIZE, each `Token` as is
+//   utf16         utf16_count * 2 u32
 
 const std = @import("std");
 const ast = @import("ast.zig");
+const token = @import("token.zig");
 
-const Allocator = std.mem.Allocator;
-const null_slot: u32 = std.math.maxInt(u32);
-
-/// JSON naming each node type and its fields in wire order, plus the diagnostic messages.
-pub const description: []const u8 = blk: {
-    @setEvalBranchQuota(100_000);
-    var json: []const u8 = "{\"nodes\":[";
-    for (std.meta.fieldNames(ast.Data), std.meta.fieldTypes(ast.Data), 0..) |variant, Payload, i| {
-        if (i > 0) json = json ++ ",";
-        json = json ++ "{\"type\":\"" ++ caseOf(variant, true) ++ "\",\"fields\":[";
-        for (std.meta.fieldNames(Payload), std.meta.fieldTypes(Payload), 0..) |name, Field, j| {
-            if (j > 0) json = json ++ ",";
-            json = json ++ "{\"name\":\"" ++ caseOf(name, false) ++ "\",\"kind\":\"" ++ kindOf(Field) ++ "\"";
-            if (@typeInfo(Field) == .@"enum" and Field != ast.NodeIndex) {
-                json = json ++ ",\"values\":[";
-                for (Field.strings, 0..) |value, k| {
-                    json = json ++ (if (k > 0) "," else "") ++ "\"" ++ value ++ "\"";
-                }
-                json = json ++ "]";
-            }
-            json = json ++ "}";
-        }
-        json = json ++ "]}";
-    }
-    json = json ++ "],\"messages\":[";
-    for (std.meta.tags(ast.Message), 0..) |message, i| {
-        json = json ++ (if (i > 0) "," else "") ++ "\"" ++ message.text() ++ "\"";
-    }
-    break :blk json ++ "]}";
+// field order defines the wire layout
+const Header = extern struct {
+    node_count: u32,
+    extra_count: u32,
+    string_pool_len: u32,
+    source_len: u32,
+    diagnostic_count: u32,
+    root: u32,
+    // positions below this need no UTF-16 conversion
+    first_non_ascii: u32,
+    utf16_count: u32,
+    line_count: u32,
 };
 
-fn kindOf(comptime T: type) []const u8 {
-    return switch (T) {
-        ast.NodeIndex => "node",
-        ast.NodeList => "nodes",
-        ast.Span => "string",
-        ?ast.Span => "string",
-        bool => "bool",
-        else => if (@typeInfo(T) == .@"enum") "enum" else @compileError("no wire kind for " ++ @typeName(T)),
+const PackedNode = extern struct {
+    tag: u8,
+    _pad: u8 = 0,
+    flags: u16,
+    slots: [5]u32,
+    span_start: u32,
+    span_end: u32,
+};
+
+const PackedDiagnostic = extern struct {
+    message: u32,
+    start: u32,
+    end: u32,
+};
+
+const TokensHeader = extern struct {
+    token_count: u32,
+    source_len: u32,
+    first_non_ascii: u32,
+    utf16_count: u32,
+};
+
+pub const HEADER_SIZE: u32 = @sizeOf(Header);
+pub const NODE_SIZE: u32 = @sizeOf(PackedNode);
+pub const DIAGNOSTIC_SIZE: u32 = @sizeOf(PackedDiagnostic);
+pub const TOKENS_HEADER_SIZE: u32 = @sizeOf(TokensHeader);
+pub const TOKEN_SIZE: u32 = @sizeOf(token.Token);
+pub const TOKEN_END_U32: u32 = @offsetOf(token.Token, "end") / 4;
+pub const TOKEN_TAG_U32: u32 = @offsetOf(token.Token, "tag") / 4;
+
+pub const HDR_NODE_COUNT_U32: u32 = @offsetOf(Header, "node_count") / 4;
+pub const HDR_EXTRA_COUNT_U32: u32 = @offsetOf(Header, "extra_count") / 4;
+pub const HDR_STRING_POOL_LEN_U32: u32 = @offsetOf(Header, "string_pool_len") / 4;
+pub const HDR_SOURCE_LEN_U32: u32 = @offsetOf(Header, "source_len") / 4;
+pub const HDR_DIAGNOSTIC_COUNT_U32: u32 = @offsetOf(Header, "diagnostic_count") / 4;
+pub const HDR_ROOT_U32: u32 = @offsetOf(Header, "root") / 4;
+pub const HDR_FIRST_NON_ASCII_U32: u32 = @offsetOf(Header, "first_non_ascii") / 4;
+pub const HDR_UTF16_COUNT_U32: u32 = @offsetOf(Header, "utf16_count") / 4;
+pub const HDR_LINE_COUNT_U32: u32 = @offsetOf(Header, "line_count") / 4;
+
+pub const TOKENS_COUNT_U32: u32 = @offsetOf(TokensHeader, "token_count") / 4;
+pub const TOKENS_SOURCE_LEN_U32: u32 = @offsetOf(TokensHeader, "source_len") / 4;
+pub const TOKENS_FIRST_NON_ASCII_U32: u32 = @offsetOf(TokensHeader, "first_non_ascii") / 4;
+pub const TOKENS_UTF16_COUNT_U32: u32 = @offsetOf(TokensHeader, "utf16_count") / 4;
+
+pub const NODE_FLAGS_OFFSET: u8 = @offsetOf(PackedNode, "flags");
+pub const NODE_HEADER_U32S: u8 = @offsetOf(PackedNode, "slots") / 4;
+pub const NODE_SPAN_START_U32: u8 = @offsetOf(PackedNode, "span_start") / 4;
+pub const NODE_SPAN_END_U32: u8 = @offsetOf(PackedNode, "span_end") / 4;
+pub const DIAGNOSTIC_MESSAGE_U32: u8 = @offsetOf(PackedDiagnostic, "message") / 4;
+pub const DIAGNOSTIC_START_U32: u8 = @offsetOf(PackedDiagnostic, "start") / 4;
+pub const DIAGNOSTIC_END_U32: u8 = @offsetOf(PackedDiagnostic, "end") / 4;
+
+const NODE_DATA_SLOTS: u8 = NODE_SPAN_START_U32 - NODE_HEADER_U32S;
+const NODE_FLAG_BITS: u8 = @bitSizeOf(@FieldType(PackedNode, "flags"));
+
+comptime {
+    std.debug.assert(NODE_SIZE == 32);
+    std.debug.assert(TOKEN_SIZE == 8 and @offsetOf(token.Token, "tag") % 4 == 0);
+    @setEvalBranchQuota(10_000);
+    const info = @typeInfo(ast.NodeData).@"union";
+    for (info.field_names, info.field_types) |name, T| {
+        if (totalU32Slots(T) > NODE_DATA_SLOTS) {
+            @compileError(std.fmt.comptimePrint("node '{s}' needs more than {d} u32 slots", .{ name, NODE_DATA_SLOTS }));
+        }
+        if (totalFlagBits(T) > NODE_FLAG_BITS) {
+            @compileError(std.fmt.comptimePrint("node '{s}' needs more than {d} flag bits", .{ name, NODE_FLAG_BITS }));
+        }
+    }
+}
+
+// layout helpers shared with the decoder generator in tools/gen_decoder.zig
+
+pub fn flagBitCount(comptime T: type, comptime field_idx: usize) u8 {
+    const Field = @typeInfo(T).@"struct".field_types[field_idx];
+    if (Field == bool) return 1;
+    if (@typeInfo(Field) == .@"enum" and Field != ast.NodeIndex) return enumBitWidth(Field);
+    return 0;
+}
+
+pub fn flagBitForField(comptime T: type, comptime target: usize) u8 {
+    comptime {
+        var bit: u8 = 0;
+        for (0..target) |i| bit += flagBitCount(T, i);
+        return bit;
+    }
+}
+
+pub fn fieldU32Count(comptime T: type, comptime field_idx: usize) u8 {
+    const Field = @typeInfo(T).@"struct".field_types[field_idx];
+    if (Field == ast.NodeIndex) return 1;
+    if (Field == ast.IndexRange or Field == ast.String) return 2;
+    if (Field == bool or @typeInfo(Field) == .@"enum") return 0;
+    @compileError("unsupported field type '" ++ @typeName(Field) ++ "' in " ++ @typeName(T));
+}
+
+pub fn u32SlotForField(comptime T: type, comptime target: usize) u8 {
+    comptime {
+        var slot: u8 = 0;
+        for (0..target) |i| slot += fieldU32Count(T, i);
+        return slot;
+    }
+}
+
+pub fn enumBitWidth(comptime E: type) u8 {
+    return std.math.log2_int_ceil(usize, @typeInfo(E).@"enum".field_names.len);
+}
+
+pub fn totalU32Slots(comptime T: type) u8 {
+    return u32SlotForField(T, @typeInfo(T).@"struct".field_types.len);
+}
+
+pub fn totalFlagBits(comptime T: type) u8 {
+    return flagBitForField(T, @typeInfo(T).@"struct".field_types.len);
+}
+
+pub fn bufferSize(tree: *const ast.Tree, utf16: Utf16, lines: Lines) usize {
+    return HEADER_SIZE +
+        tree.nodes.len * NODE_SIZE +
+        tree.extras.items.len * 4 +
+        std.mem.alignForward(usize, tree.strings.extra.items.len, 4) +
+        tree.diagnostics.items.len * DIAGNOSTIC_SIZE +
+        utf16.count * 8 +
+        lines.count * 4;
+}
+
+pub fn serializeInto(tree: *const ast.Tree, utf16: Utf16, lines: Lines, buf: []u8) usize {
+    std.debug.assert(buf.len >= bufferSize(tree, utf16, lines));
+    std.debug.assert(@intFromPtr(buf.ptr) % 4 == 0);
+    std.debug.assert(@backingInt(tree.root) + 1 == tree.nodes.len);
+
+    const pool_len: u32 = @intCast(tree.strings.extra.items.len);
+    const header: Header = .{
+        .node_count = @intCast(tree.nodes.len),
+        .extra_count = @intCast(tree.extras.items.len),
+        .string_pool_len = pool_len,
+        .source_len = @intCast(tree.source.len),
+        .diagnostic_count = @intCast(tree.diagnostics.items.len),
+        .root = @backingInt(tree.root),
+        .first_non_ascii = utf16.first,
+        .utf16_count = utf16.count,
+        .line_count = lines.count,
     };
+    var pos: usize = 0;
+    writeBytes(buf, &pos, std.mem.asBytes(&header));
+
+    const nodes_out: [*]PackedNode = @ptrCast(@alignCast(buf.ptr + pos));
+    for (tree.nodes.items(.data), tree.nodes.items(.span), 0..) |*data, span, i| {
+        nodes_out[i] = packNode(data, span);
+    }
+    pos += tree.nodes.len * NODE_SIZE;
+
+    writeBytes(buf, &pos, std.mem.sliceAsBytes(tree.extras.items));
+
+    writeBytes(buf, &pos, tree.strings.extra.items);
+    const pad = std.mem.alignForward(u32, pool_len, 4) - pool_len;
+    @memset(buf[pos..][0..pad], 0);
+    pos += pad;
+
+    const diagnostics_out: [*]PackedDiagnostic = @ptrCast(@alignCast(buf.ptr + pos));
+    for (tree.diagnostics.items, 0..) |d, i| {
+        diagnostics_out[i] = .{ .message = @backingInt(d.message), .start = d.span.start, .end = d.span.end };
+    }
+    pos += tree.diagnostics.items.len * DIAGNOSTIC_SIZE;
+
+    pos += utf16.write(tree.source, buf[pos..]);
+    pos += lines.write(tree.source, buf[pos..]);
+    std.debug.assert(pos == bufferSize(tree, utf16, lines));
+    return pos;
 }
 
-fn caseOf(comptime snake: []const u8, comptime pascal: bool) []const u8 {
-    var out: []const u8 = "";
-    var upper = pascal;
-    for (snake) |byte| {
-        if (byte == '_') {
-            upper = true;
-        } else {
-            out = out ++ &[_]u8{if (upper) std.ascii.toUpper(byte) else byte};
-            upper = false;
-        }
-    }
-    return out;
+pub fn tokensBufferSize(tokens: []const token.Token, utf16: Utf16) usize {
+    return TOKENS_HEADER_SIZE + tokens.len * TOKEN_SIZE + utf16.count * 8;
 }
 
-pub fn serialize(gpa: Allocator, tree: *const ast.Tree) Allocator.Error![]u32 {
-    const offsets: Utf16Offsets = try .init(gpa, tree.source);
-    defer offsets.deinit(gpa);
-
-    // every node takes at most its own slots plus one count slot for a list
-    const size = 2 + tree.nodes.len * (node_slots_max + 1) + 1 + tree.diagnostics.len * 3;
-    const out = try gpa.alloc(u32, size);
-    var writer: Writer = .{ .tree = tree, .offsets = offsets, .out = out, .len = 2 };
-    writer.node(tree.root);
-    writer.push(@intCast(tree.diagnostics.len));
-    for (tree.diagnostics) |diagnostic| {
-        writer.push(@backingInt(diagnostic.message));
-        writer.span(diagnostic.span);
-    }
-    // shrinking to fit would move a large buffer into a small size class of the wasm allocator, which leaks
-    out[0] = writer.len - 2;
-    out[1] = @intCast(out.len);
-    return out;
+pub fn serializeTokens(tokens: []const token.Token, source: []const u8, utf16: Utf16, buf: []u8) usize {
+    std.debug.assert(buf.len >= tokensBufferSize(tokens, utf16));
+    const header: TokensHeader = .{
+        .token_count = @intCast(tokens.len),
+        .source_len = @intCast(source.len),
+        .first_non_ascii = utf16.first,
+        .utf16_count = utf16.count,
+    };
+    var pos: usize = 0;
+    writeBytes(buf, &pos, std.mem.asBytes(&header));
+    writeBytes(buf, &pos, std.mem.sliceAsBytes(tokens));
+    pos += utf16.write(source, buf[pos..]);
+    return pos;
 }
 
-const node_slots_max = blk: {
-    var max = 0;
-    for (std.meta.fieldTypes(ast.Data)) |Payload| {
-        var slots = 3;
-        for (std.meta.fieldTypes(Payload)) |Field| slots += switch (Field) {
-            ast.Span, ?ast.Span => 2,
-            ast.NodeIndex => 0,
-            else => 1,
-        };
-        max = @max(max, slots);
-    }
-    break :blk max;
-};
-
-const Writer = struct {
-    tree: *const ast.Tree,
-    offsets: Utf16Offsets,
-    out: []u32,
-    len: u32,
-
-    fn push(w: *Writer, value: u32) void {
-        w.out[w.len] = value;
-        w.len += 1;
-    }
-
-    fn span(w: *Writer, value: ast.Span) void {
-        w.push(w.offsets.at(value.start));
-        w.push(w.offsets.at(value.end));
-    }
-
-    fn node(w: *Writer, index: ast.NodeIndex) void {
-        if (index == .null) return w.push(null_slot);
-        const current = &w.tree.nodes[@backingInt(index)];
-        w.push(@backingInt(std.meta.activeTag(current.data)));
-        w.span(current.span);
-        switch (current.data) {
-            inline else => |*payload| inline for (comptime std.meta.fieldNames(@TypeOf(payload.*))) |name| {
-                w.field(@FieldType(@TypeOf(payload.*), name), @field(payload, name));
-            },
-        }
-    }
-
-    fn field(w: *Writer, comptime T: type, value: T) void {
-        switch (T) {
-            ast.NodeIndex => w.node(value),
-            ast.NodeList => {
-                w.push(value.len);
-                for (w.tree.list(value)) |child| w.node(child);
-            },
-            ast.Span => w.span(value),
-            ?ast.Span => if (value) |present| w.span(present) else {
-                w.push(null_slot);
-                w.push(null_slot);
-            },
-            bool => w.push(@intFromBool(value)),
-            else => w.push(@backingInt(value)),
-        }
-    }
-};
-
-/// Maps byte offsets to UTF-16 offsets; offsets up to the first non-ASCII byte map to themselves.
-const Utf16Offsets = struct {
+/// The non-ASCII characters of a source, past which byte offsets and UTF-16 offsets part. Each is
+/// written as the byte offset after it, then how many more bytes than UTF-16 code units the source
+/// has up to there; JavaScript searches them only for offsets past the first.
+pub const Utf16 = struct {
     first: u32,
-    table: []u32,
+    count: u32,
 
-    fn init(gpa: Allocator, source: []const u8) Allocator.Error!Utf16Offsets {
-        var first: u32 = 0;
-        while (first < source.len and source[first] < 0x80) first += 1;
-        if (first == source.len) return .{ .first = first, .table = &.{} };
-
-        const table = try gpa.alloc(u32, source.len - first + 1);
-        var units = first;
-        var i: u32 = first;
+    pub fn init(source: []const u8) Utf16 {
+        const first = firstNonAscii(source, 0);
+        var count: u32 = 0;
+        var i = first;
         while (i < source.len) {
-            const lead = source[i];
-            if (lead < 0x80) {
-                table[i - first] = units;
-                units += 1;
-                i += 1;
-                continue;
-            }
-            const width: u32 = if (lead < 0x80) 1 else if (lead < 0xE0) 2 else if (lead < 0xF0) 3 else 4;
-            const end = @min(i + width, @as(u32, @intCast(source.len)));
-            @memset(table[i - first .. end - first], units);
-            units += if (width == 4) 2 else 1;
-            i = end;
+            i += charLen(source[i]);
+            count += 1;
+            i = firstNonAscii(source, i);
         }
-        table[source.len - first] = units;
-        return .{ .first = first, .table = table };
+        return .{ .first = first, .count = count };
     }
 
-    fn deinit(offsets: Utf16Offsets, gpa: Allocator) void {
-        gpa.free(offsets.table);
-    }
-
-    fn at(offsets: Utf16Offsets, offset: u32) u32 {
-        if (offset <= offsets.first) return offset;
-        return offsets.table[offset - offsets.first];
+    fn write(utf16: Utf16, source: []const u8, buf: []u8) usize {
+        const out: [*]u32 = @ptrCast(@alignCast(buf.ptr));
+        var extra: u32 = 0;
+        var i = utf16.first;
+        var n: usize = 0;
+        while (i < source.len) {
+            const len = charLen(source[i]);
+            // four bytes are a surrogate pair, two code units
+            extra += len - @as(u32, if (len == 4) 2 else 1);
+            i = @min(i + len, @as(u32, @intCast(source.len)));
+            out[n] = i;
+            out[n + 1] = extra;
+            n += 2;
+            i = firstNonAscii(source, i);
+        }
+        std.debug.assert(n == utf16.count * 2);
+        return n * 4;
     }
 };
 
-test "serializes without leaking" {
+/// Where each line after the first starts, for css-tree's `loc`: past `\n`, `\r\n`, `\r`, or `\f`.
+pub const Lines = struct {
+    count: u32,
+
+    pub const none: Lines = .{ .count = 0 };
+
+    pub fn init(source: []const u8) Lines {
+        var count: u32 = 0;
+        var i = nextBreak(source, 0);
+        while (i < source.len) : (i = nextBreak(source, i)) {
+            i += breakLen(source, i);
+            count += 1;
+        }
+        return .{ .count = count };
+    }
+
+    fn write(lines: Lines, source: []const u8, buf: []u8) usize {
+        if (lines.count == 0) return 0;
+        const out: [*]u32 = @ptrCast(@alignCast(buf.ptr));
+        var n: usize = 0;
+        var i = nextBreak(source, 0);
+        while (i < source.len) : (i = nextBreak(source, i)) {
+            i += breakLen(source, i);
+            out[n] = i;
+            n += 1;
+        }
+        std.debug.assert(n == lines.count);
+        return n * 4;
+    }
+};
+
+fn breakLen(source: []const u8, i: u32) u32 {
+    return if (source[i] == '\r' and i + 1 < source.len and source[i + 1] == '\n') 2 else 1;
+}
+
+// eight bytes at a time: a word holds a byte `b` when `w ^ b` has a zero byte
+fn nextBreak(source: []const u8, from: u32) u32 {
+    const ones: u64 = 0x0101010101010101;
+    const high: u64 = 0x8080808080808080;
+    var i: usize = from;
+    while (i + 8 <= source.len) : (i += 8) {
+        const w = std.mem.readInt(u64, source[i..][0..8], .little);
+        var found: u64 = 0;
+        inline for ("\n\r\x0C") |b| {
+            const x = w ^ (ones * b);
+            found |= (x -% ones) & ~x & high;
+        }
+        if (found != 0) break;
+    }
+    while (i < source.len) : (i += 1) switch (source[i]) {
+        '\n', '\r', 0x0C => break,
+        else => {},
+    };
+    return @intCast(i);
+}
+
+fn charLen(lead: u8) u32 {
+    return if (lead < 0xE0) 2 else if (lead < 0xF0) 3 else 4;
+}
+
+inline fn writeBytes(buf: []u8, pos: *usize, bytes: []const u8) void {
+    @memcpy(buf[pos.*..][0..bytes.len], bytes);
+    pos.* += bytes.len;
+}
+
+fn packNode(data: *const ast.NodeData, span: ast.Span) PackedNode {
+    var n: PackedNode = std.mem.zeroes(PackedNode);
+    n.span_start = span.start;
+    n.span_end = span.end;
+    // by pointer, so no node copies the whole union
+    switch (data.*) {
+        inline else => |*payload, tag| {
+            n.tag = @backingInt(tag);
+            packPayload(&n, payload);
+        },
+    }
+    return n;
+}
+
+fn packPayload(n: *PackedNode, payload: anytype) void {
+    const T = @typeInfo(@TypeOf(payload)).pointer.child;
+    const info = @typeInfo(T).@"struct";
+    inline for (info.field_names, info.field_types, 0..) |name, Field, i| {
+        const value = @field(payload, name);
+        const bit = comptime flagBitForField(T, i);
+        const slot = comptime u32SlotForField(T, i);
+        if (Field == ast.NodeIndex) {
+            n.slots[slot] = @backingInt(value);
+        } else if (Field == ast.IndexRange) {
+            n.slots[slot] = value.start;
+            n.slots[slot + 1] = value.len;
+        } else if (Field == ast.String) {
+            n.slots[slot] = value.start;
+            n.slots[slot + 1] = value.end;
+        } else if (Field == bool) {
+            if (value) n.flags |= @as(u16, 1) << bit;
+        } else if (@typeInfo(Field) == .@"enum") {
+            n.flags |= @as(u16, @backingInt(value)) << bit;
+        } else {
+            @compileError("unsupported field type '" ++ @typeName(Field) ++ "' in " ++ @typeName(T));
+        }
+    }
+}
+
+// eight bytes at a time, which the mvp target runs without SIMD
+fn firstNonAscii(source: []const u8, from: u32) u32 {
+    const high: u64 = 0x8080808080808080;
+    var i: usize = from;
+    while (i + 8 <= source.len) : (i += 8) {
+        if (std.mem.readInt(u64, source[i..][0..8], .little) & high != 0) break;
+    }
+    while (i < source.len and source[i] < 0x80) i += 1;
+    return @intCast(i);
+}
+
+test "serializes" {
     const parse = @import("parser.zig").parse;
-    var tree = try parse(std.testing.allocator, ".é { a: b } @media x { c {} }");
+    const source = ".é { a: b } @media x { c {} } d { \"\\41\" } 😀{}";
+    var tree = try parse(std.testing.allocator, source, .{});
     defer tree.deinit();
-    const out = try serialize(std.testing.allocator, &tree);
-    defer std.testing.allocator.free(out);
-    try std.testing.expectEqual(out.len, out[1]);
-    try std.testing.expect(out[0] + 2 <= out.len);
+    const utf16: Utf16 = .init(source);
+    try std.testing.expectEqual(Utf16{ .first = 1, .count = 2 }, utf16);
+    const buf = try std.testing.allocator.alignedAlloc(u8, .@"4", bufferSize(&tree, utf16, .none));
+    defer std.testing.allocator.free(buf);
+    try std.testing.expectEqual(buf.len, serializeInto(&tree, utf16, .none, buf));
+    const breakpoints: []const u32 = @ptrCast(@alignCast(buf[buf.len - 16 ..]));
+    try std.testing.expectEqualSlices(u32, &.{ 3, 1, source.len - 2, 3 }, breakpoints);
+    try std.testing.expectEqual(8, firstNonAscii("abcdefghé", 0));
+}
+
+test "finds where lines start" {
+    const source = "a\nb\r\nc\rd\x0Ce lorem ipsum dolor\n";
+    const lines: Lines = .init(source);
+    try std.testing.expectEqual(5, lines.count);
+    var buf: [20]u8 align(4) = undefined;
+    try std.testing.expectEqual(20, lines.write(source, &buf));
+    try std.testing.expectEqualSlices(u32, &.{ 2, 5, 7, 9, source.len }, @as(*const [5]u32, @ptrCast(&buf)));
 }

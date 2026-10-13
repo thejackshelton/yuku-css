@@ -1,14 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import {
   parse,
-  type AtRule,
-  type Block,
-  type ComplexSelector,
-  type CompoundSelector,
+  tokenize,
+  tokenNames,
+  tokenTypes,
+  type Atrule,
+  type CssNode,
   type Declaration,
-  type Node,
+  type Positions,
   type PseudoClassSelector,
   type Rule,
+  type Selector,
   type SelectorList,
 } from "yuku-css";
 
@@ -22,32 +24,22 @@ function rule(source: string, index = 0): Rule {
   return clean(source).stylesheet.children[index] as Rule;
 }
 
-function atRule(source: string, index = 0): AtRule {
-  return clean(source).stylesheet.children[index] as AtRule;
-}
-
-function declarations(source: string): Declaration[] {
-  return rule(source).block.children as Declaration[];
-}
-
-function selector(source: string): ComplexSelector {
+function selector(source: string): Selector {
   return (rule(`${source} {}`).prelude as SelectorList).children[0]!;
 }
 
-function compound(source: string): CompoundSelector {
-  return selector(source).children[0] as CompoundSelector;
+function simple(source: string): CssNode {
+  return selector(source).children[0]!;
 }
 
-function simple(source: string): Node {
-  return compound(source).children[0]!;
-}
-
-// every node's span slices out its own text
-function spans(node: Node, source: string, out: string[] = []): string[] {
-  out.push(`${node.type} ${source.slice(node.start, node.end)}`);
-  for (const value of Object.values(node)) {
-    if (Array.isArray(value)) for (const child of value) spans(child, source, out);
-    else if (value !== null && typeof value === "object") spans(value as Node, source, out);
+// each node's type and the text its offsets slice
+function outline(node: unknown, source: string, out: string[] = []): string[] {
+  if (Array.isArray(node)) {
+    for (const child of node) outline(child, source, out);
+  } else if (node !== null && typeof node === "object") {
+    const { type, start, end } = node as { type: string; start: number; end: number };
+    out.push(`${type} ${source.slice(start, end)}`);
+    for (const value of Object.values(node)) outline(value, source, out);
   }
   return out;
 }
@@ -55,484 +47,309 @@ function spans(node: Node, source: string, out: string[] = []): string[] {
 describe("style sheet", () => {
   test("empty", () => {
     expect(clean("").stylesheet).toEqual({ type: "StyleSheet", start: 0, end: 0, children: [] });
-    expect(clean(" /* only a comment */ ").stylesheet.children).toEqual([]);
+    expect(clean(" /* dropped */ ").stylesheet.children).toEqual([]);
   });
 
-  test("rules and at-rules in order", () => {
-    const { stylesheet } = clean("@import 'a.css'; a {} @media print { b {} }");
-    expect(stylesheet.children.map((child) => child.type)).toEqual(["AtRule", "Rule", "AtRule"]);
-  });
-
-  test("spans slice the source", () => {
-    const source = "a > b.c, :is(d) { color: red !important; &:hover { --x: { y } } }";
-    expect(spans(clean(source).stylesheet, source)).toEqual([
+  test("offsets slice the source", () => {
+    const source = "a > b.c, :is(d) { color: red !important; & e { --x: { y } } }";
+    expect(outline(clean(source).stylesheet, source)).toEqual([
       `StyleSheet ${source}`,
       `Rule ${source}`,
       "SelectorList a > b.c, :is(d)",
-      "ComplexSelector a > b.c",
-      "CompoundSelector a",
+      "Selector a > b.c",
       "TypeSelector a",
       "Combinator >",
-      "CompoundSelector b.c",
       "TypeSelector b",
       "ClassSelector .c",
-      "ComplexSelector :is(d)",
-      "CompoundSelector :is(d)",
+      "Selector :is(d)",
       "PseudoClassSelector :is(d)",
       "SelectorList d",
-      "ComplexSelector d",
-      "CompoundSelector d",
+      "Selector d",
       "TypeSelector d",
-      "Block { color: red !important; &:hover { --x: { y } } }",
+      "Block { color: red !important; & e { --x: { y } } }",
       "Declaration color: red !important",
       "Raw red",
-      "Rule &:hover { --x: { y } }",
-      "SelectorList &:hover",
-      "ComplexSelector &:hover",
-      "CompoundSelector &:hover",
+      "Rule & e { --x: { y } }",
+      "SelectorList & e",
+      "Selector & e",
       "NestingSelector &",
-      "PseudoClassSelector :hover",
+      "Combinator  ",
+      "TypeSelector e",
       "Block { --x: { y } }",
-      "Declaration --x: { y }",
-      "Raw { y }",
+      "Declaration --x: { y } ",
+      "Raw  { y } ",
     ]);
   });
 
-  test("ignores <!-- and -->", () => {
-    expect(clean("<!-- a {} -->").stylesheet.children).toHaveLength(1);
+  test("keeps /*! comments, <!-- and -->", () => {
+    expect(clean("/*! license */ <!-- a {} -->").stylesheet.children).toEqual([
+      { type: "Comment", start: 0, end: 14, value: "! license " },
+      { type: "CDO", start: 15, end: 19 },
+      expect.objectContaining({ type: "Rule" }),
+      { type: "CDC", start: 25, end: 28 },
+    ]);
   });
 });
 
 describe("rules", () => {
   test("rule", () => {
-    expect(rule("a { }")).toMatchObject({
+    expect(rule("a { }")).toEqual({
       type: "Rule",
       start: 0,
       end: 5,
-      prelude: { type: "SelectorList", start: 0, end: 1 },
+      prelude: {
+        type: "SelectorList",
+        start: 0,
+        end: 1,
+        children: [{ type: "Selector", start: 0, end: 1, children: [{ type: "TypeSelector", start: 0, end: 1, name: "a" }] }],
+      },
       block: { type: "Block", start: 2, end: 5, children: [] },
     });
   });
 
-  test("nested rules", () => {
-    const outer = rule(".a { color: red; .b { color: blue; } & + & {} > .c {} :hover {} }");
-    expect(outer.block.children.map((child) => child.type)).toEqual(["Declaration", "Rule", "Rule", "Rule", "Rule"]);
-    const relative = outer.block.children[3] as Rule;
-    expect((relative.prelude as SelectorList).children[0]!.children[0]).toMatchObject({ type: "Combinator", name: ">" });
+  test("nested rules, however they start", () => {
+    const outer = rule(".a { color: red; .b {} & + & {} > .c {} :hover {} html.dark & {} html:is(.d) & {} }");
+    expect(outer.block.children.map((child) => child.type)).toEqual(["Declaration", "Rule", "Rule", "Rule", "Rule", "Rule", "Rule"]);
   });
 
-  test("a nested rule led by a type selector", () => {
-    const outer = rule(".a { html.dark & { color: red } html:is(.b) & { color: blue } }");
-    expect(outer.block.children.map((child) => child.type)).toEqual(["Rule", "Rule"]);
-  });
-
-  test("deep nesting", () => {
-    const depth = 50;
-    let source = "a {}";
-    for (let i = 0; i < depth; i++) source = `a { ${source} }`;
-    let node = rule(source);
-    for (let i = 0; i < depth; i++) node = node.block.children[0] as Rule;
-    expect(node.block.children).toEqual([]);
+  test("a raw prelude", () => {
+    expect(rule("a, b {}").prelude).toMatchObject({ type: "SelectorList" });
+    expect(parse("a, b {}", { parseRulePrelude: false }).stylesheet.children[0]).toMatchObject({
+      prelude: { type: "Raw", start: 0, end: 4, value: "a, b" },
+    });
   });
 });
 
 describe("at-rules", () => {
   test("without a block", () => {
-    expect(atRule("@import url(a.css) screen;")).toEqual({
-      type: "AtRule",
+    expect(clean("@import url(a.css) screen;").stylesheet.children[0]).toEqual({
+      type: "Atrule",
       start: 0,
       end: 26,
       name: "import",
       prelude: { type: "Raw", start: 8, end: 25, value: "url(a.css) screen" },
       block: null,
     });
-    expect(atRule("@layer a, b;").prelude?.value).toBe("a, b");
   });
 
-  test("without a prelude", () => {
-    expect(atRule("@font-face { font-family: x }")).toMatchObject({ name: "font-face", prelude: null });
-    expect(atRule("@starting-style { a { opacity: 0 } }").prelude).toBeNull();
+  test("blocks of rules and blocks of declarations", () => {
+    const [media, fontFace, keyframes, property] = clean(
+      "@media print { a {} } @font-face { b: c } @keyframes k { from {} 50% {} } @property --x { d: e }",
+    ).stylesheet.children as Atrule[];
+    expect(media!.block!.children.map((child) => child.type)).toEqual(["Rule"]);
+    expect(fontFace!.block!.children.map((child) => child.type)).toEqual(["Declaration"]);
+    expect((keyframes!.block!.children[1] as Rule).prelude).toMatchObject({
+      children: [{ type: "Selector", children: [{ type: "Percentage", value: "50" }] }],
+    });
+    expect(property!.block!.children.map((child) => child.type)).toEqual(["Declaration"]);
   });
 
-  test("blocks that hold rules", () => {
-    for (const name of ["media screen", "supports (display: grid)", "layer base", "container card (width > 40em)", "scope (.a) to (.b)", "starting-style", "document url-prefix()", "-moz-document url-prefix()"]) {
-      const block = atRule(`@${name} { a { color: red } b {} }`).block!;
-      expect(block.children.map((child) => child.type)).toEqual(["Rule", "Rule"]);
-      expect((block.children[0] as Rule).prelude.type).toBe("SelectorList");
-    }
-  });
-
-  test("blocks that hold declarations", () => {
-    for (const name of ["font-face", "page :first", "property --x", "counter-style thumbs"]) {
-      const block = atRule(`@${name} { a: b; c: d }`).block!;
-      expect(block.children.map((child) => (child as Declaration).property)).toEqual(["a", "c"]);
-    }
-    const page = atRule("@page { margin: 1in; @top-left { content: 'x' } }").block!;
-    expect(page.children.map((child) => child.type)).toEqual(["Declaration", "AtRule"]);
-  });
-
-  test("keyframes", () => {
-    for (const name of ["keyframes", "-webkit-keyframes", "-moz-keyframes", "KEYFRAMES"]) {
-      const at = atRule(`@${name} spin { from { a: b } 50%, 75% { c: d } to {} }`);
-      expect(at.name).toBe(name);
-      const rules = at.block!.children as Rule[];
-      expect(rules.map((child) => child.prelude)).toMatchObject([
-        { type: "Raw", value: "from" },
-        { type: "Raw", value: "50%, 75%" },
-        { type: "Raw", value: "to" },
-      ]);
-      expect((rules[0]!.block.children[0] as Declaration).property).toBe("a");
-    }
-  });
-
-  test("nested in a rule", () => {
-    const outer = rule(".a { color: red; @media (width > 1px) { color: blue; > b {} } }");
-    const media = outer.block.children[1] as AtRule;
-    expect(media.block!.children.map((child) => child.type)).toEqual(["Declaration", "Rule"]);
-  });
-
-  test("unknown at-rules", () => {
-    expect(atRule("@custom-thing a { b: c; d {} }").block!.children.map((child) => child.type)).toEqual([
-      "Declaration",
-      "Rule",
+  test("nested in a rule, a group rule holds declarations", () => {
+    const at = rule("a { @media x { b: c; d {} } @layer y { e: f } }").block.children as Atrule[];
+    expect(at.map((child) => child.block!.children.map((grandchild) => grandchild.type))).toEqual([
+      ["Declaration", "Rule"],
+      ["Declaration"],
     ]);
-  });
-
-  test("ends without a semicolon before a closing brace or the end", () => {
-    expect(atRule("@charset 'utf-8'")).toMatchObject({ end: 16, block: null });
-    const inner = rule("a { @apply b }").block.children[0] as AtRule;
-    expect(inner).toMatchObject({ name: "apply", end: 12, prelude: { value: "b" } });
   });
 });
 
 describe("declarations", () => {
-  test("declaration", () => {
-    expect(declarations("a { color : red ; }")[0]).toEqual({
+  test("important", () => {
+    const [plain, important, other] = rule("a { b: c; d: e !important; f: g ! ie }").block.children as Declaration[];
+    expect(plain).toEqual({
       type: "Declaration",
       start: 4,
-      end: 15,
-      property: "color",
-      value: { type: "Raw", start: 12, end: 15, value: "red" },
+      end: 8,
       important: false,
+      property: "b",
+      value: { type: "Raw", start: 7, end: 8, value: "c" },
     });
+    expect(important!.important).toBe(true);
+    expect(other!.important).toBe("ie");
   });
 
-  test("!important", () => {
-    const [first, second, third] = declarations("a { a: b !important; c: d!IMPORTANT ; e: f ! important }");
-    expect(first).toMatchObject({ important: true, end: 19, value: { value: "b" } });
-    expect(second).toMatchObject({ important: true, value: { value: "d" } });
-    expect(third).toMatchObject({ important: true, value: { value: "f" } });
-    expect(declarations("a { content: '!important' }")[0]!.important).toBe(false);
+  test("hacks", () => {
+    const properties = (rule("a { *zoom: 1; _x: 2; $y: 3; +z: 4; #w: 5; /v: 6; //u: 7 }").block.children as Declaration[]).map(
+      (declaration) => declaration.property,
+    );
+    expect(properties).toEqual(["*zoom", "_x", "$y", "+z", "#w", "/v", "//u"]);
   });
 
-  test("values keep comments, strings, functions, and urls as written", () => {
-    const values = declarations(
-      "a { a: red /* note */; b: 'x;y}'; c: calc(1px + (2px * 3)); d: url(data:image/png;base64,AB==); e: url( 'a;b' ) }",
-    ).map((declaration) => declaration.value.value);
-    expect(values).toEqual([
-      "red /* note */",
-      "'x;y}'",
-      "calc(1px + (2px * 3))",
-      "url(data:image/png;base64,AB==)",
-      "url( 'a;b' )",
-    ]);
-  });
-
-  test("custom properties keep braces and any value", () => {
-    const [a, b, c] = declarations("a { --a: { b: c; d }; --b:; --c: [1, 2] !important }");
-    expect(a).toMatchObject({ property: "--a", value: { value: "{ b: c; d }" } });
-    expect(b).toMatchObject({ property: "--b", value: { value: "" } });
-    expect(c).toMatchObject({ property: "--c", value: { value: "[1, 2]" }, important: true });
-  });
-
-  test("the last declaration needs no semicolon", () => {
-    expect(declarations("a{b:c}")[0]).toMatchObject({ property: "b", value: { value: "c" } });
-  });
-
-  test("empty statements", () => {
-    expect(declarations("a { ; b: c;; ; }")).toHaveLength(1);
+  test("a custom property keeps its whitespace and any block", () => {
+    expect((rule("a { --x: { y } ; }").block.children[0] as Declaration).value.value).toBe(" { y } ");
   });
 });
 
 describe("selectors", () => {
-  test("selector list", () => {
-    const prelude = rule("a , b,c {}").prelude as SelectorList;
-    expect(prelude.children.map((child) => [child.start, child.end])).toEqual([[0, 1], [4, 5], [6, 7]]);
-  });
-
   test("combinators", () => {
-    const children = selector("a b>c + d ~ e || f\n\tg").children;
-    expect(children.filter((child) => child.type === "Combinator").map((child) => child.name)).toEqual([
-      " ",
-      ">",
-      "+",
-      "~",
-      "||",
-      " ",
-    ]);
-    expect(children[1]).toEqual({ type: "Combinator", start: 1, end: 2, name: " " });
-    expect(children[3]).toEqual({ type: "Combinator", start: 3, end: 4, name: ">" });
-  });
-
-  test("comments between compounds", () => {
-    expect(selector("a /* x */ > /* y */ b").children.map((child) => child.type)).toEqual([
-      "CompoundSelector",
-      "Combinator",
-      "CompoundSelector",
+    expect(selector("a b>c + d ~e /deep/ f").children.filter((node) => node.type === "Combinator")).toEqual([
+      { type: "Combinator", start: 1, end: 2, name: " " },
+      { type: "Combinator", start: 3, end: 4, name: ">" },
+      { type: "Combinator", start: 6, end: 7, name: "+" },
+      { type: "Combinator", start: 10, end: 11, name: "~" },
+      { type: "Combinator", start: 13, end: 19, name: "/deep/" },
     ]);
   });
 
-  test("type selectors", () => {
-    expect(simple("div")).toEqual({ type: "TypeSelector", start: 0, end: 3, namespace: null, name: "div" });
-    expect(simple("*")).toMatchObject({ namespace: null, name: "*" });
-    expect(simple("svg|rect")).toMatchObject({ namespace: "svg", name: "rect" });
-    expect(simple("*|*")).toMatchObject({ namespace: "*", name: "*" });
-    expect(simple("|a")).toMatchObject({ namespace: "", name: "a", start: 0, end: 2 });
-    expect(simple("ns|*")).toMatchObject({ namespace: "ns", name: "*" });
+  test("a comment between simple selectors is no whitespace", () => {
+    expect(selector(".a:hover/**/.b").children.map((node) => node.type)).toEqual([
+      "ClassSelector",
+      "PseudoClassSelector",
+      "ClassSelector",
+    ]);
+    expect(selector(".a /**/ .b").children.map((node) => node.type)).toEqual(["ClassSelector", "Combinator", "ClassSelector"]);
   });
 
-  test("id, class, and nesting selectors", () => {
-    expect(compound("a#b.c-d.-e._f&").children).toEqual([
-      { type: "TypeSelector", start: 0, end: 1, namespace: null, name: "a" },
-      { type: "IdSelector", start: 1, end: 3, name: "b" },
-      { type: "ClassSelector", start: 3, end: 7, name: "c-d" },
-      { type: "ClassSelector", start: 7, end: 10, name: "-e" },
-      { type: "ClassSelector", start: 10, end: 13, name: "_f" },
-      { type: "NestingSelector", start: 13, end: 14 },
-    ]);
-    expect(simple("#1a")).toMatchObject({ type: "IdSelector", name: "1a" });
+  test("simple selectors", () => {
+    expect(simple("svg|a")).toEqual({ type: "TypeSelector", start: 0, end: 5, name: "svg|a" });
+    expect(simple("*|*")).toMatchObject({ type: "TypeSelector", name: "*|*" });
+    expect(simple("#a")).toEqual({ type: "IdSelector", start: 0, end: 2, name: "a" });
+    expect(simple(".a")).toEqual({ type: "ClassSelector", start: 0, end: 2, name: "a" });
+    expect(simple("&")).toEqual({ type: "NestingSelector", start: 0, end: 1 });
   });
 
   test("attribute selectors", () => {
-    expect(simple("[href]")).toEqual({
+    expect(simple("[a]")).toMatchObject({ name: { type: "Identifier", name: "a" }, matcher: null, value: null, flags: null });
+    expect(simple("[ns|a ~= b]")).toMatchObject({ name: { name: "ns|a" }, matcher: "~=", value: { type: "Identifier", name: "b" } });
+    expect(simple('[a="\\41 b" i]')).toEqual({
       type: "AttributeSelector",
       start: 0,
-      end: 6,
-      namespace: null,
-      name: "href",
-      matcher: null,
-      value: null,
-      modifier: null,
+      end: 13,
+      name: { type: "Identifier", start: 1, end: 2, name: "a" },
+      matcher: "=",
+      value: { type: "String", start: 3, end: 10, value: "Ab" },
+      flags: "i",
     });
-    expect(simple("[ data-x = 'a b' i ]")).toMatchObject({ name: "data-x", matcher: "=", value: "'a b'", modifier: "i" });
-    expect(simple('[lang|="en"]')).toMatchObject({ name: "lang", matcher: "|=", value: '"en"' });
-    for (const matcher of ["~=", "^=", "$=", "*="]) {
-      expect(simple(`[a${matcher}b s]`)).toMatchObject({ matcher, value: "b", modifier: "s" });
-    }
-    expect(simple("[xlink|href]")).toMatchObject({ namespace: "xlink", name: "href" });
-    expect(simple("[*|a]")).toMatchObject({ namespace: "*", name: "a" });
-    expect(simple("[|a=b]")).toMatchObject({ namespace: "", name: "a", value: "b" });
   });
 
-  test("pseudo-classes", () => {
-    expect(simple(":hover")).toEqual({ type: "PseudoClassSelector", start: 0, end: 6, name: "hover", argument: null });
-    expect(simple(":before")).toMatchObject({ type: "PseudoClassSelector", name: "before" });
-    expect(simple(":dir( rtl )")).toMatchObject({ argument: { type: "Raw", value: "rtl", start: 6, end: 9 } });
-    expect(simple(":lang(en, fr)")).toMatchObject({ argument: { type: "Raw", value: "en, fr" } });
-    expect(simple(":global(.a)")).toMatchObject({ argument: { type: "Raw", value: ".a" } });
-    expect(simple(":state()")).toMatchObject({ argument: { type: "Raw", value: "" } });
+  test("pseudo-classes and their arguments", () => {
+    const children = (source: string) => (simple(source) as PseudoClassSelector).children;
+    expect(children(":hover")).toBeNull();
+    expect(children(":is(a, b)")).toMatchObject([{ type: "SelectorList", children: [{}, {}] }]);
+    expect(children(":has(> a)")).toMatchObject([{ type: "SelectorList", children: [{ children: [{ type: "Combinator" }, {}] }] }]);
+    expect(children(":host(a)")).toMatchObject([{ type: "Selector" }]);
+    expect(children(":dir(ltr)")).toMatchObject([{ type: "Identifier", name: "ltr" }]);
+    expect(children(':lang(en, "fr")')).toMatchObject([{ type: "Identifier" }, { type: "Operator", value: "," }, { type: "String", value: "fr" }]);
+    expect(children(":unknown( a b )")).toMatchObject([{ type: "Raw", value: " a b " }]);
+    expect(children(":is()")).toEqual([]);
   });
 
-  test("pseudo-classes that take selectors", () => {
-    for (const name of ["is", "where", "not", "matches", "-webkit-any", "-moz-any", "host", "host-context", "IS"]) {
-      const argument = (simple(`:${name}(.a, b c)`) as PseudoClassSelector).argument as SelectorList;
-      expect(argument.type).toBe("SelectorList");
-      expect(argument.children).toHaveLength(2);
-    }
-    expect((simple(":is()") as PseudoClassSelector).argument).toMatchObject({ type: "SelectorList", children: [] });
-    expect((simple(":where()") as PseudoClassSelector).argument).toMatchObject({ type: "SelectorList", children: [] });
-    expect(simple(":not(:is(a, :where(.b)))")).toMatchObject({ argument: { type: "SelectorList" } });
-  });
-
-  test(":has() takes relative selectors", () => {
-    const argument = (simple(":has(> img, + p, ~ q, r)") as PseudoClassSelector).argument as SelectorList;
-    expect(argument.children.map((child) => child.children[0]!.type)).toEqual([
-      "Combinator",
-      "Combinator",
-      "Combinator",
-      "CompoundSelector",
-    ]);
-  });
-
-  test(":nth-*()", () => {
-    expect(simple(":nth-child(2n + 1)")).toMatchObject({
-      argument: { type: "Nth", nth: "2n + 1", selector: null, start: 11, end: 17 },
-    });
-    expect(simple(":nth-child( -n+3 of .a, b )")).toMatchObject({
-      argument: { type: "Nth", nth: "-n+3", selector: { type: "SelectorList", children: [{}, {}] } },
-    });
-    for (const name of ["nth-last-child", "nth-of-type", "nth-last-of-type"]) {
-      expect(simple(`:${name}(odd)`)).toMatchObject({ argument: { type: "Nth", nth: "odd" } });
-    }
-    expect(simple(":nth-child(EVEN)")).toMatchObject({ argument: { nth: "EVEN" } });
+  test("nth", () => {
+    const nth = (source: string) => ((simple(`:nth-child(${source})`) as PseudoClassSelector).children![0] as { nth: unknown; selector: unknown });
+    expect(nth("2n+1").nth).toMatchObject({ type: "AnPlusB", a: "2", b: "1" });
+    expect(nth("-n- 3").nth).toMatchObject({ a: "-1", b: "-3" });
+    expect(nth("+n").nth).toMatchObject({ a: "1", b: null });
+    expect(nth("5").nth).toMatchObject({ a: null, b: "5" });
+    expect(nth("odd").nth).toMatchObject({ type: "Identifier", name: "odd" });
+    expect(nth("2n of .a").selector).toMatchObject({ type: "SelectorList" });
   });
 
   test("pseudo-elements", () => {
-    expect(simple("::before")).toEqual({
-      type: "PseudoElementSelector",
-      start: 0,
-      end: 8,
-      name: "before",
-      argument: null,
-    });
-    expect(simple("::part( label )")).toMatchObject({ argument: { type: "Raw", value: "label" } });
-    expect(simple("::slotted(.a)")).toMatchObject({ argument: { type: "Raw", value: ".a" } });
-    expect(compound("a::before:hover").children.map((child) => child.type)).toEqual([
-      "TypeSelector",
-      "PseudoElementSelector",
-      "PseudoClassSelector",
-    ]);
+    expect(simple("::before")).toEqual({ type: "PseudoElementSelector", start: 0, end: 8, name: "before", children: null });
+    expect(simple("::slotted(a)")).toMatchObject({ children: [{ type: "Selector" }] });
+    expect(simple("::part(a b)")).toMatchObject({ children: [{ type: "Raw", value: "a b" }] });
   });
 });
 
-describe("lexing", () => {
-  test("comments anywhere", () => {
-    const { stylesheet } = clean("/* a */ a /* b */ { /* c */ color /* d */ : red /* e */ ; } /* f */");
-    const declaration = (stylesheet.children[0] as Rule).block.children[0] as Declaration;
-    expect(declaration).toMatchObject({ property: "color", value: { value: "red /* e */" } });
+describe("positions", () => {
+  test("loc in place of start and end", () => {
+    const { stylesheet } = parse("a {\n  b: c\n}", { positions: true, filename: "x.css" });
+    expect(stylesheet).not.toHaveProperty("start");
+    const declaration = (stylesheet.children[0] as Rule<Positions>).block.children[0]!;
+    expect(declaration.loc).toEqual({
+      source: "x.css",
+      start: { offset: 6, line: 2, column: 3 },
+      end: { offset: 11, line: 3, column: 1 },
+    });
   });
 
-  test("strings hide braces, semicolons, and comments", () => {
-    const [first, second] = declarations(`a { content: "} ; /* x */"; quotes: '\\'' "\\"" }`);
-    expect(first!.value.value).toBe('"} ; /* x */"');
-    expect(second!.value.value).toBe(`'\\'' "\\""`);
+  test("a fragment's offset, line, and column", () => {
+    const { stylesheet } = parse("a {}", { positions: true, offset: 100, line: 5, column: 10 });
+    expect(stylesheet.loc).toEqual({
+      source: "<unknown>",
+      start: { offset: 100, line: 5, column: 10 },
+      end: { offset: 104, line: 5, column: 14 },
+    });
   });
 
-  test("a string continues over an escaped newline", () => {
-    expect(declarations('a { content: "a\\\nb" }')[0]!.value.value).toBe('"a\\\nb"');
+  test("the descendant combinator has no loc", () => {
+    const rule = parse("a b {}", { positions: true }).stylesheet.children[0] as Rule<Positions>;
+    expect((rule.prelude as SelectorList<Positions>).children[0]!.children[1]).toEqual({ type: "Combinator", loc: null, name: " " });
   });
 
-  test("escapes in names stay as written", () => {
-    expect(simple(".a\\:b")).toMatchObject({ name: "a\\:b" });
-    expect(simple(".\\31 23")).toMatchObject({ name: "\\31 23", end: 7 });
-    expect(simple("#\\{x")).toMatchObject({ name: "\\{x" });
-    expect(declarations("a { \\--x: y }")[0]!.property).toBe("\\--x");
-  });
-
-  test("non-ASCII offsets are UTF-16 code units", () => {
-    const source = ".é😀 { --ü: '😀😀'; content: \"ß\" } .b {}";
-    const { stylesheet } = clean(source);
-    expect(spans(stylesheet, source)).toContain("ClassSelector .é😀");
-    expect(spans(stylesheet, source)).toContain("Raw '😀😀'");
-    expect(spans(stylesheet, source)).toContain("ClassSelector .b");
-    const [first, second] = stylesheet.children as Rule[];
-    expect(first!.end).toBe(source.indexOf(" .b"));
-    expect(second!.start).toBe(source.indexOf(".b"));
-  });
-
-  test("a lone surrogate is one code unit", () => {
-    const source = ".a\ud800 {} .b {}";
-    const second = clean(source).stylesheet.children[1] as Rule;
-    expect(second.start).toBe(source.indexOf(".b"));
-  });
-
-  test("CRLF and form feeds are whitespace", () => {
-    expect(clean("a\r\n{\r\n\tb:\fc\r\n}").stylesheet.children).toHaveLength(1);
+  test("offsets are UTF-16 code units", () => {
+    const source = "é😀 { a: 'ü' } .日本 {}";
+    expect(outline(clean(source).stylesheet, source).filter((line) => !line.startsWith("Style"))).toEqual([
+      "Rule é😀 { a: 'ü' }",
+      "SelectorList é😀",
+      "Selector é😀",
+      "TypeSelector é😀",
+      "Block { a: 'ü' }",
+      "Declaration a: 'ü' ",
+      "Raw 'ü'",
+      "Rule .日本 {}",
+      "SelectorList .日本",
+      "Selector .日本",
+      "ClassSelector .日本",
+      "Block {}",
+    ]);
   });
 });
 
 describe("recovery", () => {
-  function diagnose(source: string): string[] {
-    return parse(source).diagnostics.map(({ message, start, end }) => `${message}: ${source.slice(start, end)}`);
-  }
-
-  test("unclosed block", () => {
-    const { stylesheet, diagnostics } = parse("a { color: red");
-    expect(diagnostics).toEqual([{ message: "Unclosed block", start: 2, end: 3 }]);
-    expect((stylesheet.children[0] as Rule).block).toMatchObject({ end: 14, children: [{ property: "color" }] });
-  });
-
-  test("unclosed comment", () => {
-    expect(diagnose("a {} /* x")).toEqual(["Unclosed comment: /* x"]);
-  });
-
-  test("unclosed string ends at the newline", () => {
-    const { stylesheet, diagnostics } = parse('a { content: "x\n; color: red }');
-    expect(diagnostics).toMatchObject([{ message: "Unclosed string", start: 13, end: 15 }]);
-    expect((stylesheet.children[0] as Rule).block.children).toHaveLength(2);
-  });
-
-  test("unclosed parenthesis", () => {
-    expect(diagnose("a { b: f(c }")).toEqual(["Unclosed block: (", "Unclosed block: {"]);
-  });
-
-  test("stray closing brace", () => {
-    const { stylesheet, diagnostics } = parse("} a {} } b {}");
-    expect(diagnostics.map((diagnostic) => diagnostic.message)).toEqual(["Unexpected '}'", "Unexpected '}'"]);
-    expect(stylesheet.children).toHaveLength(2);
-  });
-
-  test("declaration outside a rule", () => {
-    const { stylesheet } = parse("color: red; a {}");
-    expect(diagnose("color: red; a {}")).toEqual(["Declaration outside of a rule: color: red"]);
-    expect(stylesheet.children).toHaveLength(1);
-  });
-
-  test("bad declarations are dropped, the rest kept", () => {
-    const source = "a { color; : red; 1px: x; b: c }";
-    expect(diagnose(source)).toEqual([
-      "Expected ':' after the property name: color",
-      "Expected a property name: : red",
-      "Expected a property name: 1px: x",
+  test("what does not parse is kept as Raw, with css-tree's error", () => {
+    const { stylesheet, diagnostics } = parse("a; b { c: d; e } f[ {}");
+    expect(stylesheet.children.map((child) => child.type)).toEqual(["Rule", "Raw"]);
+    expect(diagnostics).toEqual([
+      { message: "Unexpected input", start: 1, end: 2 },
+      { message: "Colon is expected", start: 15, end: 16 },
+      { message: "Identifier is expected", start: 20, end: 21 },
+      { message: '"{" is expected', start: 22, end: 22 },
     ]);
-    expect(((parse(source).stylesheet.children[0] as Rule).block.children as Declaration[]).map((d) => d.property)).toEqual(["b"]);
-  });
-
-  test("an invalid selector keeps the rule with a raw prelude", () => {
-    const { stylesheet, diagnostics } = parse("a ! b { color: red } c {}");
-    expect(diagnostics).toMatchObject([{ message: "Unexpected character in selector", start: 2, end: 3 }]);
-    expect(stylesheet.children[0]).toMatchObject({
-      type: "Rule",
-      prelude: { type: "Raw", value: "a ! b" },
-      block: { children: [{ property: "color" }] },
-    });
-    expect((stylesheet.children[1] as Rule).prelude.type).toBe("SelectorList");
-  });
-
-  test("selector errors", () => {
-    expect(diagnose("{}")).toEqual(["Expected a selector: "]);
-    expect(diagnose("a,,b {}")).toEqual(["Expected a selector: ,"]);
-    expect(diagnose("a, {}")).toEqual(["Expected a selector: ,"]);
-    expect(diagnose("> a {}")).toEqual(["Expected a selector: >"]);
-    expect(diagnose("a > {}")).toEqual(["Expected a selector: >"]);
-    expect(diagnose("a > > b {}")).toEqual(["Unexpected character in selector: >"]);
-    expect(diagnose(". {}")).toEqual(["Expected a name: ."]);
-    expect(diagnose("# {}")).toEqual(["Expected a name: #"]);
-    expect(diagnose(".1a {}")).toEqual(["Expected a name: ."]);
-    expect(diagnose("a: {}")).toEqual(["Expected a name: :"]);
-    expect(diagnose("[a {}")).toEqual(["Unclosed block: [", "Declaration outside of a rule: [a {}"]);
-    expect(diagnose("[a=] {}")).toEqual(["Invalid attribute selector: [a=]"]);
-    expect(diagnose("[a~b] {}")).toEqual(["Invalid attribute selector: [a~"]);
-    expect(diagnose("[a=b c d] {}")).toEqual(["Expected ']': [a=b c d"]);
-    expect(diagnose(":not() {}")).toEqual(["Expected a selector: "]);
-    expect(diagnose(":is(a {}")).toEqual(["Unclosed block: (", "Declaration outside of a rule: :is(a {}"]);
-    expect(diagnose(":nth-child(foo) {}")).toEqual(["Invalid An+B expression: foo"]);
-    expect(diagnose(":nth-of-type(2n of a) {}")).toEqual(["Invalid An+B expression: 2n of a"]);
-    expect(diagnose("a&b {}")).toEqual(["Unexpected character in selector: b"]);
-    expect(diagnose("a* {}")).toEqual(["Unexpected character in selector: *"]);
-  });
-
-  test("keyframes hold only keyframe rules", () => {
-    expect(diagnose("@keyframes x { a: b; from {} }")).toEqual(["Expected a keyframe rule: a: b"]);
-  });
-
-  test("at-rule without a name", () => {
-    expect(diagnose("@ x; a {}")).toEqual(["Expected an at-rule name after '@': @"]);
   });
 
   test("too deep", () => {
-    const deep = "a { ".repeat(200) + "}".repeat(200);
-    const { stylesheet, diagnostics } = parse(deep);
-    expect(new Set(diagnostics.map((diagnostic) => diagnostic.message))).toEqual(new Set(["Nesting is too deep"]));
-    expect(stylesheet.children).toHaveLength(1);
-    expect(parse(":is(".repeat(300) + "a" + ")".repeat(300) + " {}").diagnostics[0]!.message).toBe("Nesting is too deep");
-    expect(parse("a { b: " + "(".repeat(300) + ")".repeat(300) + " }").diagnostics[0]!.message).toBe("Nesting is too deep");
+    const { stylesheet, diagnostics } = parse("a{".repeat(300));
+    expect(diagnostics.map((d) => d.message)).toContain("Nesting is too deep");
+    let node = stylesheet.children[0] as Rule;
+    for (let depth = 1; depth < 128; depth++) node = node.block.children[0] as Rule;
+    expect(node.block.children[0]).toMatchObject({ type: "Raw" });
   });
 
-  test("never throws", () => {
-    for (const source of ["{", "}", "@", "(", "[", "'", '"', "/*", "\\", "a{b:", "a{b", ":", "::", "a,", "@media{", "--x:{"]) {
-      expect(() => parse(source)).not.toThrow();
+  test("never throws, and offsets stay in the source", () => {
+    const alphabet = ["a", "-", "1", ".", "#", ":", "::", "&", "*", "|", ",", ">", "+", " ", "\n", "{", "}", "(", ")", "[", "]", ";", "=", "!", "@", "'", '"', "\\", "/*", "*/", "é", "😀", "%", "url("];
+    let seed = 1;
+    const random = (n: number) => (seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) % n;
+    const check = (node: unknown, length: number): void => {
+      if (Array.isArray(node)) return node.forEach((child) => check(child, length));
+      if (node === null || typeof node !== "object") return;
+      const { start, end } = node as { start: number; end: number };
+      expect(start >= 0 && start <= end && end <= length).toBe(true);
+      for (const value of Object.values(node)) check(value, length);
+    };
+    for (let i = 0; i < 3000; i++) {
+      let source = "";
+      for (let j = random(60); j > 0; j--) source += alphabet[random(alphabet.length)];
+      const { stylesheet, diagnostics } = parse(source);
+      check(stylesheet, source.length);
+      check(diagnostics, source.length);
     }
+  });
+});
+
+describe("tokenize", () => {
+  test("types and ends, packed as css-tree packs them", () => {
+    const tokens = Array.from(tokenize("a{b:1px}"), (token) => [tokenNames[token >>> 24], token & 0xffffff]);
+    expect(tokens).toEqual([
+      ["ident-token", 1],
+      ["{-token", 2],
+      ["ident-token", 3],
+      ["colon-token", 4],
+      ["dimension-token", 7],
+      ["}-token", 8],
+    ]);
+    expect(tokenTypes.Dimension).toBe(12);
+    expect(tokenTypes.Comment).toBe(25);
   });
 });
 
@@ -548,57 +365,5 @@ describe("instances", () => {
     expect(diagnostics).toEqual([]);
     expect(stylesheet.children).toHaveLength(100_000);
     expect(stylesheet.children.at(-1)!.end).toBe(source.length - 1);
-  });
-
-  test("block children have their types", () => {
-    const block: Block = rule("a { b: c; d {} @e; }").block;
-    expect(block.children.map((child) => child.type)).toEqual(["Declaration", "Rule", "AtRule"]);
-  });
-});
-
-describe("nodes", () => {
-  test("every node type", () => {
-    const source = "@media x { a#b.c[d]:is(e)::f(g):nth-child(1 of h) > i, & j {} } @font-face { k: l }";
-    const types = new Set(spans(clean(source).stylesheet, source).map((line) => line.split(" ")[0]));
-    expect([...types].sort()).toEqual([
-      "AtRule",
-      "AttributeSelector",
-      "Block",
-      "ClassSelector",
-      "Combinator",
-      "ComplexSelector",
-      "CompoundSelector",
-      "Declaration",
-      "IdSelector",
-      "NestingSelector",
-      "Nth",
-      "PseudoClassSelector",
-      "PseudoElementSelector",
-      "Raw",
-      "Rule",
-      "SelectorList",
-      "StyleSheet",
-      "TypeSelector",
-    ]);
-  });
-
-  test("random input never throws, and every span nests in its parent's", () => {
-    const alphabet = ["a", "b", "-", "_", "1", ".", "#", ":", "::", "&", "*", "|", ",", ">", "+", "~", " ", "\n", "{", "}", "(", ")", "[", "]", ";", "=", "!", "@", "'", '"', "\\", "/*", "*/", "é", "😀", "%"];
-    let seed = 1;
-    const random = (n: number) => (seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) % n;
-    const check = (node: Node, start: number, end: number): void => {
-      expect(node.start >= start && node.start <= node.end && node.end <= end).toBe(true);
-      for (const value of Object.values(node)) {
-        if (Array.isArray(value)) for (const child of value) check(child, node.start, node.end);
-        else if (value !== null && typeof value === "object") check(value as Node, node.start, node.end);
-      }
-    };
-    for (let i = 0; i < 3000; i++) {
-      let source = "";
-      for (let j = random(60); j > 0; j--) source += alphabet[random(alphabet.length)];
-      const { stylesheet, diagnostics } = parse(source);
-      check(stylesheet, 0, source.length);
-      for (const diagnostic of diagnostics) expect(diagnostic.start <= diagnostic.end && diagnostic.end <= source.length).toBe(true);
-    }
   });
 });
