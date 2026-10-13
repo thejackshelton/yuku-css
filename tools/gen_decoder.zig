@@ -97,40 +97,19 @@ fn writeUtf16(w: *Writer) !void {
     );
 }
 
-// css-tree's OffsetToLocation: lines and columns count from `line` and `column`, a line after the
-// first from column 1, and a byte order mark has neither. Lines break at \n, \r\n, \r, or \f, and
-// are found in the JavaScript string, so offsets need no UTF-16 mapping; an offset's line is found
-// from the first line past the start of its 64-unit block, and an end's from its start's
+// css-tree's OffsetToLocation, with lines and columns counted from `line` and `column`, a line after
+// the first from column 1, and none for a byte order mark. The parser records where lines start as
+// it lexes, and an offset's line is found from the first line past the start of its 64-unit block
 fn writeLines(w: *Writer) !void {
     try w.writeAll(
-        \\function lineStarts(src) {
-        \\  let starts = new Int32Array((src.length >> 5) + 16), n = 0;
-        \\  const generic = src.indexOf("\r") !== -1 || src.indexOf("\f") !== -1;
-        \\  let i = generic ? 0 : src.indexOf("\n");
-        \\  for (; i !== -1 && i < src.length; i = generic ? i + 1 : src.indexOf("\n", i + 1)) {
-        \\    if (generic) {
-        \\      const c = src.charCodeAt(i);
-        \\      if (c !== 10 && c !== 12 && (c !== 13 || src.charCodeAt(i + 1) === 10)) continue;
-        \\    }
-        \\    if (n + 1 >= starts.length) {
-        \\      const grown = new Int32Array(starts.length * 2);
-        \\      grown.set(starts);
-        \\      starts = grown;
-        \\    }
-        \\    starts[n++] = i + 1;
-        \\  }
-        \\  starts[n] = 0x7fffffff;
-        \\  return starts;
-        \\}
         \\// S[j] is where line j starts, the first placed so that its columns count from `column`
-        \\function locator(src, line, column, base, file) {
-        \\  const starts = lineStarts(src);
-        \\  let count = 0;
-        \\  while (starts[count] !== 0x7fffffff) count++;
+        \\function locator(src, starts, line, column, base, file) {
+        \\  const count = starts.length;
         \\  const first = src.charCodeAt(0) === 0xFEFF || src.charCodeAt(0) === 0xFFFE ? 1 : 0;
         \\  const S = new Int32Array(count + 2);
         \\  S[0] = first - column + 1;
-        \\  S.set(starts.subarray(0, count + 1), 1);
+        \\  S.set(starts, 1);
+        \\  S[count + 1] = 0x7fffffff;
         \\  const blocks = new Int32Array((src.length >> 6) + 2);
         \\  for (let b = 0, j = 0; b < blocks.length; b++) {
         \\    while (S[j + 1] <= b << 6) j++;
@@ -206,10 +185,17 @@ fn writeDecode(w: *Writer) !void {
         \\  const positions = options.positions === true;
         \\  const commentBase = _dBase + diagCount * {[dstride]d} + _u32[{[u16]d}] * 2;
         \\  const commentCount = _u32[{[cc]d}];
-        \\  const tokenBase = commentBase + commentCount * 2, tokenCount = _u32[{[tc]d}];
+        \\  const lineBase = commentBase + commentCount * 2, lineCount = _u32[{[lc]d}];
+        \\  const tokenBase = lineBase + lineCount, tokenCount = _u32[{[tc]d}];
         \\  const file = options.filename || "<unknown>";
         \\  const line = options.line ?? 1, column = options.column ?? 1;
-        \\  const loc = positions ? locator(_src, line, column, options.offset ?? 0, file) : null;
+        \\  let loc = null;
+        \\  if (positions) {{
+        \\    // the line starts in UTF-16 units, copied as they are where the source is ASCII
+        \\    let starts = new Int32Array(buffer, at + lineBase * 4, lineCount);
+        \\    if (lineCount > 0 && starts[lineCount - 1] > _firstNa) starts = starts.map(_p);
+        \\    loc = locator(_src, starts, line, column, options.offset ?? 0, file);
+        \\  }}
         \\
     , .{
         .src = rt.HDR_SOURCE_LEN_U32,
@@ -224,6 +210,7 @@ fn writeDecode(w: *Writer) !void {
         .dstride = rt.DIAGNOSTIC_SIZE / 4,
         .u16 = rt.HDR_UTF16_COUNT_U32,
         .cc = rt.HDR_COMMENT_COUNT_U32,
+        .lc = rt.HDR_LINE_COUNT_U32,
         .tc = rt.HDR_TOKEN_COUNT_U32,
     });
     try writeNodeFunction(w, .offsets);

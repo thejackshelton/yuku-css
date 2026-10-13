@@ -135,34 +135,14 @@ function utf16(u32, base, count, firstNa) {
     return j === 0 ? v : v - u32[base + 2 * j - 1];
   };
 }
-function lineStarts(src) {
-  let starts = new Int32Array((src.length >> 5) + 16), n = 0;
-  const generic = src.indexOf("\r") !== -1 || src.indexOf("\f") !== -1;
-  let i = generic ? 0 : src.indexOf("\n");
-  for (; i !== -1 && i < src.length; i = generic ? i + 1 : src.indexOf("\n", i + 1)) {
-    if (generic) {
-      const c = src.charCodeAt(i);
-      if (c !== 10 && c !== 12 && (c !== 13 || src.charCodeAt(i + 1) === 10)) continue;
-    }
-    if (n + 1 >= starts.length) {
-      const grown = new Int32Array(starts.length * 2);
-      grown.set(starts);
-      starts = grown;
-    }
-    starts[n++] = i + 1;
-  }
-  starts[n] = 0x7fffffff;
-  return starts;
-}
 // S[j] is where line j starts, the first placed so that its columns count from `column`
-function locator(src, line, column, base, file) {
-  const starts = lineStarts(src);
-  let count = 0;
-  while (starts[count] !== 0x7fffffff) count++;
+function locator(src, starts, line, column, base, file) {
+  const count = starts.length;
   const first = src.charCodeAt(0) === 0xFEFF || src.charCodeAt(0) === 0xFFFE ? 1 : 0;
   const S = new Int32Array(count + 2);
   S[0] = first - column + 1;
-  S.set(starts.subarray(0, count + 1), 1);
+  S.set(starts, 1);
+  S[count + 1] = 0x7fffffff;
   const blocks = new Int32Array((src.length >> 6) + 2);
   for (let b = 0, j = 0; b < blocks.length; b++) {
     while (S[j + 1] <= b << 6) j++;
@@ -208,7 +188,7 @@ function decode(buffer, at, source, options, withTokens) {
   const _firstNa = _u32[6];
   const nodeCount = _u32[0], extraCount = _u32[1], spLen = _u32[2];
   const diagCount = _u32[4], root = _u32[5];
-  const _extraBase = (40 + nodeCount * 32) >> 2;
+  const _extraBase = (44 + nodeCount * 32) >> 2;
   const _spOff = (_extraBase + extraCount) * 4;
   const _dBase = (_spOff + ((spLen + 3) & ~3)) >> 2;
   const _p = utf16(_u32, _dBase + diagCount * 3, _u32[7], _firstNa);
@@ -232,13 +212,20 @@ function decode(buffer, at, source, options, withTokens) {
   const positions = options.positions === true;
   const commentBase = _dBase + diagCount * 3 + _u32[7] * 2;
   const commentCount = _u32[8];
-  const tokenBase = commentBase + commentCount * 2, tokenCount = _u32[9];
+  const lineBase = commentBase + commentCount * 2, lineCount = _u32[9];
+  const tokenBase = lineBase + lineCount, tokenCount = _u32[10];
   const file = options.filename || "<unknown>";
   const line = options.line ?? 1, column = options.column ?? 1;
-  const loc = positions ? locator(_src, line, column, options.offset ?? 0, file) : null;
+  let loc = null;
+  if (positions) {
+    // the line starts in UTF-16 units, copied as they are where the source is ASCII
+    let starts = new Int32Array(buffer, at + lineBase * 4, lineCount);
+    if (lineCount > 0 && starts[lineCount - 1] > _firstNa) starts = starts.map(_p);
+    loc = locator(_src, starts, line, column, options.offset ?? 0, file);
+  }
   function _offsets(i, depth) {
     if (depth >= DEPTH_MAX) return _deep(i);
-    const b = (i * 32 + 40) >> 2;
+    const b = (i * 32 + 44) >> 2;
     const h0 = _u32[b];
     const flags = h0 >>> 16;
     let start = _u32[b + 6], end = _u32[b + 7];
@@ -285,7 +272,7 @@ function decode(buffer, at, source, options, withTokens) {
   }
   function _location(i, depth) {
     if (depth >= DEPTH_MAX) return _deep(i);
-    const b = (i * 32 + 40) >> 2;
+    const b = (i * 32 + 44) >> 2;
     const h0 = _u32[b];
     const flags = h0 >>> 16;
     let start = _u32[b + 6], end = _u32[b + 7];

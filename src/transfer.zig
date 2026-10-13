@@ -9,6 +9,7 @@
 //   diagnostics   diagnostic_count * DIAGNOSTIC_SIZE
 //   utf16         utf16_count * 2 u32, see `Utf16`
 //   comments      comment_count * 2 u32, where each comment starts and ends
+//   lines         line_count u32, where each line after the first starts
 //   tokens        token_count * TOKEN_SIZE, each `Token` as is, when asked for
 //
 // node fields
@@ -44,6 +45,7 @@ const Header = extern struct {
     first_non_ascii: u32,
     utf16_count: u32,
     comment_count: u32,
+    line_count: u32,
     token_count: u32,
 };
 
@@ -86,6 +88,7 @@ pub const HDR_ROOT_U32: u32 = @offsetOf(Header, "root") / 4;
 pub const HDR_FIRST_NON_ASCII_U32: u32 = @offsetOf(Header, "first_non_ascii") / 4;
 pub const HDR_UTF16_COUNT_U32: u32 = @offsetOf(Header, "utf16_count") / 4;
 pub const HDR_COMMENT_COUNT_U32: u32 = @offsetOf(Header, "comment_count") / 4;
+pub const HDR_LINE_COUNT_U32: u32 = @offsetOf(Header, "line_count") / 4;
 pub const HDR_TOKEN_COUNT_U32: u32 = @offsetOf(Header, "token_count") / 4;
 
 pub const TOKENS_COUNT_U32: u32 = @offsetOf(TokensHeader, "token_count") / 4;
@@ -167,6 +170,7 @@ pub fn totalFlagBits(comptime T: type) u8 {
 pub fn bufferSize(tree: *const ast.Tree, utf16: Utf16, tokens: bool) usize {
     return HEADER_SIZE +
         tree.comments.len * 8 +
+        tree.lines.len * 4 +
         (if (tokens) tree.tokens.len * TOKEN_SIZE else 0) +
         tree.nodes.len * NODE_SIZE +
         tree.extras.items.len * 4 +
@@ -191,6 +195,7 @@ pub fn serializeInto(tree: *const ast.Tree, utf16: Utf16, tokens: bool, buf: []u
         .first_non_ascii = utf16.first,
         .utf16_count = utf16.count,
         .comment_count = @intCast(tree.comments.len),
+        .line_count = @intCast(tree.lines.len),
         .token_count = if (tokens) @intCast(tree.tokens.len) else 0,
     };
     var pos: usize = 0;
@@ -217,6 +222,7 @@ pub fn serializeInto(tree: *const ast.Tree, utf16: Utf16, tokens: bool, buf: []u
 
     pos += utf16.write(tree.source, buf[pos..]);
     writeBytes(buf, &pos, std.mem.sliceAsBytes(tree.comments));
+    writeBytes(buf, &pos, std.mem.sliceAsBytes(tree.lines));
     if (tokens) writeBytes(buf, &pos, std.mem.sliceAsBytes(tree.tokens));
     std.debug.assert(pos == bufferSize(tree, utf16, tokens));
     return pos;

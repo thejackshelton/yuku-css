@@ -8,6 +8,7 @@ const gpa = std.heap.wasm_allocator;
 // packed by src/index.ts
 const flag = struct {
     const parse_rule_prelude = 1 << 0;
+    const positions = 1 << 1;
     const tokens = 1 << 2;
     const context = 3;
     const context_mask = 0xF;
@@ -40,6 +41,7 @@ fn parseBuffer(source: []const u8, flags: u32) ![]u8 {
         .parse_rule_prelude = flags & flag.parse_rule_prelude != 0,
         .parse_value = flags & flag.parse_value != 0,
         .parse_custom_property = flags & flag.parse_custom_property != 0,
+        .lines = flags & flag.positions != 0,
         .context = std.enums.fromInt(
             css.parser.Context,
             (flags >> flag.context) & flag.context_mask,

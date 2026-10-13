@@ -119,6 +119,7 @@ export function parse(source: string, options: ParseOptions = {}): ParseResult<P
   if (tokens && source.length > TOKEN_END_MAX) throw new RangeError("yuku-css: tokens take at most 16 MiB of source");
   const flags =
     (options.parseRulePrelude === false ? 0 : 1) |
+    (options.positions === true ? 2 : 0) |
     (tokens ? 4 : 0) |
     (context << 3) |
     (options.parseValue === false ? 0 : 1 << 7) |

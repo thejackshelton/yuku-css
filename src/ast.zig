@@ -246,6 +246,8 @@ pub const Tree = struct {
     tokens: []const token.Token = &.{},
     /// Where each comment of the source starts and ends, in order.
     comments: []const Span = &.{},
+    /// Where each line after the first starts, when asked for.
+    lines: []const u32 = &.{},
     source: []const u8,
     strings: StringPool,
     arena: std.heap.ArenaAllocator,

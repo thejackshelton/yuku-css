@@ -37,6 +37,8 @@ pub const Options = struct {
     /// When true, a custom property's value, and a `var()` fallback, is a `Value`, not a `Raw`.
     parse_custom_property: bool = false,
     context: Context = .stylesheet,
+    /// Record where each line starts, for `loc`.
+    lines: bool = false,
 };
 
 pub const Error = error{OutOfMemory};
@@ -64,7 +66,15 @@ const balance_byte: [256]bool = blk: {
     break :blk t;
 };
 
-const Role = enum(u8) { plain, opener, closer, comment };
+// and line breaks too, when it records lines
+const balance_byte_lines: [256]bool = blk: {
+    var t = balance_byte;
+    for ("\n\r\x0C") |c| t[c] = true;
+    break :blk t;
+};
+
+// `spaced` tokens are the ones that may hold a line break
+const Role = enum(u8) { plain, opener, closer, comment, spaced };
 
 const role: [32]Role = blk: {
     var t: [32]Role = @splat(.plain);
@@ -75,6 +85,7 @@ const role: [32]Role = blk: {
     t[@backingInt(Tag.right_square_bracket)] = .closer;
     t[@backingInt(Tag.right_curly_bracket)] = .closer;
     t[@backingInt(Tag.comment)] = .comment;
+    for ([_]Tag{ .whitespace, .string, .bad_string, .url, .bad_url }) |tag| t[@backingInt(tag)] = .spaced;
     break :blk t;
 };
 
@@ -119,6 +130,7 @@ pub fn parse(gpa: Allocator, source: []const u8, options: Options) Error!ast.Tre
     }
     try p.mergeSpecErrors();
     p.tree.comments = p.comments.items;
+    p.tree.lines = p.lines.items;
     return p.tree;
 }
 
@@ -174,6 +186,8 @@ pub const Parser = struct {
     comments: std.ArrayList(ast.Span) = .empty,
     comment_mark: u32 = 0,
     comments_dropped: bool = false,
+    // where each line after the first starts, once each and in order like `comments`
+    lines: std.ArrayList(u32) = .empty,
     // allocation failed where the parser cannot report it, so `parse` does
     oom: bool = false,
 
@@ -194,6 +208,7 @@ pub const Parser = struct {
         try p.opens.ensureTotalCapacity(gpa, p.src.len / 32 + 64);
         try p.nest.ensureTotalCapacity(gpa, 64);
         try p.comments.ensureTotalCapacity(gpa, 64);
+        if (p.options.lines) try p.lines.ensureTotalCapacity(gpa, p.src.len / 32 + 16);
         p.end = p.first_offset;
         p.next();
     }
@@ -224,6 +239,7 @@ pub const Parser = struct {
             const start = p.lex.pos;
             if (p.lex.next() == .comment) p.recordComment(start, p.lex.pos);
             std.debug.assert(p.lex.pos > start);
+            if (p.options.lines) p.recordLines(start, p.lex.pos);
         }
         std.debug.assert(p.lex.pos == p.src.len);
     }
@@ -259,7 +275,28 @@ pub const Parser = struct {
                 p.closes = p.opens.items[p.open].start;
                 p.open = p.opens.items[p.open].parent;
             },
-            .comment => p.recordComment(p.start, p.end),
+            .comment => {
+                p.recordComment(p.start, p.end);
+                if (p.options.lines) p.recordLines(p.start, p.end);
+            },
+            .spaced => if (p.options.lines) p.recordLines(p.start, p.end),
+        }
+    }
+
+    // the line starts in `src[from..to]` that are past the last one recorded
+    fn recordLines(p: *Parser, from: u32, to: u32) void {
+        std.debug.assert(from <= to);
+        std.debug.assert(to <= p.src.len);
+        const last = if (p.lines.items.len > 0) p.lines.items[p.lines.items.len - 1] else 0;
+        var i = @max(from, last);
+        while (i < to) : (i += 1) {
+            const c = p.src[i];
+            if (c != '\n' and c != '\r' and c != 0x0C) continue;
+            if (c == '\r' and i + 1 < p.src.len and p.src[i + 1] == '\n') continue;
+            p.lines.append(p.tree.allocator(), i + 1) catch {
+                p.oom = true;
+                return;
+            };
         }
     }
 
@@ -416,11 +453,13 @@ pub const Parser = struct {
             p.pushNest(token.closer[@backingInt(p.tag)]);
         }
         const closing: Tag = if (base != none) p.opens.items[base].closer else .eof;
+        const lines = record and p.options.lines;
+        const table = if (lines) &balance_byte_lines else &balance_byte;
         const from = p.end;
         var l: lexer.Lexer = .{ .src = src, .pos = from };
         var i = from;
         while (i < len) {
-            while (i < len and !balance_byte[src[i]]) i += 1;
+            while (i < len and !table[src[i]]) i += 1;
             if (i >= len) break;
             const c = src[i];
             switch (c) {
@@ -436,6 +475,7 @@ pub const Parser = struct {
                         const quote = l.at(l.pos);
                         if (quote != '"' and quote != '\'') {
                             _ = l.url();
+                            if (lines) p.recordLines(i, l.pos);
                             i = l.pos;
                             result.construct_end = i;
                             continue;
@@ -461,6 +501,7 @@ pub const Parser = struct {
                 '"', '\'' => {
                     l.pos = i;
                     _ = l.string(c);
+                    if (lines) p.recordLines(i, l.pos);
                     i = l.pos;
                     result.construct_end = i;
                     continue;
@@ -470,17 +511,21 @@ pub const Parser = struct {
                     const end: u32 = if (close) |offset| @intCast(offset + 2) else len;
                     if (close == null) l.suspect = true;
                     if (record) p.recordComment(i, end);
+                    if (lines) p.recordLines(i, end);
                     i = end;
                     result.construct_end = i;
                     continue;
                 },
                 '\\' => if (lexer.validEscape(c, l.at(i + 1))) {
-                    i = l.nameEnd(i);
+                    const end = l.nameEnd(i);
+                    if (lines) p.recordLines(i, end);
+                    i = end;
                     result.construct_end = i;
                     continue;
                 } else {
                     l.suspect = true;
                 },
+                '\n', '\r', 0x0C => p.recordLines(i, i + 1),
                 '<' => if (l.at(i + 1) == '!' and l.at(i + 2) == '-' and l.at(i + 3) == '-') {
                     i += 4;
                     continue;
