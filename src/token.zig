@@ -89,12 +89,15 @@ pub const closer: [32]Tag = blk: {
     break :blk t;
 };
 
-// extern, the token list is copied to the wire as is
-pub const Token = extern struct {
+// the token list is copied to the wire as is, and the wire reads only `end` and `tag`
+pub const Token = packed struct(u64) {
     /// Byte offset past the token; a token starts where the one before it ends.
     end: u32,
     tag: Tag,
-    _pad: [3]u8 = .{ 0, 0, 0 },
+    /// How many tokens away a bracket's partner is, 0 for none; `link_far` when too far to say.
+    link: u24 = 0,
+
+    pub const link_far = std.math.maxInt(u24);
 };
 
 pub const TokenList = std.ArrayList(Token);

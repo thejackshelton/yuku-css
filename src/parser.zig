@@ -98,7 +98,7 @@ pub const Parser = struct {
     options: Options,
 
     tokens: []const token.Token = &.{},
-    balance: []const u32 = &.{},
+    links: lexer.Links = .{},
     count: u32 = 0,
     first_offset: u32 = 0,
 
@@ -119,12 +119,10 @@ pub const Parser = struct {
     fn tokenize(p: *Parser) Error!lexer.Scan {
         const gpa = p.tree.allocator();
         var tokens: token.TokenList = .empty;
-        var balance: std.ArrayList(u32) = .empty;
         try tokens.ensureTotalCapacity(gpa, tokenCapacity(p.src.len));
-        try balance.ensureTotalCapacity(gpa, tokenCapacity(p.src.len));
-        const scan = try lexer.tokenize(gpa, &tokens, &balance, p.src);
+        try p.links.open.ensureTotalCapacity(gpa, 64);
+        const scan = try lexer.tokenize(gpa, &tokens, &p.links, p.src);
         p.tokens = tokens.items;
-        p.balance = balance.items;
         p.count = @intCast(tokens.items.len);
         p.first_offset = if (p.count > 0) lexer.bomLen(p.src) else 0;
 
@@ -208,8 +206,22 @@ pub const Parser = struct {
     }
 
     pub fn isBalanceEdge(p: *const Parser, token_index: u32) bool {
-        const balance = if (p.index < p.count) p.balance[p.index] else p.count;
-        return balance < token_index;
+        return p.index < p.count and p.closesBefore(p.index, token_index);
+    }
+
+    // whether token `i` closes a block opened before token `limit`, which ends a balanced run there
+    inline fn closesBefore(p: *const Parser, i: u32, limit: u32) bool {
+        const t = p.tokens[i];
+        if (t.link == 0 or t.tag.isBlockOpener()) return false;
+        const opener = if (t.link != token.Token.link_far) i - t.link else p.links.partner(i);
+        return opener < limit;
+    }
+
+    // the index of the closer of the block opener `i`, or the token count when it is never closed
+    inline fn closerOf(p: *const Parser, i: u32) u32 {
+        const link = p.tokens[i].link;
+        if (link == 0) return p.count;
+        return if (link != token.Token.link_far) i + link else p.links.partner(i);
     }
 
     pub fn skipSC(p: *Parser) void {
@@ -221,8 +233,7 @@ pub const Parser = struct {
         var cursor = start_token;
         var block = false;
         while (cursor < p.count) : (cursor += 1) {
-            const balance_end = p.balance[cursor];
-            if (balance_end < start_token) break;
+            if (p.closesBefore(cursor, start_token)) break;
             const c = p.src[if (cursor > 0) p.tokens[cursor - 1].end else p.first_offset];
             switch (stop) {
                 .balance_end => {},
@@ -237,7 +248,7 @@ pub const Parser = struct {
             const tag = p.tokens[cursor].tag;
             if (tag.isBlockOpener()) {
                 block = block or tag == .left_curly_bracket;
-                cursor = balance_end;
+                cursor = p.closerOf(cursor);
             }
         }
         p.skipTo(cursor);
@@ -682,11 +693,11 @@ pub const Parser = struct {
         const first = p.index;
         var i = first;
         while (i < p.count) : (i += 1) {
-            if (p.balance[i] < first) return false;
+            if (p.closesBefore(i, first)) return false;
             const tag = p.tokens[i].tag;
             if (tag == .semicolon) return false;
             if (tag == .left_curly_bracket) return !p.customPropertyAhead();
-            if (tag.isBlockOpener()) i = p.balance[i];
+            if (tag.isBlockOpener()) i = p.closerOf(i);
         }
         return false;
     }

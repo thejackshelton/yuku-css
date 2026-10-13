@@ -17,11 +17,11 @@ export fn free(ptr: [*]u8, len: usize) void {
 export fn lexOnly(ptr: [*]const u8, len: usize) u32 {
     var tokens: css.token.TokenList = .empty;
     defer tokens.deinit(gpa);
-    var balance: std.ArrayList(u32) = .empty;
-    defer balance.deinit(gpa);
+    var links: css.lexer.Links = .{};
+    defer links.open.deinit(gpa);
+    defer links.far.deinit(gpa);
     tokens.ensureTotalCapacity(gpa, len / 2 + 64) catch return 0;
-    balance.ensureTotalCapacity(gpa, len / 2 + 64) catch return 0;
-    _ = css.lexer.tokenize(gpa, &tokens, &balance, ptr[0..len]) catch return 0;
+    _ = css.lexer.tokenize(gpa, &tokens, &links, ptr[0..len]) catch return 0;
     return @intCast(tokens.items.len);
 }
 

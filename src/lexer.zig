@@ -401,13 +401,22 @@ pub const Scan = struct {
     suspect: bool,
 };
 
-/// Tokenizes `src` into `tokens`, and when `balance` is given, links each bracket to its partner
-/// as css-tree does, one entry a token: for an opener, the index of its closer; for a closer, its
-/// opener's; for any other token, the closer of the innermost block around it, or the token count.
-pub fn tokenize(gpa: Allocator, tokens: *token.TokenList, balance: ?*std.ArrayList(u32), src: []const u8) Allocator.Error!Scan {
+/// Bracket pairs too far apart for `Token.link`, and the openers not yet closed.
+pub const Links = struct {
+    far: std.AutoHashMapUnmanaged(u32, u32) = .empty,
+    open: std.ArrayList(u32) = .empty,
+
+    /// The partner of the bracket at `index`, whose link is `link_far`.
+    pub fn partner(links: *const Links, index: u32) u32 {
+        return links.far.get(index).?;
+    }
+};
+
+/// Tokenizes `src` into `tokens`, and when `links` is given, links each bracket to its partner as
+/// css-tree pairs them: a closer closes only the innermost open block, and is plain otherwise.
+pub fn tokenize(gpa: Allocator, tokens: *token.TokenList, links: ?*Links, src: []const u8) Allocator.Error!Scan {
     var lexer: Lexer = .init(src);
-    // the open block's opener, and the tag that closes it
-    var open: u32 = std.math.maxInt(u32);
+    // the tag that closes the innermost open block
     var closing: Tag = .eof;
     while (lexer.pos < src.len) {
         const tag = lexer.next();
@@ -418,34 +427,28 @@ pub fn tokenize(gpa: Allocator, tokens: *token.TokenList, balance: ?*std.ArrayLi
         } else {
             try tokens.append(gpa, entry);
         }
-        const links = balance orelse continue;
-        if (links.items.len < links.capacity) {
-            links.appendAssumeCapacity(open);
-        } else {
-            try links.append(gpa, open);
-        }
+        const l = links orelse continue;
         if (tag == closing) {
-            const outer = links.items[open];
-            links.items[open] = index;
-            open = outer;
-            closing = if (outer == std.math.maxInt(u32)) .eof else token.closer[@backingInt(tokens.items[outer].tag)];
+            const opener = l.open.pop().?;
+            const distance = index - opener;
+            if (distance < token.Token.link_far) {
+                tokens.items[opener].link = @intCast(distance);
+                tokens.items[index].link = @intCast(distance);
+            } else {
+                @branchHint(.cold);
+                tokens.items[opener].link = token.Token.link_far;
+                tokens.items[index].link = token.Token.link_far;
+                try l.far.put(gpa, opener, index);
+                try l.far.put(gpa, index, opener);
+            }
+            const outer = l.open.getLastOrNull();
+            closing = if (outer) |o| token.closer[@backingInt(tokens.items[o].tag)] else .eof;
         } else if (tag.isBlockOpener()) {
-            open = index;
+            try l.open.append(gpa, index);
             closing = token.closer[@backingInt(tag)];
         }
     }
-    const scan: Scan = .{ .comments = lexer.comments, .suspect = lexer.suspect };
-    const links = (balance orelse return scan).items;
-    const count: u32 = @intCast(links.len);
-    for (links, 0..) |start, i| {
-        if (start <= i) {
-            const end = links[start];
-            if (end != i) links[i] = end;
-        } else if (start > count) {
-            links[i] = count;
-        }
-    }
-    return scan;
+    return .{ .comments = lexer.comments, .suspect = lexer.suspect };
 }
 
 fn expectTokens(src: []const u8, expected: []const struct { Tag, []const u8 }) !void {
@@ -481,10 +484,15 @@ test "tokenizes" {
 }
 
 test "links brackets" {
+    const gpa = std.testing.allocator;
     var tokens: token.TokenList = .empty;
-    defer tokens.deinit(std.testing.allocator);
-    var balance: std.ArrayList(u32) = .empty;
-    defer balance.deinit(std.testing.allocator);
-    _ = try tokenize(std.testing.allocator, &tokens, &balance, "a([b c]d e){");
-    try std.testing.expectEqualSlices(u32, &.{ 9, 5, 5, 5, 5, 1, 9, 9, 9, 0, 11 }, balance.items);
+    defer tokens.deinit(gpa);
+    var links: Links = .{};
+    defer links.open.deinit(gpa);
+    defer links.far.deinit(gpa);
+    // the `}` inside `(` is plain, and `{` is never closed
+    _ = try tokenize(gpa, &tokens, &links, "a([b c]d}e){");
+    var got: [11]u24 = undefined;
+    for (tokens.items, &got) |t, *link| link.* = t.link;
+    try std.testing.expectEqualSlices(u24, &.{ 9, 4, 0, 0, 0, 4, 0, 0, 0, 9, 0 }, &got);
 }
