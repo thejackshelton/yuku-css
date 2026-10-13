@@ -174,6 +174,20 @@ const url_special: [256]bool = blk: {
 
 const replacement = "\u{FFFD}";
 
+// the token a byte alone lexes as, eof for a backslash, which a line break follows
+const lone_tag: [256]Tag = blk: {
+    @setEvalBranchQuota(100_000);
+    var t: [256]Tag = undefined;
+    for (0..256) |c| {
+        const text = [_]u8{c};
+        var l: lexer.Lexer = .init(&text);
+        t[c] = l.next();
+        std.debug.assert(l.pos == 1);
+        if (c == '\\') t[c] = .eof;
+    }
+    break :blk t;
+};
+
 const Separator = enum { none, commas, semicolons };
 
 const Printer = struct {
@@ -259,7 +273,7 @@ const Printer = struct {
                 try p.token(.delim, "[");
                 try p.node(n.name, next);
                 if (ast.Matcher.strings[@backingInt(n.matcher)]) |matcher| {
-                    try p.tokenize(matcher);
+                    try p.delims(matcher);
                     try p.node(n.value, next);
                 }
                 if (n.flags.start != ast.String.none.start) try p.token(.ident, p.string(n.flags));
@@ -430,8 +444,16 @@ const Printer = struct {
 
     fn comparison(p: *Printer, value: ast.Comparison) Error!void {
         const text = ast.Comparison.strings[@backingInt(value)] orelse return;
-        std.debug.assert(text.len > 0);
-        try p.tokenize(text);
+        try p.delims(text);
+    }
+
+    // what `tokenize` writes for an operator of delims, as each matcher and comparison is
+    fn delims(p: *Printer, text: []const u8) Error!void {
+        std.debug.assert(text.len > 0 and text.len <= 2);
+        std.debug.assert(text[0] != '\\' and text[text.len - 1] != '\\');
+        try p.begin(.delim, text[0]);
+        try p.write(text);
+        p.prev = delimKind(text[text.len - 1]);
     }
 
     fn pseudo(p: *Printer, name: ast.String, list: IndexRange, depth: u32) Error!void {
@@ -510,6 +532,9 @@ const Printer = struct {
     // css-tree's `tokenize`: writes `raw` as it is, spaced only from what comes before it, with a
     // line break after a lone backslash
     fn tokenize(p: *Printer, raw: []const u8) Error!void {
+        // a combinator is one byte, and so one token
+        if (raw.len == 1 and lone_tag[raw[0]] != .eof) return p.token(lone_tag[raw[0]], raw);
+        if (isIdent(raw)) return p.token(.ident, raw);
         var l: lexer.Lexer = .init(raw);
         var start = l.pos;
         if (start >= raw.len) return;
@@ -626,7 +651,7 @@ const Printer = struct {
         const at = code.items.len;
         std.debug.assert(code.capacity - at >= text.len);
         code.items.len = at + text.len;
-        @memcpy(code.items[at..][0..text.len], text);
+        copy(code.items.ptr + at, text);
     }
 
     noinline fn grow(p: *Printer, additional: usize) Error!void {
@@ -637,10 +662,46 @@ const Printer = struct {
     }
 };
 
+// a name that lexes as one ident token, as a type selector's mostly does
+inline fn isIdent(raw: []const u8) bool {
+    if (raw.len == 0 or raw[0] == '-' or !lexer.identStart(raw[0], 0, 0)) return false;
+    for (raw[1..]) |c| {
+        if (!lexer.isName(c)) return false;
+    }
+    return true;
+}
+
 // the kind the pair table is read with: a `-` or `+` that starts a number reads as the delim
 inline fn lookupKind(tag: Tag, c: u8, kind: Kind) Kind {
     const signed = c == '+' or (c == '-' and tag != .ident and tag != .function and tag != .cdc);
     return if (signed) delimKind(c) else kind;
+}
+
+// most tokens are short, and baseline wasm calls out of line for a `@memcpy` of unknown length
+inline fn copy(target: [*]u8, text: []const u8) void {
+    const n = text.len;
+    if (n > 16) {
+        @memcpy(target[0..n], text);
+    } else if (n >= 8) {
+        copyOverlapping(u64, target, text);
+    } else if (n >= 4) {
+        copyOverlapping(u32, target, text);
+    } else if (n > 0) {
+        target[0] = text[0];
+        target[n >> 1] = text[n >> 1];
+        target[n - 1] = text[n - 1];
+    }
+}
+
+// two words that overlap in the middle cover any length from one word to two
+inline fn copyOverlapping(comptime Word: type, target: [*]u8, text: []const u8) void {
+    const width = @sizeOf(Word);
+    std.debug.assert(text.len >= width);
+    std.debug.assert(text.len <= 2 * width);
+    const head: Word = @bitCast(text[0..width].*);
+    const tail: Word = @bitCast(text[text.len - width ..][0..width].*);
+    target[0..width].* = @bitCast(head);
+    target[text.len - width ..][0..width].* = @bitCast(tail);
 }
 
 inline fn first(text: []const u8) u8 {
