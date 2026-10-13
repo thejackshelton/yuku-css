@@ -10,17 +10,20 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const wasm = b.addExecutable(.{ .name = "yuku-css", .root_module = b.createModule(.{
-        .root_source_file = b.path("src/wasm.zig"),
-        .target = b.resolveTargetQuery(.{
-            .cpu_arch = .wasm32,
-            .os_tag = .freestanding,
-            .cpu_model = .{ .explicit = &std.Target.wasm.cpu.mvp },
+    const wasm = b.addExecutable(.{
+        .name = "yuku-css",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/wasm.zig"),
+            .target = b.resolveTargetQuery(.{
+                .cpu_arch = .wasm32,
+                .os_tag = .freestanding,
+                .cpu_model = .{ .explicit = &std.Target.wasm.cpu.mvp },
+            }),
+            // small saves 20 kB at the cost of 14% of the speed
+            .optimize = .ReleaseFast,
+            .strip = true,
         }),
-        // small saves a third of the size at more than twice the time
-        .optimize = .ReleaseFast,
-        .strip = true,
-    }) });
+    });
     wasm.entry = .disabled;
     wasm.rdynamic = true;
     b.installArtifact(wasm);

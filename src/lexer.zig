@@ -434,19 +434,19 @@ fn expectTokens(src: []const u8, expected: []const struct { Tag, []const u8 }) !
 
 test "tokenizes" {
     try expectTokens("a:hover{color:red !important}", &.{
-        .{ .ident, "a" },              .{ .colon, ":" },      .{ .ident, "hover" },
-        .{ .left_curly_bracket, "{" }, .{ .ident, "color" },  .{ .colon, ":" },
-        .{ .ident, "red" },            .{ .whitespace, " " }, .{ .delim, "!" },
+        .{ .ident, "a" },              .{ .colon, ":" },               .{ .ident, "hover" },
+        .{ .left_curly_bracket, "{" }, .{ .ident, "color" },           .{ .colon, ":" },
+        .{ .ident, "red" },            .{ .whitespace, " " },          .{ .delim, "!" },
         .{ .ident, "important" },      .{ .right_curly_bracket, "}" },
     });
     try expectTokens("url( a.png ) url('b') -1.5e3px 50% .5 #x @m <!-- --> /* c */", &.{
-        .{ .url, "url( a.png )" }, .{ .whitespace, " " },    .{ .function, "url(" },
-        .{ .string, "'b'" },       .{ .right_parenthesis, ")" }, .{ .whitespace, " " },
-        .{ .dimension, "-1.5e3px" }, .{ .whitespace, " " }, .{ .percentage, "50%" },
-        .{ .whitespace, " " },     .{ .number, ".5" },       .{ .whitespace, " " },
-        .{ .hash, "#x" },          .{ .whitespace, " " },    .{ .at_keyword, "@m" },
-        .{ .whitespace, " " },     .{ .cdo, "<!--" },        .{ .whitespace, " " },
-        .{ .cdc, "-->" },          .{ .whitespace, " " },    .{ .comment, "/* c */" },
+        .{ .url, "url( a.png )" },   .{ .whitespace, " " },        .{ .function, "url(" },
+        .{ .string, "'b'" },         .{ .right_parenthesis, ")" }, .{ .whitespace, " " },
+        .{ .dimension, "-1.5e3px" }, .{ .whitespace, " " },        .{ .percentage, "50%" },
+        .{ .whitespace, " " },       .{ .number, ".5" },           .{ .whitespace, " " },
+        .{ .hash, "#x" },            .{ .whitespace, " " },        .{ .at_keyword, "@m" },
+        .{ .whitespace, " " },       .{ .cdo, "<!--" },            .{ .whitespace, " " },
+        .{ .cdc, "-->" },            .{ .whitespace, " " },        .{ .comment, "/* c */" },
     });
     try expectTokens("\xEF\xBB\xBF\"a\nb", &.{ .{ .bad_string, "\"a\n" }, .{ .ident, "b" } });
 }

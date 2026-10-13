@@ -107,8 +107,6 @@ const Parser = struct {
         p.next();
     }
 
-    // token stream
-
     fn next(p: *Parser) void {
         const n = p.index +% 1;
         if (n < p.count) {
@@ -245,8 +243,6 @@ const Parser = struct {
         return .{ .start = start, .end = p.start };
     }
 
-    // error
-
     fn fail(p: *Parser, message: Message, offset: ?u32) error{Syntax} {
         const len: u32 = @intCast(p.src.len);
         const at_offset: u32 = if (offset != null and offset.? < len)
@@ -301,8 +297,6 @@ const Parser = struct {
         };
     }
 
-    // tree
-
     fn add(p: *Parser, data: ast.NodeData, start: u32, end: u32) Error!NodeIndex {
         return p.tree.addNode(data, .{ .start = start, .end = end });
     }
@@ -331,8 +325,6 @@ const Parser = struct {
     fn pooled(p: *Parser, text: []const u8) Error!String {
         return p.tree.addString(text);
     }
-
-    // structure
 
     fn styleSheet(p: *Parser) Error!NodeIndex {
         const start = p.start;
@@ -566,8 +558,6 @@ const Parser = struct {
         if (p.tag == .hash) try p.eat(.hash) else try p.eat(.ident);
         return .{ .start = start, .end = p.start };
     }
-
-    // selectors
 
     fn selectorList(p: *Parser) ParseError!NodeIndex {
         const base = p.scratch.items.len;
