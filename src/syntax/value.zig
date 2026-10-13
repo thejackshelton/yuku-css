@@ -26,6 +26,34 @@ pub fn value(p: *Parser) ParseError!NodeIndex {
     return valueWithSpace(p, null);
 }
 
+/// A declaration's value from the current token, after css-tree's `consumeValue`: a `Value`, or a
+/// `Raw` up to `!` or `;` when it does not parse. Null when `nested`, not `custom`, and that `Raw`
+/// holds a `{}` block, which makes the statement a nested rule (css-syntax-3).
+pub fn declarationValue(p: *Parser, custom: bool, value_token: u32, nested: bool) Error!NodeIndex {
+    std.debug.assert(value_token <= p.index);
+    const start = p.checkpoint();
+    const node = declarationValueStrict(p, custom, value_token) catch |err| switch (err) {
+        error.OutOfMemory => |e| return e,
+        error.Syntax => {
+            const failure = p.failure;
+            p.rewind(start);
+            const raw = try p.rawValue(custom, nested);
+            if (raw != .null) try p.report(failure);
+            return raw;
+        },
+    };
+    std.debug.assert(node != .null);
+    return node;
+}
+
+fn declarationValueStrict(p: *Parser, custom: bool, value_token: u32) ParseError!NodeIndex {
+    const first = p.index;
+    const node = try valueWithSpace(p, if (custom) value_token else null);
+    const ends = p.eof or p.tag == .semicolon or p.isDelim('!') or p.isBalanceEdge(first);
+    if (!ends) return p.fail(.unexpected_input, null);
+    return node;
+}
+
 /// A `Value`, which, when empty and `space_from` is a token index, holds css-tree's lone
 /// `WhiteSpace` if a whitespace token lies between `space_from` and the current token.
 pub fn valueWithSpace(p: *Parser, space_from: ?u32) ParseError!NodeIndex {
@@ -436,4 +464,15 @@ test "reports what does not read as a value" {
         defer tree.deinit();
         try std.testing.expectEqual(case[1], tree.diagnostics.items[0].message);
     }
+}
+
+test "bounds the nesting of values" {
+    const gpa = std.testing.allocator;
+    var source: std.ArrayList(u8) = .empty;
+    defer source.deinit(gpa);
+    for (0..300) |_| try source.appendSlice(gpa, "f([(");
+    var tree = try parser.parse(gpa, source.items, .{ .context = .value });
+    defer tree.deinit();
+    try std.testing.expectEqual(ast.Message.nesting_too_deep, tree.diagnostics.items[0].message);
+    try std.testing.expectEqual(ast.Tag.raw, std.meta.activeTag(tree.data(tree.root)));
 }

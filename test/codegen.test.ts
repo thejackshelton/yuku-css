@@ -218,7 +218,7 @@ describe("yuku-css trees", () => {
   for (const name of readdirSync(CORPUS).sort()) {
     test(name, () => {
       const source = readFileSync(new URL(name, CORPUS), "utf8");
-      const options = { parseValue: false, parseAtrulePrelude: false, parseCustomProperty: false };
+      const options = { parseAtrulePrelude: false };
       expect(generate(parse(source).ast)).toBe(reference(fork.parse(source, options)));
       const located = generate(parse(source, { positions: true, filename: name }).ast, { sourceMap: true });
       const expected = reference(fork.parse(source, { ...options, positions: true, filename: name }), { sourceMap: true });

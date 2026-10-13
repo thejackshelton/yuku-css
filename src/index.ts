@@ -53,7 +53,7 @@ export interface ParseOptions {
    */
   parseRulePrelude?: boolean;
   /**
-   * Parse declaration values. Accepted for css-tree's API; values are `Raw` for now.
+   * Parse declaration values as a `Value`. When false, they are `Raw`.
    * @default true
    */
   parseValue?: boolean;
@@ -122,6 +122,7 @@ export function parse(source: string, options: ParseOptions = {}): ParseResult<P
     (options.positions === true ? 2 : 0) |
     (tokens ? 4 : 0) |
     (context << 3) |
+    (options.parseValue === false ? 0 : 1 << 7) |
     (options.parseCustomProperty === true ? 1 << 8 : 0);
   const result = run(
     source,

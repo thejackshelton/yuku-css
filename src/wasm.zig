@@ -12,6 +12,7 @@ const flag = struct {
     const tokens = 1 << 2;
     const context = 3;
     const context_mask = 0xF;
+    const parse_value = 1 << 7;
     const parse_custom_property = 1 << 8;
 };
 
@@ -38,6 +39,7 @@ export fn tokenize(ptr: [*]const u8, len: usize) usize {
 fn parseBuffer(source: []const u8, flags: u32) ![]u8 {
     var tree = try css.parse(gpa, source, .{
         .parse_rule_prelude = flags & flag.parse_rule_prelude != 0,
+        .parse_value = flags & flag.parse_value != 0,
         .parse_custom_property = flags & flag.parse_custom_property != 0,
         .context = std.enums.fromInt(
             css.parser.Context,

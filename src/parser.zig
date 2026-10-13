@@ -32,6 +32,8 @@ pub const Context = enum(u4) {
 pub const Options = struct {
     /// When false, a rule's prelude is a `Raw`.
     parse_rule_prelude: bool = true,
+    /// When false, a declaration's value is a `Raw`.
+    parse_value: bool = true,
     /// When true, a custom property's value, and a `var()` fallback, is a `Value`, not a `Raw`.
     parse_custom_property: bool = false,
     context: Context = .stylesheet,
@@ -649,12 +651,17 @@ pub const Parser = struct {
     fn declarationStatement(p: *Parser) Error!NodeIndex {
         if (p.tag == .semicolon) return p.raw(.semicolon_included, true);
         const start = p.checkpoint();
+        const reported = p.tree.diagnostics.items.len;
         var node = p.declaration(true) catch |err| switch (err) {
             error.OutOfMemory => |e| return e,
             error.Syntax => blk: {
                 const failure = p.failure;
                 p.rewind(start);
-                if (p.nestedRuleAhead()) break :blk NodeIndex.null;
+                if (p.nestedRuleAhead()) {
+                    // css-tree tries no declaration before a nested rule, so reports none
+                    p.tree.diagnostics.shrinkRetainingCapacity(reported);
+                    break :blk NodeIndex.null;
+                }
                 const node = try p.raw(.semicolon_included, true);
                 try p.report(failure);
                 break :blk node;
@@ -699,10 +706,14 @@ pub const Parser = struct {
         const custom = property.end - property.start >= 2 and p.src[property.start] == '-' and p.src[property.start + 1] == '-';
         p.skipSC();
         try p.eat(.colon);
+        const value_token = p.index;
         if (!custom) p.skipSC();
-        const value_start = p.start;
-        if (p.skipUntilBalanced(p.index, .exclamation_mark_or_semicolon) and nested and !custom) return .null;
-        const value = try p.rawFrom(value_start, !custom);
+        const parse_value = if (custom) p.options.parse_custom_property else p.options.parse_value;
+        const value = if (parse_value)
+            try values.declarationValue(p, custom, value_token, nested)
+        else
+            try p.rawValue(custom, nested);
+        if (value == .null) return .null;
         var important: String = .none;
         if (p.isDelim('!')) {
             p.next();
@@ -712,6 +723,16 @@ pub const Parser = struct {
         }
         if (!p.eof and p.tag != .semicolon and !p.isBalanceEdge(start_token)) return p.fail(.unexpected_input, null);
         return p.add(.{ .declaration = .{ .important = important, .property = property, .value = value } }, start, p.start);
+    }
+
+    /// A declaration's value as `Raw`, or null when `nested` and it holds a `{}` block.
+    pub fn rawValue(p: *Parser, custom: bool, nested: bool) Error!NodeIndex {
+        std.debug.assert(custom or (p.tag != .whitespace and p.tag != .comment));
+        const start = p.start;
+        const block = p.skipUntilBalanced(p.index, .exclamation_mark_or_semicolon);
+        std.debug.assert(start <= p.start);
+        if (block and nested and !custom) return .null;
+        return p.rawFrom(start, !custom);
     }
 
     fn parseProperty(p: *Parser) ParseError!String {
@@ -1378,7 +1399,7 @@ test "parses each context" {
 test "reports what the specs reject" {
     try expectMessages("/* a", .{}, &.{.unterminated_comment});
     try expectMessages("a{b:'c", .{}, &.{.unterminated_string});
-    try expectMessages("a{b:url(c\"d)}", .{}, &.{.bad_url});
+    try expectMessages("a{b:url(c\"d)}", .{}, &.{ .unexpected_input, .bad_url });
     try expectMessages("> a {} a { > b {} } :has(> a) {}", .{}, &.{.relative_selector_not_allowed});
     try expectMessages("a > > b, c + {} a:hover|b {}", .{}, &.{ .compound_selector_expected, .compound_selector_expected, .type_selector_not_first });
     try expectMessages("a || b {}", .{}, &.{});

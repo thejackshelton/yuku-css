@@ -72,8 +72,11 @@ export type Declaration<P extends Position = Offsets> = P & {
   /** `true` for `!important`, the word after `!` for any other, as in `!ie`. */
   important: boolean | string;
   property: string;
-  /** Kept as written for now. */
-  value: Raw<P>;
+  /**
+   * A `Raw` when the value does not parse, with `parseValue: false`, or for a custom property
+   * without `parseCustomProperty`.
+   */
+  value: Value<P> | Raw<P>;
 };
 
 /** Source text kept as written. */

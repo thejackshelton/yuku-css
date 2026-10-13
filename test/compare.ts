@@ -5,25 +5,28 @@ import { expect } from "bun:test";
 import * as csstree from "css-tree";
 import { parse, tokenize } from "yuku-css";
 
-// values and preludes are raw in yuku-css for now
-const OPTIONS = { parseValue: false, parseAtrulePrelude: false, parseCustomProperty: false };
+// preludes are raw in yuku-css for now
+const OPTIONS = { parseAtrulePrelude: false };
 
 type Error = [message: string, offset: number];
 
-export function expectParity(source: string): void {
+/** `options` go to both parsers, beside at-rule preludes kept raw. */
+export function expectParity(source: string, options: { parseValue?: boolean; parseCustomProperty?: boolean } = {}): void {
   const errors: Error[] = [];
   const expected = csstree.toPlainObject(
     reference.parse(source, {
+      ...options,
       ...OPTIONS,
       positions: true,
       onParseError: (error) => errors.push([error.message, (error as unknown as { offset: number }).offset]),
     }),
   );
-  const located = parse(source, { positions: true });
+  const located = parse(source, { ...options, positions: true });
   expect(located.ast).toEqual(expected as never);
   const spec = [...selectorErrors(expected as unknown as Node), ...tokenErrors(source)].sort((a, b) => a[1] - b[1]);
   expect(located.diagnostics.map((d) => [d.message, d.start])).toEqual(merge(errors, spec));
-  expect(withoutPositions(parse(source).ast)).toEqual(withoutPositions(csstree.toPlainObject(reference.parse(source, OPTIONS))));
+  const plain = csstree.toPlainObject(reference.parse(source, { ...options, ...OPTIONS }));
+  expect(withoutPositions(parse(source, options).ast)).toEqual(withoutPositions(plain));
 }
 
 export function expectTokens(source: string): void {
