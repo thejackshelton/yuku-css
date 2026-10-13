@@ -5,22 +5,6 @@ const css = @import("root.zig");
 
 const gpa = std.heap.wasm_allocator;
 
-// packed by src/index.ts
-const flag = struct {
-    const parse_rule_prelude = 1 << 0;
-    const positions = 1 << 1;
-    const tokens = 1 << 2;
-    const context = 3;
-    const context_mask = 0xF;
-    const parse_value = 1 << 7;
-    const parse_custom_property = 1 << 8;
-    const parse_atrule_prelude = 1 << 9;
-    const atrule = 10;
-    const atrule_mask = 0xF;
-    const spec = 1 << 14;
-    const source_map = 1 << 15;
-};
-
 export fn alloc(len: usize) [*]u8 {
     return (gpa.alloc(u8, len) catch @trap()).ptr;
 }
@@ -47,28 +31,10 @@ export fn transform(ptr: [*]const u8, len: usize, flags: u32) usize {
     return @intFromPtr(out.ptr);
 }
 
-fn parseOptions(flags: u32) css.parser.Options {
-    return .{
-        .parse_rule_prelude = flags & flag.parse_rule_prelude != 0,
-        .parse_value = flags & flag.parse_value != 0,
-        .parse_custom_property = flags & flag.parse_custom_property != 0,
-        .lines = flags & flag.positions != 0,
-        .parse_atrule_prelude = flags & flag.parse_atrule_prelude != 0,
-        .atrule = std.enums.fromInt(
-            css.parser.Atrule,
-            (flags >> flag.atrule) & flag.atrule_mask,
-        ) orelse .unknown,
-        .context = std.enums.fromInt(
-            css.parser.Context,
-            (flags >> flag.context) & flag.context_mask,
-        ) orelse .stylesheet,
-    };
-}
-
 fn parseBuffer(source: []const u8, flags: u32) ![]u8 {
-    var tree = try css.parse(gpa, source, parseOptions(flags));
+    var tree = try css.parse(gpa, source, css.flags.options(flags));
     defer tree.deinit();
-    const tokens = flags & flag.tokens != 0;
+    const tokens = flags & css.flags.tokens != 0;
     if (tokens) {
         var list: css.token.TokenList = .empty;
         try css.tokenize(tree.allocator(), &list, source);
@@ -84,7 +50,7 @@ fn parseBuffer(source: []const u8, flags: u32) ![]u8 {
 // code, the mappings, then 4-byte aligned each diagnostic's UTF-16 start and end and the length of
 // its message, then the messages
 fn transformBuffer(source: []const u8, flags: u32) ![]u8 {
-    var tree = try css.parse(gpa, source, parseOptions(flags & ~@as(u32, flag.positions)));
+    var tree = try css.parse(gpa, source, css.flags.options(flags & ~@as(u32, css.flags.positions)));
     defer tree.deinit();
     const header = 4 + 4 * 4;
     var out: std.ArrayList(u8) = .empty;
@@ -94,8 +60,8 @@ fn transformBuffer(source: []const u8, flags: u32) ![]u8 {
     var mappings: std.ArrayList(u8) = .empty;
     defer mappings.deinit(gpa);
     const sourced = try css.codegen.generate(gpa, &tree, .{
-        .mode = if (flags & flag.spec != 0) .spec else .safe,
-        .source_map = flags & flag.source_map != 0,
+        .mode = if (flags & css.flags.spec != 0) .spec else .safe,
+        .source_map = flags & css.flags.source_map != 0,
     }, &out, &mappings);
     const code_len = out.items.len - header;
     try out.appendSlice(gpa, mappings.items);

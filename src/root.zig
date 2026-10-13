@@ -3,6 +3,7 @@ pub const token = @import("token.zig");
 pub const lexer = @import("lexer.zig");
 pub const transfer = @import("transfer.zig");
 pub const parser = @import("parser.zig");
+pub const flags = @import("flags.zig");
 pub const codegen = @import("codegen/root.zig");
 pub const parse = parser.parse;
 pub const tokenize = parser.tokenize;
