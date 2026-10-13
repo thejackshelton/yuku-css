@@ -42,6 +42,15 @@ const MESSAGES = [
   "CDC is expected",
   "Comment is expected",
   "Delim is expected",
+  "Relative selector is not allowed here",
+  "Compound selector is expected",
+  "Type selector must come first in a compound selector",
+  "Unterminated comment",
+  "Unterminated string",
+  "Newline in string",
+  "Unterminated url",
+  "Unexpected character in url",
+  "Invalid escape",
 ];
 const tokenTypes = Object.freeze({
   EOF: 0,
@@ -135,7 +144,7 @@ function lines(src, starts, line, column, base) {
       : { offset: base + offset, line: line + j, column: offset - starts[j - 1] + 1 };
   };
 }
-function decode(buffer, at, source, options) {
+function decode(buffer, at, source, options, withTokens) {
   const _u8 = new Uint8Array(buffer, at);
   const _u32 = new Int32Array(buffer, at);
   const _src = source;
@@ -143,7 +152,7 @@ function decode(buffer, at, source, options) {
   const _firstNa = _u32[6];
   const nodeCount = _u32[0], extraCount = _u32[1], spLen = _u32[2];
   const diagCount = _u32[4], root = _u32[5];
-  const _extraBase = (36 + nodeCount * 32) >> 2;
+  const _extraBase = (44 + nodeCount * 32) >> 2;
   const _spOff = (_extraBase + extraCount) * 4;
   const _dBase = (_spOff + ((spLen + 3) & ~3)) >> 2;
   const _p = utf16(_u32, _dBase + diagCount * 3, _u32[7], _firstNa);
@@ -165,9 +174,11 @@ function decode(buffer, at, source, options) {
     return r;
   }
   const positions = options.positions === true;
+  const lineBase = _dBase + diagCount * 3 + _u32[7] * 2;
+  const commentBase = lineBase + _u32[8], commentCount = _u32[9];
+  const tokenBase = commentBase + commentCount * 2, tokenCount = _u32[10];
   let point, file;
   if (positions) {
-    const lineBase = _dBase + diagCount * 3 + _u32[7] * 2;
     const starts = new Array(_u32[8]);
     for (let j = 0; j < starts.length; j++) starts[j] = _p(_u32[lineBase + j]);
     point = lines(_src, starts, options.line ?? 1, options.column ?? 1, options.offset ?? 0);
@@ -176,7 +187,7 @@ function decode(buffer, at, source, options) {
   const loc = (s, e) => ({ source: file, start: point(s), end: point(e) });
   function _offsets(i, depth) {
     if (depth >= DEPTH_MAX) return _deep(i);
-    const b = (i * 32 + 36) >> 2;
+    const b = (i * 32 + 44) >> 2;
     const h0 = _u32[b];
     const flags = h0 >>> 16;
     let start = _u32[b + 6], end = _u32[b + 7];
@@ -189,29 +200,30 @@ function decode(buffer, at, source, options) {
     case 4: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "Atrule", start, end, name: str(f1, f2), prelude: f3 === NULL ? null : node(f3, depth + 1), block: f4 === NULL ? null : node(f4, depth + 1) }; }
     case 5: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Rule", start, end, prelude: f1 === NULL ? null : node(f1, depth + 1), block: f2 === NULL ? null : node(f2, depth + 1) }; }
     case 6: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Block", start, end, children: nodeArr(f1, f2, depth + 1) }; }
-    case 7: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4], f5 = _u32[b + 5]; return { type: "Declaration", start, end, important: important(f1, f2), property: str(f3, f4), value: f5 === NULL ? null : node(f5, depth + 1) }; }
-    case 8: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Raw", start, end, value: str(f1, f2) }; }
-    case 9: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "SelectorList", start, end, children: nodeArr(f1, f2, depth + 1) }; }
-    case 10: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Selector", start, end, children: nodeArr(f1, f2, depth + 1) }; }
-    case 11: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "TypeSelector", start, end, name: str(f1, f2) }; }
-    case 12: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "IdSelector", start, end, name: str(f1, f2) }; }
-    case 13: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "ClassSelector", start, end, name: str(f1, f2) }; }
-    case 14: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "AttributeSelector", start, end, name: f1 === NULL ? null : node(f1, depth + 1), matcher: MATCHERS[(flags >> 0) & 7], value: f2 === NULL ? null : node(f2, depth + 1), flags: f3 === NULL ? null : str(f3, f4) }; }
-    case 15: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "PseudoClassSelector", start, end, name: str(f1, f2), children: f3 === NULL ? null : nodeArr(f3, f4, depth + 1) }; }
-    case 16: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "PseudoElementSelector", start, end, name: str(f1, f2), children: f3 === NULL ? null : nodeArr(f3, f4, depth + 1) }; }
-    case 17: { return { type: "NestingSelector", start, end }; }
-    case 18: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Combinator", start, end, name: f1 >= _srcLen ? " " : str(f1, f2) }; }
-    case 19: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Nth", start, end, nth: f1 === NULL ? null : node(f1, depth + 1), selector: f2 === NULL ? null : node(f2, depth + 1) }; }
-    case 20: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "AnPlusB", start, end, a: f1 === NULL ? null : str(f1, f2), b: f3 === NULL ? null : str(f3, f4) }; }
-    case 21: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Identifier", start, end, name: str(f1, f2) }; }
-    case 22: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "String", start, end, value: str(f1, f2) }; }
-    case 23: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Percentage", start, end, value: str(f1, f2) }; }
-    case 24: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Operator", start, end, value: str(f1, f2) }; }
+    case 7: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "DeclarationList", start, end, children: nodeArr(f1, f2, depth + 1) }; }
+    case 8: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4], f5 = _u32[b + 5]; return { type: "Declaration", start, end, important: important(f1, f2), property: str(f3, f4), value: f5 === NULL ? null : node(f5, depth + 1) }; }
+    case 9: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Raw", start, end, value: str(f1, f2) }; }
+    case 10: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "SelectorList", start, end, children: nodeArr(f1, f2, depth + 1) }; }
+    case 11: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Selector", start, end, children: nodeArr(f1, f2, depth + 1) }; }
+    case 12: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "TypeSelector", start, end, name: str(f1, f2) }; }
+    case 13: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "IdSelector", start, end, name: str(f1, f2) }; }
+    case 14: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "ClassSelector", start, end, name: str(f1, f2) }; }
+    case 15: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "AttributeSelector", start, end, name: f1 === NULL ? null : node(f1, depth + 1), matcher: MATCHERS[(flags >> 0) & 7], value: f2 === NULL ? null : node(f2, depth + 1), flags: f3 === NULL ? null : str(f3, f4) }; }
+    case 16: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "PseudoClassSelector", start, end, name: str(f1, f2), children: f3 === NULL ? null : nodeArr(f3, f4, depth + 1) }; }
+    case 17: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "PseudoElementSelector", start, end, name: str(f1, f2), children: f3 === NULL ? null : nodeArr(f3, f4, depth + 1) }; }
+    case 18: { return { type: "NestingSelector", start, end }; }
+    case 19: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Combinator", start, end, name: f1 >= _srcLen ? " " : str(f1, f2) }; }
+    case 20: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Nth", start, end, nth: f1 === NULL ? null : node(f1, depth + 1), selector: f2 === NULL ? null : node(f2, depth + 1) }; }
+    case 21: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "AnPlusB", start, end, a: f1 === NULL ? null : str(f1, f2), b: f3 === NULL ? null : str(f3, f4) }; }
+    case 22: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Identifier", start, end, name: str(f1, f2) }; }
+    case 23: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "String", start, end, value: str(f1, f2) }; }
+    case 24: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Percentage", start, end, value: str(f1, f2) }; }
+    case 25: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Operator", start, end, value: str(f1, f2) }; }
     }
   }
   function _location(i, depth) {
     if (depth >= DEPTH_MAX) return _deep(i);
-    const b = (i * 32 + 36) >> 2;
+    const b = (i * 32 + 44) >> 2;
     const h0 = _u32[b];
     const flags = h0 >>> 16;
     let start = _u32[b + 6], end = _u32[b + 7];
@@ -224,24 +236,25 @@ function decode(buffer, at, source, options) {
     case 4: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "Atrule", loc: loc(start, end), name: str(f1, f2), prelude: f3 === NULL ? null : node(f3, depth + 1), block: f4 === NULL ? null : node(f4, depth + 1) }; }
     case 5: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Rule", loc: loc(start, end), prelude: f1 === NULL ? null : node(f1, depth + 1), block: f2 === NULL ? null : node(f2, depth + 1) }; }
     case 6: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Block", loc: loc(start, end), children: nodeArr(f1, f2, depth + 1) }; }
-    case 7: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4], f5 = _u32[b + 5]; return { type: "Declaration", loc: loc(start, end), important: important(f1, f2), property: str(f3, f4), value: f5 === NULL ? null : node(f5, depth + 1) }; }
-    case 8: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Raw", loc: loc(start, end), value: str(f1, f2) }; }
-    case 9: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "SelectorList", loc: loc(start, end), children: nodeArr(f1, f2, depth + 1) }; }
-    case 10: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Selector", loc: loc(start, end), children: nodeArr(f1, f2, depth + 1) }; }
-    case 11: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "TypeSelector", loc: loc(start, end), name: str(f1, f2) }; }
-    case 12: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "IdSelector", loc: loc(start, end), name: str(f1, f2) }; }
-    case 13: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "ClassSelector", loc: loc(start, end), name: str(f1, f2) }; }
-    case 14: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "AttributeSelector", loc: loc(start, end), name: f1 === NULL ? null : node(f1, depth + 1), matcher: MATCHERS[(flags >> 0) & 7], value: f2 === NULL ? null : node(f2, depth + 1), flags: f3 === NULL ? null : str(f3, f4) }; }
-    case 15: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "PseudoClassSelector", loc: loc(start, end), name: str(f1, f2), children: f3 === NULL ? null : nodeArr(f3, f4, depth + 1) }; }
-    case 16: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "PseudoElementSelector", loc: loc(start, end), name: str(f1, f2), children: f3 === NULL ? null : nodeArr(f3, f4, depth + 1) }; }
-    case 17: { return { type: "NestingSelector", loc: loc(start, end) }; }
-    case 18: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Combinator", loc: f1 >= _srcLen ? null : loc(start, end), name: f1 >= _srcLen ? " " : str(f1, f2) }; }
-    case 19: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Nth", loc: loc(start, end), nth: f1 === NULL ? null : node(f1, depth + 1), selector: f2 === NULL ? null : node(f2, depth + 1) }; }
-    case 20: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "AnPlusB", loc: loc(start, end), a: f1 === NULL ? null : str(f1, f2), b: f3 === NULL ? null : str(f3, f4) }; }
-    case 21: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Identifier", loc: loc(start, end), name: str(f1, f2) }; }
-    case 22: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "String", loc: loc(start, end), value: str(f1, f2) }; }
-    case 23: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Percentage", loc: loc(start, end), value: str(f1, f2) }; }
-    case 24: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Operator", loc: loc(start, end), value: str(f1, f2) }; }
+    case 7: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "DeclarationList", loc: loc(start, end), children: nodeArr(f1, f2, depth + 1) }; }
+    case 8: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4], f5 = _u32[b + 5]; return { type: "Declaration", loc: loc(start, end), important: important(f1, f2), property: str(f3, f4), value: f5 === NULL ? null : node(f5, depth + 1) }; }
+    case 9: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Raw", loc: loc(start, end), value: str(f1, f2) }; }
+    case 10: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "SelectorList", loc: loc(start, end), children: nodeArr(f1, f2, depth + 1) }; }
+    case 11: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Selector", loc: loc(start, end), children: nodeArr(f1, f2, depth + 1) }; }
+    case 12: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "TypeSelector", loc: loc(start, end), name: str(f1, f2) }; }
+    case 13: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "IdSelector", loc: loc(start, end), name: str(f1, f2) }; }
+    case 14: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "ClassSelector", loc: loc(start, end), name: str(f1, f2) }; }
+    case 15: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "AttributeSelector", loc: loc(start, end), name: f1 === NULL ? null : node(f1, depth + 1), matcher: MATCHERS[(flags >> 0) & 7], value: f2 === NULL ? null : node(f2, depth + 1), flags: f3 === NULL ? null : str(f3, f4) }; }
+    case 16: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "PseudoClassSelector", loc: loc(start, end), name: str(f1, f2), children: f3 === NULL ? null : nodeArr(f3, f4, depth + 1) }; }
+    case 17: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "PseudoElementSelector", loc: loc(start, end), name: str(f1, f2), children: f3 === NULL ? null : nodeArr(f3, f4, depth + 1) }; }
+    case 18: { return { type: "NestingSelector", loc: loc(start, end) }; }
+    case 19: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Combinator", loc: f1 >= _srcLen ? null : loc(start, end), name: f1 >= _srcLen ? " " : str(f1, f2) }; }
+    case 20: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Nth", loc: loc(start, end), nth: f1 === NULL ? null : node(f1, depth + 1), selector: f2 === NULL ? null : node(f2, depth + 1) }; }
+    case 21: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "AnPlusB", loc: loc(start, end), a: f1 === NULL ? null : str(f1, f2), b: f3 === NULL ? null : str(f3, f4) }; }
+    case 22: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Identifier", loc: loc(start, end), name: str(f1, f2) }; }
+    case 23: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "String", loc: loc(start, end), value: str(f1, f2) }; }
+    case 24: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Percentage", loc: loc(start, end), value: str(f1, f2) }; }
+    case 25: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Operator", loc: loc(start, end), value: str(f1, f2) }; }
     }
   }
   const _inner = positions ? _location : _offsets;
@@ -251,12 +264,37 @@ function decode(buffer, at, source, options) {
     return _n[i];
   }
   const node = _inner;
+  const path = options.filename ?? null;
   const diagnostics = new Array(diagCount);
   for (let j = 0; j < diagCount; j++) {
     const d = _dBase + j * 3;
-    diagnostics[j] = { message: MESSAGES[_u32[d + 0]], start: _p(_u32[d + 1]), end: _p(_u32[d + 2]) };
+    diagnostics[j] = { severity: "error", message: MESSAGES[_u32[d + 0]], path, start: _p(_u32[d + 1]), end: _p(_u32[d + 2]), labels: [], help: null };
   }
-  return { stylesheet: node(root, 0), diagnostics };
+  const spans = commentCount === 0 ? null : new Int32Array(commentCount * 2);
+  for (let j = 0; j < commentCount * 2; j++) spans[j] = _p(_u32[commentBase + j]);
+  let tokens;
+  if (withTokens) {
+    tokens = new Uint32Array(tokenCount);
+    for (let j = 0, b = tokenBase; j < tokenCount; j++, b += 2) {
+      tokens[j] = ((_u32[b + 1] & 255) << 24) | _p(_u32[b + 0]);
+    }
+  }
+  let comments;
+  return {
+    ast: node(root, 0),
+    get comments() {
+      if (comments !== undefined) return comments;
+      comments = new Array(commentCount);
+      for (let j = 0; j < commentCount; j++) {
+        const s = spans[2 * j], e = spans[2 * j + 1];
+        const value = _src.startsWith("*/", e - 2) ? _src.slice(s + 2, e - 2) : _src.slice(s + 2, e);
+        comments[j] = positions ? { type: "Comment", loc: loc(s, e), value } : { type: "Comment", start: s, end: e, value };
+      }
+      return comments;
+    },
+    tokens,
+    diagnostics,
+  };
 }
 function decodeTokens(buffer, at, source) {
   const _u32 = new Uint32Array(buffer, at);

@@ -1,4 +1,5 @@
 const std = @import("std");
+const token = @import("token.zig");
 
 /// Byte offsets into the source, `end` exclusive.
 pub const Span = struct {
@@ -51,6 +52,7 @@ pub const NodeData = union(enum) {
     atrule: struct { name: String, prelude: NodeIndex, block: NodeIndex },
     rule: struct { prelude: NodeIndex, block: NodeIndex },
     block: struct { children: IndexRange },
+    declaration_list: struct { children: IndexRange },
     /// `important` is none for false, `important` for true, and the word after `!` otherwise.
     declaration: struct { important: String, property: String, value: NodeIndex },
     raw: struct { value: String },
@@ -123,6 +125,16 @@ pub const Message = enum(u8) {
     cdc_expected,
     comment_expected,
     delim_expected,
+    // where the specs read an error that css-tree does not
+    relative_selector_not_allowed,
+    compound_selector_expected,
+    type_selector_not_first,
+    unterminated_comment,
+    unterminated_string,
+    newline_in_string,
+    unterminated_url,
+    bad_url,
+    invalid_escape,
 
     /// css-tree's wording.
     pub fn text(message: Message) []const u8 {
@@ -166,6 +178,15 @@ pub const Message = enum(u8) {
             .cdc_expected => "CDC is expected",
             .comment_expected => "Comment is expected",
             .delim_expected => "Delim is expected",
+            .relative_selector_not_allowed => "Relative selector is not allowed here",
+            .compound_selector_expected => "Compound selector is expected",
+            .type_selector_not_first => "Type selector must come first in a compound selector",
+            .unterminated_comment => "Unterminated comment",
+            .unterminated_string => "Unterminated string",
+            .newline_in_string => "Newline in string",
+            .unterminated_url => "Unterminated url",
+            .bad_url => "Unexpected character in url",
+            .invalid_escape => "Invalid escape",
         };
     }
 };
@@ -175,13 +196,16 @@ pub const Diagnostic = struct {
     span: Span,
 };
 
-/// A parsed style sheet. All memory lives in one arena, so `deinit()` frees everything at once.
+/// A parsed tree. All memory lives in one arena, so `deinit()` frees everything at once.
 pub const Tree = struct {
     root: NodeIndex = .null,
     nodes: NodeList = .empty,
     /// Child lists of all nodes, resolved with `extra()`.
     extras: std.ArrayList(NodeIndex) = .empty,
     diagnostics: std.ArrayList(Diagnostic) = .empty,
+    /// The tokens the tree was parsed from, for comments and `tokens`.
+    tokens: []const token.Token = &.{},
+    comment_count: u32 = 0,
     source: []const u8,
     strings: StringPool,
     arena: std.heap.ArenaAllocator,

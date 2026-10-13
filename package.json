@@ -28,7 +28,8 @@
     "typecheck": "tsc",
     "bench": "bun run build && node bench/index.ts",
     "corpus": "bun test/corpus.ts",
-    "prepublishOnly": "bun run build"
+    "prepublishOnly": "bun run build",
+    "sync": "bun test/sync.ts"
   },
   "devDependencies": {
     "@types/bun": "1.4.3",

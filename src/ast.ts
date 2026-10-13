@@ -28,7 +28,7 @@ export type StyleSheet<P extends Position = Offsets> = P & {
   children: (Comment<P> | CDO<P> | CDC<P> | Atrule<P> | Rule<P> | Raw<P>)[];
 };
 
-/** A `/*! *\/` comment at the top of the style sheet, the only kind css-tree keeps. */
+/** A comment: in the tree, a `/*! *\/` at the top of the style sheet, the only kind css-tree keeps. */
 export type Comment<P extends Position = Offsets> = P & {
   type: "Comment";
   /** Between `/*` and `*\/`. */
@@ -58,6 +58,12 @@ export type Rule<P extends Position = Offsets> = P & {
 
 export type Block<P extends Position = Offsets> = P & {
   type: "Block";
+  children: (Atrule<P> | Rule<P> | Declaration<P> | Raw<P>)[];
+};
+
+/** The contents of a style block without its braces, as the `declarationList` context reads them. */
+export type DeclarationList<P extends Position = Offsets> = P & {
+  type: "DeclarationList";
   children: (Atrule<P> | Rule<P> | Declaration<P> | Raw<P>)[];
 };
 
@@ -175,6 +181,7 @@ export type CssNode<P extends Position = Offsets> =
   | Atrule<P>
   | Rule<P>
   | Block<P>
+  | DeclarationList<P>
   | Declaration<P>
   | Raw<P>
   | SelectorList<P>
@@ -188,13 +195,44 @@ export type CssNode<P extends Position = Offsets> =
   | Percentage<P>
   | Operator<P>;
 
+/** A problem in the source, in the shape Yuku gives it. */
 export interface Diagnostic extends Offsets {
-  /** css-tree's message for the error. */
+  severity: "error";
+  /** css-tree's message for the error, or the spec's where css-tree reads none. */
   message: string;
+  /** `filename`, or null without one. */
+  path: string | null;
+  labels: { start: number; end: number; message: string }[];
+  help: string | null;
 }
 
-export interface ParseResult<P extends Position = Offsets> {
+/** The node each parse context gives, by css-tree's name for the context. */
+export interface Contexts<P extends Position = Offsets> {
   stylesheet: StyleSheet<P>;
+  atrule: Atrule<P>;
+  /** Kept as written for now. */
+  atrulePrelude: Raw<P>;
+  /** Kept as written for now. */
+  mediaQueryList: Raw<P>;
+  /** Kept as written for now. */
+  mediaQuery: Raw<P>;
+  rule: Rule<P>;
+  selectorList: SelectorList<P>;
+  selector: Selector<P>;
+  block: Block<P>;
+  declarationList: DeclarationList<P>;
+  declaration: Declaration<P>;
+  /** Kept as written for now. */
+  value: Raw<P>;
+}
+
+export interface ParseResult<P extends Position = Offsets, C extends keyof Contexts = "stylesheet"> {
+  /** The node of the context; for any context but `stylesheet`, a `Raw` of the source when it does not parse as one. */
+  ast: C extends "stylesheet" ? StyleSheet<P> : Contexts<P>[C] | Raw<P>;
+  /** Every comment, in source order. */
+  comments: Comment<P>[];
+  /** Every token, with `tokens: true`. */
+  tokens?: Uint32Array;
   /** Empty when the source parsed without error. */
   diagnostics: Diagnostic[];
 }

@@ -17,7 +17,7 @@ const PARSERS: Parser[] = [
     color: "#FF6B35",
     async load() {
       const { parse } = await import("yuku-css");
-      return (source) => parse(source).stylesheet;
+      return (source) => parse(source).ast;
     },
   },
   {
@@ -26,7 +26,7 @@ const PARSERS: Parser[] = [
     async load() {
       const { parse } = await import("yuku-css");
       // with lines and columns, as css-tree gives them below
-      return (source) => parse(source, { positions: true }).stylesheet;
+      return (source) => parse(source, { positions: true }).ast;
     },
   },
   {

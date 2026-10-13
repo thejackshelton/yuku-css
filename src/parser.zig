@@ -12,9 +12,26 @@ const String = ast.String;
 const Message = ast.Message;
 const Tag = token.Tag;
 
+/// css-tree's parse contexts: the node the source is read as.
+pub const Context = enum(u4) {
+    stylesheet,
+    atrule,
+    atrule_prelude,
+    media_query_list,
+    media_query,
+    rule,
+    selector_list,
+    selector,
+    block,
+    declaration_list,
+    declaration,
+    value,
+};
+
 pub const Options = struct {
     /// When false, a rule's prelude is a `Raw`.
     parse_rule_prelude: bool = true,
+    context: Context = .stylesheet,
 };
 
 pub const Error = error{OutOfMemory};
@@ -46,19 +63,24 @@ const pseudos: std.StaticStringMapWithEql(Pseudo, std.static_string_map.eqlAscii
     .{ "host-context", .selector },
 });
 
-/// Parses a style sheet. Never fails on bad CSS: what does not parse becomes `Raw`, with a diagnostic.
+/// Parses `source` as `options.context`. Never fails on bad CSS: what does not parse becomes `Raw`,
+/// with a diagnostic.
 pub fn parse(gpa: Allocator, source: []const u8, options: Options) Error!ast.Tree {
     var p: Parser = .{ .tree = .init(gpa, source), .src = source, .options = options };
     errdefer p.tree.deinit();
-    try p.tokenize();
-    p.tree.root = try p.styleSheet();
+    const scan = try p.tokenize();
+    p.tree.root = try p.root();
+    if (scan.suspect) try p.lexErrors();
+    try p.mergeSpecErrors();
+    p.tree.tokens = p.tokens;
+    p.tree.comment_count = scan.comments;
     return p.tree;
 }
 
 /// Tokenizes `source` into `tokens`, allocated from `gpa`.
 pub fn tokenize(gpa: Allocator, tokens: *token.TokenList, source: []const u8) Error!void {
     try tokens.ensureTotalCapacity(gpa, tokenCapacity(source.len));
-    try lexer.tokenize(gpa, tokens, null, source);
+    _ = try lexer.tokenize(gpa, tokens, null, source);
 }
 
 fn tokenCapacity(len: usize) usize {
@@ -83,17 +105,19 @@ const Parser = struct {
     eof: bool = false,
 
     scratch: std.ArrayList(NodeIndex) = .empty,
+    // errors the specs read where css-tree reads none, merged into the diagnostics at the end
+    spec: std.ArrayList(ast.Diagnostic) = .empty,
     depth: u32 = 0,
     failure: ast.Diagnostic = undefined,
     space: String = .none,
 
-    fn tokenize(p: *Parser) Error!void {
+    fn tokenize(p: *Parser) Error!lexer.Scan {
         const gpa = p.tree.allocator();
         var tokens: token.TokenList = .empty;
         var balance: std.ArrayList(u32) = .empty;
         try tokens.ensureTotalCapacity(gpa, tokenCapacity(p.src.len));
         try balance.ensureTotalCapacity(gpa, tokenCapacity(p.src.len));
-        try lexer.tokenize(gpa, &tokens, &balance, p.src);
+        const scan = try lexer.tokenize(gpa, &tokens, &balance, p.src);
         p.tokens = tokens.items;
         p.balance = balance.items;
         p.count = @intCast(tokens.items.len);
@@ -105,6 +129,7 @@ const Parser = struct {
 
         p.end = p.first_offset;
         p.next();
+        return scan;
     }
 
     fn next(p: *Parser) void {
@@ -257,7 +282,7 @@ const Parser = struct {
         try p.tree.diagnostics.append(p.tree.allocator(), diagnostic);
     }
 
-    const Checkpoint = struct { index: u32, eof: bool, nodes: usize, extras: usize, scratch: usize };
+    const Checkpoint = struct { index: u32, eof: bool, nodes: usize, extras: usize, scratch: usize, spec: usize };
 
     fn checkpoint(p: *const Parser) Checkpoint {
         return .{
@@ -266,6 +291,7 @@ const Parser = struct {
             .nodes = p.tree.nodes.len,
             .extras = p.tree.extras.items.len,
             .scratch = p.scratch.items.len,
+            .spec = p.spec.items.len,
         };
     }
 
@@ -273,6 +299,7 @@ const Parser = struct {
         p.tree.nodes.shrinkRetainingCapacity(to.nodes);
         p.tree.extras.shrinkRetainingCapacity(to.extras);
         p.scratch.shrinkRetainingCapacity(to.scratch);
+        p.spec.shrinkRetainingCapacity(to.spec);
         p.skipTo(to.index);
     }
 
@@ -326,6 +353,137 @@ const Parser = struct {
         return p.tree.addString(text);
     }
 
+    fn specError(p: *Parser, message: Message, start: u32, end: u32) Error!void {
+        try p.spec.append(p.tree.allocator(), .{ .message = message, .span = .{ .start = start, .end = end } });
+    }
+
+    // the diagnostics in css-tree's order, each spec error placed before the first that starts after it
+    fn mergeSpecErrors(p: *Parser) Error!void {
+        if (p.spec.items.len == 0) return;
+        const byStart = struct {
+            fn less(_: void, a: ast.Diagnostic, b: ast.Diagnostic) bool {
+                return a.span.start < b.span.start;
+            }
+        }.less;
+        std.sort.block(ast.Diagnostic, p.spec.items, {}, byStart);
+        const own = p.tree.diagnostics.items;
+        var merged: std.ArrayList(ast.Diagnostic) = try .initCapacity(p.tree.allocator(), own.len + p.spec.items.len);
+        var i: usize = 0;
+        for (p.spec.items) |d| {
+            while (i < own.len and own[i].span.start <= d.span.start) : (i += 1) merged.appendAssumeCapacity(own[i]);
+            merged.appendAssumeCapacity(d);
+        }
+        merged.appendSliceAssumeCapacity(own[i..]);
+        p.tree.diagnostics = merged;
+    }
+
+    // CSS Syntax's tokenizer errors, which css-tree's tokenizer recovers from without one
+    fn lexErrors(p: *Parser) Error!void {
+        const len: u32 = @intCast(p.src.len);
+        var start = p.first_offset;
+        for (p.tokens) |t| {
+            defer start = t.end;
+            const text = p.src[start..t.end];
+            switch (t.tag) {
+                .comment => if (text.len < 4 or !std.mem.endsWith(u8, text, "*/")) try p.specError(.unterminated_comment, len, len),
+                .string => if (!stringClosed(text)) try p.specError(.unterminated_string, len, len),
+                .bad_string => {
+                    const newline = t.end - @as(u32, if (std.mem.endsWith(u8, text, "\r\n")) 2 else 1);
+                    try p.specError(.newline_in_string, newline, t.end);
+                },
+                .url, .bad_url => try p.urlError(start, t.end),
+                .delim => if (text[0] == '\\') {
+                    if (t.end == len) try p.specError(.unexpected_end, len, len) else try p.specError(.invalid_escape, start, t.end);
+                },
+                else => {},
+            }
+        }
+    }
+
+    // a bad URL that ends at whitespace before more than `)` is no error
+    fn urlError(p: *Parser, start: u32, end: u32) Error!void {
+        const src = p.src;
+        const len: u32 = @intCast(src.len);
+        const l: lexer.Lexer = .{ .src = src, .pos = start };
+        var i = start + 4;
+        while (i < end and lexer.isSpace(src[i])) i += 1;
+        while (i < end) {
+            const c = src[i];
+            if (c == ')') return;
+            if (lexer.isSpace(c)) {
+                while (i < len and lexer.isSpace(src[i])) i += 1;
+                if (i == len) break;
+                return;
+            }
+            if (c == '"' or c == '\'' or c == '(' or lexer.isNonPrintable(c)) return p.specError(.bad_url, i, i + 1);
+            if (c == '\\') {
+                if (i + 1 == len) break;
+                if (lexer.isNewline(src[i + 1])) return p.specError(.invalid_escape, i, i + 1);
+                i = l.escapeEnd(i);
+            } else i += 1;
+        }
+        try p.specError(.unterminated_url, len, len);
+    }
+
+    fn root(p: *Parser) Error!NodeIndex {
+        if (p.options.context == .stylesheet) return p.styleSheet();
+        const start = p.checkpoint();
+        const node = p.contextNode() catch |err| switch (err) {
+            error.OutOfMemory => |e| return e,
+            error.Syntax => {
+                const failure = p.failure;
+                p.rewind(start);
+                p.skipTo(p.count);
+                const node = try p.rawFrom(p.first_offset, false);
+                try p.report(failure);
+                return node;
+            },
+        };
+        if (!p.eof) {
+            p.fail(.unexpected_input, null) catch {};
+            try p.report(p.failure);
+        }
+        return node;
+    }
+
+    fn contextNode(p: *Parser) ParseError!NodeIndex {
+        return switch (p.options.context) {
+            .stylesheet => unreachable,
+            .atrule => p.atrule(false),
+            .rule => p.rule(false),
+            .selector_list => p.selectorList(false),
+            .selector => p.selector(false),
+            .block => p.parseBlock(true, true),
+            .declaration_list => p.declarationList(),
+            .declaration => p.declaration(false),
+            .atrule_prelude, .media_query_list, .media_query, .value => {
+                p.skipSC();
+                return p.raw(.balance_end, true);
+            },
+        };
+    }
+
+    fn declarationList(p: *Parser) ParseError!NodeIndex {
+        const base = p.scratch.items.len;
+        while (!p.eof) {
+            const child = switch (p.tag) {
+                .whitespace, .comment, .semicolon => {
+                    p.next();
+                    continue;
+                },
+                .at_keyword => try p.withFallback(atrule, .{true}, .semicolon_included, true),
+                else => if (p.isDelim('&'))
+                    try p.withFallback(rule, .{true}, .semicolon_included, true)
+                else
+                    try p.declarationStatement(),
+            };
+            try p.push(child);
+        }
+        const children = try p.flush(base);
+        const span = p.spanOfList(children);
+        return p.add(.{ .declaration_list = .{ .children = children } }, span.start, span.end);
+    }
+
     fn styleSheet(p: *Parser) Error!NodeIndex {
         const start = p.start;
         const base = p.scratch.items.len;
@@ -341,7 +499,7 @@ const Parser = struct {
                 },
                 .cdo, .cdc => try p.marker(),
                 .at_keyword => try p.withFallback(atrule, .{false}, .balance_end, false),
-                else => try p.withFallback(rule, .{}, .balance_end, false),
+                else => try p.withFallback(rule, .{false}, .balance_end, false),
             };
             try p.push(child);
         }
@@ -393,7 +551,12 @@ const Parser = struct {
         var block: NodeIndex = .null;
         switch (p.tag) {
             .semicolon => p.next(),
-            .left_curly_bracket => block = try p.parseBlock(p.blockKind(p.src[name.start..name.end], is_declaration)),
+            .left_curly_bracket => {
+                const text = p.src[name.start..name.end];
+                const style = p.blockKind(text, is_declaration);
+                // the rules of `@scope` are relative to its root (css-cascade-6)
+                block = try p.parseBlock(style, style or std.ascii.eqlIgnoreCase(text, "scope"));
+            },
             else => {},
         }
         return p.add(.{ .atrule = .{ .name = name, .prelude = prelude, .block = block } }, start, p.start);
@@ -431,23 +594,25 @@ const Parser = struct {
         return false;
     }
 
-    fn rule(p: *Parser) ParseError!NodeIndex {
+    /// A `nested` rule's selectors may start with a combinator (css-nesting-1).
+    fn rule(p: *Parser, nested: bool) ParseError!NodeIndex {
         const start = p.start;
         const prelude = if (p.options.parse_rule_prelude)
-            try p.withFallback(rulePrelude, .{}, .left_curly_bracket, true)
+            try p.withFallback(rulePrelude, .{nested}, .left_curly_bracket, true)
         else
             try p.raw(.left_curly_bracket, true);
-        const block = try p.parseBlock(true);
+        const block = try p.parseBlock(true, true);
         return p.add(.{ .rule = .{ .prelude = prelude, .block = block } }, start, p.start);
     }
 
-    fn rulePrelude(p: *Parser) ParseError!NodeIndex {
-        const list = try p.selectorList();
+    fn rulePrelude(p: *Parser, nested: bool) ParseError!NodeIndex {
+        const list = try p.selectorList(nested);
         if (!p.eof and p.tag != .left_curly_bracket) return p.fail(.unexpected_input, null);
         return list;
     }
 
-    fn parseBlock(p: *Parser, is_style: bool) ParseError!NodeIndex {
+    /// `relative`: the selectors of its rules may start with a combinator.
+    fn parseBlock(p: *Parser, is_style: bool, relative: bool) ParseError!NodeIndex {
         if (p.depth >= max_depth) return p.fail(.nesting_too_deep, null);
         p.depth += 1;
         defer p.depth -= 1;
@@ -464,7 +629,7 @@ const Parser = struct {
                 },
                 .at_keyword => try p.withFallback(atrule, .{is_style}, .balance_end, true),
                 else => if (!is_style or p.isDelim('&'))
-                    try p.withFallback(rule, .{}, .balance_end, true)
+                    try p.withFallback(rule, .{relative}, .balance_end, true)
                 else
                     try p.declarationStatement(),
             };
@@ -480,7 +645,7 @@ const Parser = struct {
     fn declarationStatement(p: *Parser) Error!NodeIndex {
         if (p.tag == .semicolon) return p.raw(.semicolon_included, true);
         const start = p.checkpoint();
-        var node = p.declaration() catch |err| switch (err) {
+        var node = p.declaration(true) catch |err| switch (err) {
             error.OutOfMemory => |e| return e,
             error.Syntax => blk: {
                 const failure = p.failure;
@@ -495,7 +660,7 @@ const Parser = struct {
             p.rewind(start);
             // css-tree reads a rule here without trying a declaration, so `eof` keeps no trace of the attempt
             p.eof = start.eof;
-            node = try p.withFallback(rule, .{}, .balance_end, true);
+            node = try p.withFallback(rule, .{true}, .balance_end, true);
         } else if (p.tag == .semicolon) {
             p.next();
         }
@@ -522,8 +687,8 @@ const Parser = struct {
         return i < p.count and p.tokens[i].tag == .colon;
     }
 
-    /// Null when the value holds a `{}` block, which makes the statement a nested rule.
-    fn declaration(p: *Parser) ParseError!NodeIndex {
+    /// Null when `nested` and the value holds a `{}` block, which makes the statement a nested rule.
+    fn declaration(p: *Parser, nested: bool) ParseError!NodeIndex {
         const start = p.start;
         const start_token = p.index;
         const property = try p.parseProperty();
@@ -532,7 +697,7 @@ const Parser = struct {
         try p.eat(.colon);
         if (!custom) p.skipSC();
         const value_start = p.start;
-        if (p.skipUntilBalanced(p.index, .exclamation_mark_or_semicolon) and !custom) return .null;
+        if (p.skipUntilBalanced(p.index, .exclamation_mark_or_semicolon) and nested and !custom) return .null;
         const value = try p.rawFrom(value_start, !custom);
         var important: String = .none;
         if (p.isDelim('!')) {
@@ -559,10 +724,11 @@ const Parser = struct {
         return .{ .start = start, .end = p.start };
     }
 
-    fn selectorList(p: *Parser) ParseError!NodeIndex {
+    /// `relative`: a selector may start with a combinator, as in `:has()` and nested rules.
+    fn selectorList(p: *Parser, relative: bool) ParseError!NodeIndex {
         const base = p.scratch.items.len;
         while (!p.eof) {
-            try p.push(try p.selector());
+            try p.push(try p.selector(relative));
             if (p.tag != .comma) break;
             p.next();
         }
@@ -571,9 +737,11 @@ const Parser = struct {
         return p.add(.{ .selector_list = .{ .children = children } }, span.start, span.end);
     }
 
-    fn selector(p: *Parser) ParseError!NodeIndex {
+    // what Selectors 4's grammar rejects and css-tree reads keeps css-tree's tree, with a spec error
+    fn selector(p: *Parser, relative: bool) ParseError!NodeIndex {
         const base = p.scratch.items.len;
         var space = false;
+        var after_combinator = false;
         while (!p.eof) {
             switch (p.tag) {
                 .comment => {
@@ -588,11 +756,33 @@ const Parser = struct {
                 else => {},
             }
             const child = try p.selectorNode() orelse break;
-            if (space and p.scratch.items.len > base) try p.descendant(p.scratch.items[p.scratch.items.len - 1], child);
+            const first = p.scratch.items.len == base;
+            const span = p.tree.span(child);
+            switch (p.tree.data(child)) {
+                .combinator => {
+                    if (first and !relative) {
+                        try p.specError(.relative_selector_not_allowed, span.start, span.end);
+                    } else if (after_combinator) {
+                        try p.specError(.compound_selector_expected, span.start, span.end);
+                    }
+                    after_combinator = true;
+                },
+                else => |data| {
+                    if (data == .type_selector and !first and !space and !after_combinator) {
+                        try p.specError(.type_selector_not_first, span.start, span.end);
+                    }
+                    after_combinator = false;
+                },
+            }
+            if (space and !first) try p.descendant(p.scratch.items[p.scratch.items.len - 1], child);
             space = false;
             try p.push(child);
         }
         if (p.scratch.items.len == base) return p.fail(.selector_expected, null);
+        if (after_combinator) {
+            const end = p.tree.span(p.scratch.items[p.scratch.items.len - 1]).end;
+            try p.specError(.compound_selector_expected, end, end);
+        }
         const children = try p.flush(base);
         const span = p.spanOfList(children);
         return p.add(.{ .selector = .{ .children = children } }, span.start, span.end);
@@ -620,7 +810,8 @@ const Parser = struct {
             .delim => switch (p.src[p.start]) {
                 '+', '>', '~', '/' => try p.combinator(),
                 '.' => try p.classSelector(),
-                '*', '|' => try p.typeSelector(),
+                '*' => try p.typeSelector(),
+                '|' => if (p.isDelimAt('|', 1)) try p.combinator() else try p.typeSelector(),
                 '#' => try p.idSelector(),
                 '&' => try p.nestingSelector(),
                 else => null,
@@ -636,7 +827,7 @@ const Parser = struct {
             try p.identOrAsterisk();
         } else {
             try p.identOrAsterisk();
-            if (p.isDelim('|')) {
+            if (p.isDelim('|') and !p.isDelimAt('|', 1)) {
                 p.next();
                 try p.identOrAsterisk();
             }
@@ -673,6 +864,11 @@ const Parser = struct {
         const start = p.start;
         switch (p.src[p.start]) {
             '>', '+', '~' => p.next(),
+            // the column combinator (selectors-4)
+            '|' => {
+                p.next();
+                p.next();
+            },
             '/' => {
                 p.next();
                 if (p.tag != .ident or !p.lookupValue(0, "deep")) return p.fail(.deep_expected, null);
@@ -771,7 +967,7 @@ const Parser = struct {
                     p.depth += 1;
                     defer p.depth -= 1;
                     p.skipSC();
-                    try p.pseudoArgument(kind);
+                    try p.pseudoArgument(kind, std.ascii.eqlIgnoreCase(p.src[name.start..name.end], "has"));
                     p.skipSC();
                 } else {
                     try p.push(try p.raw(.balance_end, false));
@@ -789,10 +985,10 @@ const Parser = struct {
         return p.add(data, start, p.start);
     }
 
-    fn pseudoArgument(p: *Parser, kind: Pseudo) ParseError!void {
+    fn pseudoArgument(p: *Parser, kind: Pseudo, relative: bool) ParseError!void {
         switch (kind) {
-            .selector_list => try p.push(try p.selectorList()),
-            .selector => try p.push(try p.selector()),
+            .selector_list => try p.push(try p.selectorList(relative)),
+            .selector => try p.push(try p.selector(false)),
             .nth => try p.push(try p.nth()),
             .identifier => try p.push(try p.identifier()),
             .lang => while (!p.eof) {
@@ -874,7 +1070,7 @@ const Parser = struct {
         var of: NodeIndex = .null;
         if (p.lookupValue(0, "of")) {
             p.next();
-            of = try p.selectorList();
+            of = try p.selectorList(false);
             end = p.start;
         }
         return p.add(.{ .nth = .{ .nth = value, .selector = of } }, start, end);
@@ -1031,6 +1227,15 @@ const Parser = struct {
     }
 };
 
+fn stringClosed(text: []const u8) bool {
+    var i: usize = 1;
+    while (i < text.len) {
+        if (text[i] == text[0]) return i == text.len - 1;
+        i += if (text[i] != '\\') 1 else if (i + 2 < text.len and text[i + 1] == '\r' and text[i + 2] == '\n') 3 else 2;
+    }
+    return false;
+}
+
 fn expected(comptime tag: Tag) Message {
     return switch (tag) {
         .ident => .identifier_expected,
@@ -1128,4 +1333,39 @@ test "survives deep nesting" {
     var tree = try parse(gpa, source.items, .{});
     defer tree.deinit();
     try std.testing.expect(tree.diagnostics.items.len > 0);
+}
+
+fn expectMessages(source: []const u8, options: Options, want: []const Message) !void {
+    var tree = try parse(std.testing.allocator, source, options);
+    defer tree.deinit();
+    var messages: [8]Message = undefined;
+    for (tree.diagnostics.items, 0..) |d, i| messages[i] = d.message;
+    try std.testing.expectEqualSlices(Message, want, messages[0..tree.diagnostics.items.len]);
+}
+
+test "parses each context" {
+    const cases = .{
+        .{ Context.declaration_list, "a: b; c {}", ast.Tag.declaration_list },
+        .{ Context.declaration, "a: b", ast.Tag.declaration },
+        .{ Context.selector, "a > b", ast.Tag.selector },
+        .{ Context.block, "{ a: b }", ast.Tag.block },
+        .{ Context.value, "1px solid", ast.Tag.raw },
+    };
+    inline for (cases) |case| {
+        var tree = try parse(std.testing.allocator, case[1], .{ .context = case[0] });
+        defer tree.deinit();
+        try std.testing.expectEqual(0, tree.diagnostics.items.len);
+        try std.testing.expectEqual(case[2], std.meta.activeTag(tree.data(tree.root)));
+    }
+    try expectMessages("a b", .{ .context = .declaration }, &.{.colon_expected});
+}
+
+test "reports what the specs reject" {
+    try expectMessages("/* a", .{}, &.{.unterminated_comment});
+    try expectMessages("a{b:'c", .{}, &.{.unterminated_string});
+    try expectMessages("a{b:url(c\"d)}", .{}, &.{.bad_url});
+    try expectMessages("> a {} a { > b {} } :has(> a) {}", .{}, &.{.relative_selector_not_allowed});
+    try expectMessages("a > > b, c + {} a:hover|b {}", .{}, &.{ .compound_selector_expected, .compound_selector_expected, .type_selector_not_first });
+    try expectMessages("a || b {}", .{}, &.{});
+    try expectMessages("a{", .{}, &.{});
 }

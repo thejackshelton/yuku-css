@@ -1,116 +1,300 @@
-// Every place yuku-css parses differently from css-tree 3.2.1, as a fork of css-tree that parses the
-// same way. Parity tests compare yuku-css with this fork, so a difference not listed here fails them.
-//
-// 1. A statement of a style block that does not start with `&` is a nested rule, not a declaration,
-//    when a `{}` block comes before any `;`, unless it starts with a custom property and a colon.
-//    css-tree reads `.a { .b {} }`, `.a { div & {} }`, and `.a { :hover {} }` as declarations, and
-//    keeps them as `Raw`, or for `html:is(.b) & {}` as a declaration whose value holds the block.
-//    CSS Syntax 3 (consume a block's contents, consume a declaration) and CSS Nesting 1 §2 read a
-//    nested rule: a declaration whose value holds a top-level `{}` block is no declaration.
-//
-// 2. `@layer`'s block, nested in a style rule, holds declarations as well as rules. css-tree always
-//    reads it as rules. CSS Nesting 1 §3 (nested group rules) and CSS Cascade 5 §6.4.3.
-//
-// 3. A bad URL token that ends in an escape at the end of the source ends there. css-tree's tokenizer
-//    ends it one code unit past the source, as in `url(a b\\`. CSS Syntax 3 §4.3.14 (consume the
-//    remnants of a bad url) stops at the end of input. `expectTokens` in test/compare.ts clamps it.
-//
-// Beyond 128 nested blocks or functional pseudo-classes, yuku-css keeps the rest as `Raw` with
-// "Nesting is too deep", where css-tree recurses until the JavaScript stack runs out.
-import * as csstree from "css-tree";
-
-const { Semicolon, LeftCurlyBracket, RightCurlyBracket, WhiteSpace, Comment, AtKeyword, Ident, Colon } = csstree.tokenTypes;
-
-// css-tree's parser internals the fork calls; its typings leave them out
-interface Parser {
-  source: string;
-  eof: boolean;
-  tokenIndex: number;
-  tokenCount: number;
-  tokenType: number;
-  tokenStart: number;
-  balance: Uint32Array;
-  getTokenType(index: number): number;
-  isBlockOpenerTokenType(type: number): boolean;
-  isDelim(code: number): boolean;
-  lookupNonWSType(offset: number): number;
-  next(): void;
-  eat(type: number): void;
-  createList(): unknown;
-  createSingleNodeList(node: unknown): unknown;
-  getLocation(start: number, end: number): unknown;
-  parseWithFallback(consumer: () => unknown, fallback: () => unknown): unknown;
-  consumeUntilSemicolonIncluded(code: number): number;
-  Raw(consumeUntil: ((code: number) => number) | null, excludeWhiteSpace: boolean): unknown;
-  Rule(): unknown;
-  Declaration(): unknown;
-  Atrule(isDeclaration: boolean): unknown;
-  Block(isStyleBlock: boolean): unknown;
-  LayerList(): unknown;
+// Every place yuku-css parses differently from css-tree 3.2.1, each with the spec it follows and the
+// css-tree fixtures it fails; test/compare.ts forks css-tree to parse the same way. Where css-tree
+// reads what a spec rejects, the tree stays css-tree's and a diagnostic reports it.
+export interface Divergence {
+  /** What yuku-css does, where css-tree does otherwise. */
+  rule: string;
+  spec: string;
+  fixtures: string[];
 }
 
-function nestedRuleAhead(this: Parser): boolean {
-  const first = this.tokenIndex;
-  for (let i = first; i < this.tokenCount; i++) {
-    if (this.balance[i]! < first) return false;
-    const type = this.getTokenType(i);
-    if (type === Semicolon) return false;
-    if (type === LeftCurlyBracket) return !customPropertyAhead.call(this);
-    if (this.isBlockOpenerTokenType(type)) i = this.balance[i]!;
-  }
-  return false;
-}
-
-function customPropertyAhead(this: Parser): boolean {
-  return this.tokenType === Ident && this.source.startsWith("--", this.tokenStart) && this.lookupNonWSType(1) === Colon;
-}
-
-// css-tree's Block, with divergence 1
-function Block(this: Parser, isStyleBlock: boolean): unknown {
-  const consumeRaw = () => this.Raw(null, true);
-  const consumeRule = () => this.parseWithFallback(this.Rule, consumeRaw);
-  const consumeDeclaration = () => {
-    if (this.tokenType === Semicolon) return this.Raw(this.consumeUntilSemicolonIncluded, true);
-    const node = this.parseWithFallback(this.Declaration, () => this.Raw(this.consumeUntilSemicolonIncluded, true));
-    if (this.tokenType === Semicolon) this.next();
-    return node;
-  };
-  const start = this.tokenStart;
-  const children = this.createList() as { push(node: unknown): void };
-  this.eat(LeftCurlyBracket);
-  scan: while (!this.eof) {
-    switch (this.tokenType) {
-      case RightCurlyBracket:
-        break scan;
-      case WhiteSpace:
-      case Comment:
-        this.next();
-        break;
-      case AtKeyword:
-        children.push(this.parseWithFallback(this.Atrule.bind(this, isStyleBlock), consumeRaw));
-        break;
-      default:
-        if (!isStyleBlock || this.isDelim(0x26) || nestedRuleAhead.call(this)) children.push(consumeRule());
-        else children.push(consumeDeclaration());
-    }
-  }
-  if (!this.eof) this.eat(RightCurlyBracket);
-  return { type: "Block", loc: this.getLocation(start, this.tokenStart), children };
-}
-
-export const reference: csstree.Syntax = csstree.fork({
-  node: { Block: { parse: Block } },
-  atrule: {
-    // css-tree's `@layer`, with divergence 2
-    layer: {
-      parse: {
-        prelude(this: Parser) {
-          return this.createSingleNodeList(this.LayerList());
-        },
-        block(this: Parser, nested = false) {
-          return this.Block(nested);
-        },
-      },
-    },
+export const divergences: Divergence[] = [
+  {
+    rule:
+      "A statement of a style block that does not start with `&` is a nested rule when a `{}` block comes before any `;`, " +
+      "unless it starts with a custom property and a colon; css-tree reads a declaration, kept as `Raw` or holding the block",
+    spec: "css-syntax-3 §5.5.5 consume a block's contents, css-nesting-1 §2",
+    fixtures: [
+      "ast/rule/nesting.json don't parse nested rule when it not started with &",
+      "ast/declarationList/nesting.json don't parse nested rule when it not started with &",
+      "ast/atrule/atrule/font-face.json @font-face with declaration looks like a rule in block",
+      "ast/atrule/atrule/font-face.json error#1",
+    ],
   },
-} as unknown as Parameters<typeof csstree.fork>[0]);
+  {
+    rule: "`@layer`'s block nested in a style rule holds declarations as well as rules; css-tree reads rules only",
+    spec: "css-nesting-1 §3 nested group rules, css-cascade-5 §6.4.3",
+    fixtures: [],
+  },
+  {
+    rule: "A bad URL token ending in an escape at the end of the source ends there; css-tree ends it one code unit past the source",
+    spec: "css-syntax-3 §4.3.14 consume the remnants of a bad url",
+    fixtures: [],
+  },
+  {
+    rule:
+      "Each tokenizer parse error is reported: a comment, string or URL the source ends in, a newline in a string, " +
+      "a quote, `(` or non-printable code point in a URL, and a `\\` that starts no escape",
+    spec: "css-syntax-3 §4.3.2 consume comments, §4.3.5 consume a string token, §4.3.6 consume a url token, §4.3.7 consume an escaped code point, §4.3.1",
+    fixtures: [
+      "ast/stylesheet/comment.json bad comment #1",
+      "ast/stylesheet/comment.json bad comment #2",
+      "ast/stylesheet/StyleSheet.json rule with a bad-string token (issue #93)",
+    ],
+  },
+  {
+    rule:
+      "A selector starts with a combinator only in `:has()`, a nested rule, or `@scope`; elsewhere, " +
+      "`:is()`, `:where()` and their prefixed forms included, it is reported",
+    spec: "selectors-4 §4.2 the matches-any pseudo-class, §3.1 relative selectors, css-nesting-1 §2, css-cascade-6 §2.2",
+    fixtures: [
+      "ast/selector/functional-pseudo/is.json should support relative selectors",
+      "ast/selector/functional-pseudo/where.json should support relative selectors",
+      "ast/selector/functional-pseudo/-moz-any.json should support relative selectors",
+      "ast/selector/functional-pseudo/-webkit-any.json should support relative selectors",
+    ],
+  },
+  {
+    rule: "A combinator after another, or ending a selector, is reported",
+    spec: "selectors-4 §18 grammar, <complex-selector>",
+    fixtures: [],
+  },
+  {
+    rule: "A type selector after another simple selector of its compound, as in `a:hover|b`, is reported",
+    spec: "selectors-4 §18 grammar, <compound-selector>",
+    fixtures: [],
+  },
+  {
+    rule: "`||` is the column combinator, a `Combinator` named `||`; css-tree reads a namespace and fails",
+    spec: "selectors-4 §15.1 column combinator",
+    fixtures: [],
+  },
+  {
+    rule:
+      "Beyond 128 nested blocks or functional pseudo-classes the rest is `Raw` with \"Nesting is too deep\"; " +
+      "css-tree recurses until the JavaScript stack runs out",
+    spec: "none, a bound on recursion",
+    fixtures: [],
+  },
+];
+
+const VALUES = "pending: declaration values are `Raw` until the value parser lands";
+const PRELUDES = "pending: at-rule preludes are `Raw` until the prelude parser lands";
+const BOTH = "pending: declaration values and at-rule preludes are `Raw` until their parsers land";
+const GENERATOR = "pending: no generator yet";
+const LEXER = "pending: no lexer yet";
+
+// fixtures of what yuku-css does not build yet: a fixture id, a fixture file, or a directory ending in `/`
+export const pending: Record<string, string> = {
+  "definition-syntax/": LEXER,
+  "definition-syntax-match/": LEXER,
+  "sourceMaps/": GENERATOR,
+  "stringify.css": BOTH,
+  "ast/value/": VALUES,
+  "ast/atrulePrelude/": PRELUDES,
+  "ast/mediaQuery/": PRELUDES,
+  "ast/atrule/atrule/font-face.json single declaration": VALUES,
+  "ast/atrule/atrule/font-face.json several declarations": VALUES,
+  "ast/atrule/block.json block at-rule #0": VALUES,
+  "ast/atrule/block.json block at-rule #c.0": VALUES,
+  "ast/atrule/block.json block at-rule #s.0": VALUES,
+  "ast/atrule/stylesheet.json atruler.0": VALUES,
+  "ast/atrule/stylesheet.json atruler.4": VALUES,
+  "ast/atrule/stylesheet.json atruler.c.0": VALUES,
+  "ast/atrule/stylesheet.json atruler.s.0": VALUES,
+  "ast/block/Block.json block.2": VALUES,
+  "ast/block/Block.json block.3": VALUES,
+  "ast/block/Block.json block.4": VALUES,
+  "ast/block/Block.json block.c.2": VALUES,
+  "ast/block/Block.json block.c.3": VALUES,
+  "ast/block/Block.json block.c.4": VALUES,
+  "ast/block/Block.json block.s.2": VALUES,
+  "ast/block/Block.json block.s.3": VALUES,
+  "ast/block/Block.json block.s.4": VALUES,
+  "ast/block/Block.json at-rule with block in block": VALUES,
+  "ast/block/Block.json at-rule with block in the ending of block": VALUES,
+  "ast/block/Block.json hanging semicolons#4": VALUES,
+  "ast/block/Block.json bad declaration should not include whitespaces#1": VALUES,
+  "ast/block/Block.json bad value": VALUES,
+  "ast/declaration/Declaration.json declaration.0": VALUES,
+  "ast/declaration/Declaration.json declaration.1": VALUES,
+  "ast/declaration/Declaration.json declaration property with // hack": VALUES,
+  "ast/declaration/Declaration.json declaration property with / hack": VALUES,
+  "ast/declaration/Declaration.json declaration property with $ hack": VALUES,
+  "ast/declaration/Declaration.json declaration property with _ hack": VALUES,
+  "ast/declaration/Declaration.json declaration property with * hack": VALUES,
+  "ast/declaration/Declaration.json declaration property with # hack": VALUES,
+  "ast/declaration/Declaration.json declaration property with + hack": VALUES,
+  "ast/declaration/Declaration.json declaration property with & hack": VALUES,
+  "ast/declaration/Declaration.json declaration.c.0": VALUES,
+  "ast/declaration/Declaration.json declaration.c.1": VALUES,
+  "ast/declaration/Declaration.json declaration.c.2": VALUES,
+  "ast/declaration/Declaration.json declaration.c.3": VALUES,
+  "ast/declaration/Declaration.json declaration.s.0": VALUES,
+  "ast/declaration/Declaration.json declaration.s.1": VALUES,
+  "ast/declaration/Declaration.json declaration.s.2": VALUES,
+  "ast/declaration/Declaration.json declaration.s.3": VALUES,
+  "ast/declaration/Declaration.json error#3": VALUES,
+  "ast/declaration/Important.json": VALUES,
+  "ast/declaration/custom-property.json empty (parseCustomProperty:true)": VALUES,
+  "ast/declaration/custom-property.json empty with important (parseCustomProperty:true)": VALUES,
+  "ast/declaration/custom-property.json should preserve single spaces (parseCustomProperty:true)": VALUES,
+  "ast/declaration/custom-property.json should preserve single spaces with important (parseCustomProperty:true)": VALUES,
+  "ast/declaration/custom-property.json spaces and comments (parseCustomProperty:true)": VALUES,
+  "ast/declaration/custom-property.json spaces and comments #2 (parseCustomProperty:true)": VALUES,
+  "ast/declaration/custom-property.json spaces and comments #3 (parseCustomProperty:true)": VALUES,
+  "ast/declaration/custom-property.json only a comment (parseCustomProperty:true)": VALUES,
+  "ast/declaration/custom-property.json whitespace beetween comments (parseCustomProperty:true)": VALUES,
+  "ast/declaration/custom-property.json should parse a custom property value when parseCustomProperty is true": VALUES,
+  "ast/declaration/filter.json": VALUES,
+  "ast/declarationList/DeclarationList.json block.2": VALUES,
+  "ast/declarationList/DeclarationList.json block.3": VALUES,
+  "ast/declarationList/DeclarationList.json block.4": VALUES,
+  "ast/declarationList/DeclarationList.json block.c.2": VALUES,
+  "ast/declarationList/DeclarationList.json block.c.3": VALUES,
+  "ast/declarationList/DeclarationList.json block.c.4": VALUES,
+  "ast/declarationList/DeclarationList.json block.s.2": VALUES,
+  "ast/declarationList/DeclarationList.json block.s.3": VALUES,
+  "ast/declarationList/DeclarationList.json block.s.4": VALUES,
+  "ast/declarationList/tolerant.json": VALUES,
+  "ast/rule/Rule.json rule.0": VALUES,
+  "ast/rule/Rule.json rule.1": VALUES,
+  "ast/rule/Rule.json rule.2": VALUES,
+  "ast/rule/Rule.json rule.3": VALUES,
+  "ast/rule/Rule.json rule.s.6": VALUES,
+  "ast/rule/Rule.json declaration with //": VALUES,
+  "ast/rule/Rule.json rule.c.0": VALUES,
+  "ast/rule/Rule.json rule.c.1": VALUES,
+  "ast/rule/Rule.json rule.c.2": VALUES,
+  "ast/rule/Rule.json rule.c.3": VALUES,
+  "ast/rule/Rule.json rule.s.0": VALUES,
+  "ast/rule/Rule.json rule.s.1": VALUES,
+  "ast/rule/Rule.json rule.s.2": VALUES,
+  "ast/rule/Rule.json rule.s.3": VALUES,
+  "ast/rule/Rule.json value.color.ident.0": VALUES,
+  "ast/rule/Rule.json value.color.ident.1": VALUES,
+  "ast/rule/Rule.json shouldn't parse a selector when parseRulePrelude is false": VALUES,
+  "ast/rule/legacy.json": VALUES,
+  "ast/rule/nesting.json nested @starting-style": VALUES,
+  "ast/rule/tolerant.json": VALUES,
+  "ast/stylesheet/StyleSheet.json stylesheet.0": VALUES,
+  "ast/stylesheet/StyleSheet.json stylesheet.1": VALUES,
+  "ast/stylesheet/StyleSheet.json stylesheet.4": VALUES,
+  "ast/stylesheet/StyleSheet.json stylesheet.c.0": VALUES,
+  "ast/stylesheet/StyleSheet.json stylesheet.s.0": VALUES,
+  "ast/stylesheet/StyleSheet.json stylesheet.s.1": VALUES,
+  "ast/stylesheet/StyleSheet.json stylesheet.s.3": VALUES,
+  "ast/stylesheet/StyleSheet.json issue #250": VALUES,
+  "ast/stylesheet/errors.json error#10": VALUES,
+  "ast/stylesheet/errors.json error#11": VALUES,
+  "ast/stylesheet/tolerant.json parser should respect bracket balance over stop token #2": VALUES,
+  "ast/stylesheet/tolerant.json correct fallback on error in at-rule block#1": VALUES,
+  "ast/atrule/atrule/container.json": PRELUDES,
+  "ast/atrule/atrule/font-face.json @font-face with prelude is not an error": PRELUDES,
+  "ast/atrule/atrule/import.json with string": PRELUDES,
+  "ast/atrule/atrule/import.json with url": PRELUDES,
+  "ast/atrule/atrule/import.json with media": PRELUDES,
+  "ast/atrule/atrule/import.json should be case insensetive": PRELUDES,
+  "ast/atrule/atrule/import.json with anonymous layer": PRELUDES,
+  "ast/atrule/atrule/import.json with layer()": PRELUDES,
+  "ast/atrule/atrule/import.json with bad layer()#1": PRELUDES,
+  "ast/atrule/atrule/import.json with bad layer()#2": PRELUDES,
+  "ast/atrule/atrule/import.json with supports(declaration)": PRELUDES,
+  "ast/atrule/atrule/import.json with supports(condition)": PRELUDES,
+  "ast/atrule/atrule/import.json with bad supports()#1": PRELUDES,
+  "ast/atrule/atrule/import.json with bad supports()#2": PRELUDES,
+  "ast/atrule/atrule/import.json with layer & supports": PRELUDES,
+  "ast/atrule/atrule/import.json with layer & supports & media": PRELUDES,
+  "ast/atrule/atrule/import.json @import with block is not an error": PRELUDES,
+  "ast/atrule/atrule/import.json white spaces and comment should not affect prelude consuming": PRELUDES,
+  "ast/atrule/atrule/import.json error#1": PRELUDES,
+  "ast/atrule/atrule/layer.json one layer name": PRELUDES,
+  "ast/atrule/atrule/layer.json layer name with fullstop": PRELUDES,
+  "ast/atrule/atrule/layer.json with a block": PRELUDES,
+  "ast/atrule/atrule/layer.json layer name list": PRELUDES,
+  "ast/atrule/atrule/layer.json error#1": PRELUDES,
+  "ast/atrule/atrule/media.json single media type": PRELUDES,
+  "ast/atrule/atrule/media.json single media type with negation": PRELUDES,
+  "ast/atrule/atrule/media.json single media type with only": PRELUDES,
+  "ast/atrule/atrule/media.json a list of conditions": PRELUDES,
+  "ast/atrule/atrule/media.json should be case insensitive": PRELUDES,
+  "ast/atrule/atrule/media.json missed 'and' keyword": PRELUDES,
+  "ast/atrule/atrule/media.json @media with unclosed parentheses is not an error": PRELUDES,
+  "ast/atrule/atrule/media.json error#1": PRELUDES,
+  "ast/atrule/atrule/media.json error#2": PRELUDES,
+  "ast/atrule/atrule/media.json error#3": PRELUDES,
+  "ast/atrule/atrule/nest.json": PRELUDES,
+  "ast/atrule/atrule/scope.json": PRELUDES,
+  "ast/atrule/atrule/supports.json base test with spaces": PRELUDES,
+  "ast/atrule/atrule/supports.json base test with comments": PRELUDES,
+  "ast/atrule/atrule/supports.json should be case insensitive": PRELUDES,
+  "ast/atrule/atrule/supports.json vendor property": PRELUDES,
+  "ast/atrule/atrule/supports.json custom property": PRELUDES,
+  "ast/atrule/atrule/supports.json simple supports with negation": PRELUDES,
+  "ast/atrule/atrule/supports.json complex prelude": PRELUDES,
+  "ast/atrule/atrule/supports.json using function": PRELUDES,
+  "ast/atrule/atrule/supports.json using !important": PRELUDES,
+  "ast/atrule/atrule/supports.json @supports with no block": PRELUDES,
+  "ast/atrule/atrule/supports.json @supports with selector()": PRELUDES,
+  "ast/atrule/atrule/supports.json @supports with selector() case-insensitive": PRELUDES,
+  "ast/atrule/atrule/supports.json error#1": PRELUDES,
+  "ast/atrule/atrule/supports.json error#2": PRELUDES,
+  "ast/atrule/atrule/supports.json error#3": PRELUDES,
+  "ast/atrule/no-block.json atrules.1": PRELUDES,
+  "ast/atrule/no-block.json atrules.2": PRELUDES,
+  "ast/atrule/no-block.json atrules.3": PRELUDES,
+  "ast/atrule/no-block.json atrules.c.1": PRELUDES,
+  "ast/atrule/no-block.json atrules.s.1": PRELUDES,
+  "ast/atrule/no-block.json no at-rule ending on eof is not an error": PRELUDES,
+  "ast/atrule/no-block.json error#1": PRELUDES,
+  "ast/atrule/tolerant.json at-rule (unknown) may have any content in prelude": PRELUDES,
+  "ast/atrule/tolerant.json at-rule (unknown) may have no a semicolon": PRELUDES,
+  "ast/atrule/tolerant.json at-rule (known) may have any content in prelude": PRELUDES,
+  "ast/atrule/tolerant.json at-rule (known) may have no a semicolon": PRELUDES,
+  "ast/rule/nested-atrule.json with prelude": PRELUDES,
+  "ast/rule/nested-atrule.json recursion": PRELUDES,
+  "ast/atrule/atrule/font-feature-values.json": BOTH,
+  "ast/atrule/atrule/supports.json base test": BOTH,
+  "ast/atrule/block.json block at-rule #1": BOTH,
+  "ast/atrule/block.json block at-rule #2": BOTH,
+  "ast/atrule/block.json block at-rule #c.1": BOTH,
+  "ast/atrule/block.json block at-rule #c.2": BOTH,
+  "ast/atrule/block.json block at-rule #s.1": BOTH,
+  "ast/atrule/block.json block at-rule #s.2": BOTH,
+  "ast/atrule/block.json @page": BOTH,
+  "ast/atrule/stylesheet.json atruler.1": BOTH,
+  "ast/atrule/stylesheet.json atruler.3": BOTH,
+  "ast/atrule/stylesheet.json atruler.c.1": BOTH,
+  "ast/atrule/stylesheet.json atruler.c.2": BOTH,
+  "ast/atrule/stylesheet.json atruler.s.1": BOTH,
+  "ast/atrule/stylesheet.json atruler.s.2": BOTH,
+  "ast/atrule/stylesheet.json webkit.keyfraymes.0": BOTH,
+  "ast/block/Block.json at-rule in block": BOTH,
+  "ast/block/Block.json at-rule in the ending of block": BOTH,
+  "ast/declarationList/nesting.json basic": BOTH,
+  "ast/declarationList/nesting.json nested @media": BOTH,
+  "ast/rule/nested-atrule.json with block": BOTH,
+  "ast/rule/nesting.json basic": BOTH,
+  "ast/rule/nesting.json nested @media": BOTH,
+  "ast/rule/nesting.json nested @supports": BOTH,
+  "ast/rule/nesting.json nested @container": BOTH,
+  "ast/stylesheet/StyleSheet.json issue90.test1": BOTH,
+  "ast/stylesheet/StyleSheet.json issue90.test2": BOTH,
+};
+
+const reasons = new Map<string, string>();
+for (const { rule, spec, fixtures } of divergences) for (const id of fixtures) reasons.set(id, `${rule} (${spec})`);
+for (const [id, reason] of Object.entries(pending)) reasons.set(id, reason);
+
+/** Every listed fixture id, file, and directory. */
+export const listed: string[] = [...reasons.keys()];
+
+/** Why a fixture, by id or path, differs from css-tree, or undefined when it does not. */
+export function reasonOf(id: string): string | undefined {
+  const file = id.split(" ")[0]!;
+  let reason = reasons.get(id) ?? reasons.get(file);
+  for (let at = file.indexOf("/"); reason === undefined && at !== -1; at = file.indexOf("/", at + 1)) {
+    reason = reasons.get(file.slice(0, at + 1));
+  }
+  return reason;
+}

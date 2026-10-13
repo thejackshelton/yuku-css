@@ -98,6 +98,9 @@ const string_stop: [256]bool = blk: {
 pub const Lexer = struct {
     src: []const u8,
     pos: u32,
+    comments: u32 = 0,
+    // set where CSS Syntax may read a parse error, which the parser then finds
+    suspect: bool = false,
 
     pub fn init(src: []const u8) Lexer {
         std.debug.assert(src.len < std.math.maxInt(u32));
@@ -150,8 +153,10 @@ pub const Lexer = struct {
                 if (identStart(c, l.at(i + 1), l.at(i + 2))) return l.identLike();
             },
             .slash => if (l.at(i + 1) == '*') {
+                l.comments += 1;
                 const close = std.mem.findPos(u8, l.src, i + 2, "*/");
                 l.pos = if (close) |offset| @intCast(offset + 2) else @intCast(l.src.len);
+                l.suspect = l.suspect or close == null;
                 return .comment;
             },
             .less => if (l.at(i + 1) == '!' and l.at(i + 2) == '-' and l.at(i + 3) == '-') {
@@ -162,7 +167,10 @@ pub const Lexer = struct {
                 l.pos = l.nameEnd(i + 1);
                 return .at_keyword;
             },
-            .backslash => if (validEscape(c, l.at(i + 1))) return l.identLike(),
+            .backslash => {
+                if (validEscape(c, l.at(i + 1))) return l.identLike();
+                l.suspect = true;
+            },
             else => unreachable,
         }
         l.pos += 1;
@@ -213,6 +221,7 @@ pub const Lexer = struct {
             }
             if (is(c, newline)) {
                 l.pos = i + newlineLen(src, i);
+                l.suspect = true;
                 return .bad_string;
             }
             if (c == '\\') {
@@ -226,6 +235,7 @@ pub const Lexer = struct {
             }
         }
         l.pos = @intCast(src.len);
+        l.suspect = true;
         return .string;
     }
 
@@ -243,6 +253,7 @@ pub const Lexer = struct {
                 i = l.whitespaceEnd(i);
                 if (i >= src.len) {
                     l.pos = i;
+                    l.suspect = true;
                     return .url;
                 }
                 if (src[i] == ')') {
@@ -258,11 +269,13 @@ pub const Lexer = struct {
             }
         }
         l.pos = i;
+        l.suspect = true;
         return .url;
     }
 
     // css-tree steps one byte past each escape here, and past the end after an escape that ends the source
     fn badUrl(l: *Lexer, from: u32) Tag {
+        l.suspect = true;
         var i = from;
         while (i < l.src.len) : (i += 1) {
             const c = l.src[i];
@@ -290,7 +303,7 @@ pub const Lexer = struct {
     }
 
     /// `from` is the backslash.
-    fn escapeEnd(l: *const Lexer, from: u32) u32 {
+    pub fn escapeEnd(l: *const Lexer, from: u32) u32 {
         var i = from + 2;
         if (is(l.at(i - 1), hex)) {
             const max = @min(l.src.len, i + 5);
@@ -374,10 +387,24 @@ pub inline fn isSpace(c: u8) bool {
     return is(c, space);
 }
 
+pub inline fn isNewline(c: u8) bool {
+    return is(c, newline);
+}
+
+pub inline fn isNonPrintable(c: u8) bool {
+    return is(c, non_printable);
+}
+
+/// What tokenizing saw beyond the tokens.
+pub const Scan = struct {
+    comments: u32,
+    suspect: bool,
+};
+
 /// Tokenizes `src` into `tokens`, and when `balance` is given, links each bracket to its partner
 /// as css-tree does, one entry a token: for an opener, the index of its closer; for a closer, its
 /// opener's; for any other token, the closer of the innermost block around it, or the token count.
-pub fn tokenize(gpa: Allocator, tokens: *token.TokenList, balance: ?*std.ArrayList(u32), src: []const u8) Allocator.Error!void {
+pub fn tokenize(gpa: Allocator, tokens: *token.TokenList, balance: ?*std.ArrayList(u32), src: []const u8) Allocator.Error!Scan {
     var lexer: Lexer = .init(src);
     // the open block's opener, and the tag that closes it
     var open: u32 = std.math.maxInt(u32);
@@ -407,7 +434,8 @@ pub fn tokenize(gpa: Allocator, tokens: *token.TokenList, balance: ?*std.ArrayLi
             closing = token.closer[@backingInt(tag)];
         }
     }
-    const links = (balance orelse return).items;
+    const scan: Scan = .{ .comments = lexer.comments, .suspect = lexer.suspect };
+    const links = (balance orelse return scan).items;
     const count: u32 = @intCast(links.len);
     for (links, 0..) |start, i| {
         if (start <= i) {
@@ -417,12 +445,13 @@ pub fn tokenize(gpa: Allocator, tokens: *token.TokenList, balance: ?*std.ArrayLi
             links[i] = count;
         }
     }
+    return scan;
 }
 
 fn expectTokens(src: []const u8, expected: []const struct { Tag, []const u8 }) !void {
     var tokens: token.TokenList = .empty;
     defer tokens.deinit(std.testing.allocator);
-    try tokenize(std.testing.allocator, &tokens, null, src);
+    _ = try tokenize(std.testing.allocator, &tokens, null, src);
     try std.testing.expectEqual(expected.len, tokens.items.len);
     var start: u32 = bomLen(src);
     for (expected, tokens.items) |want, t| {
@@ -456,6 +485,6 @@ test "links brackets" {
     defer tokens.deinit(std.testing.allocator);
     var balance: std.ArrayList(u32) = .empty;
     defer balance.deinit(std.testing.allocator);
-    try tokenize(std.testing.allocator, &tokens, &balance, "a([b c]d e){");
+    _ = try tokenize(std.testing.allocator, &tokens, &balance, "a([b c]d e){");
     try std.testing.expectEqualSlices(u32, &.{ 9, 5, 5, 5, 5, 1, 9, 9, 9, 0, 11 }, balance.items);
 }

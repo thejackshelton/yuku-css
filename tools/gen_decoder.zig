@@ -127,7 +127,7 @@ fn writeLines(w: *Writer) !void {
 
 fn writeDecode(w: *Writer) !void {
     try w.print(
-        \\function decode(buffer, at, source, options) {{
+        \\function decode(buffer, at, source, options, withTokens) {{
         \\  const _u8 = new Uint8Array(buffer, at);
         \\  const _u32 = new Int32Array(buffer, at);
         \\  const _src = source;
@@ -157,9 +157,11 @@ fn writeDecode(w: *Writer) !void {
         \\    return r;
         \\  }}
         \\  const positions = options.positions === true;
+        \\  const lineBase = _dBase + diagCount * {[dstride]d} + _u32[{[u16]d}] * 2;
+        \\  const commentBase = lineBase + _u32[{[lc]d}], commentCount = _u32[{[cc]d}];
+        \\  const tokenBase = commentBase + commentCount * 2, tokenCount = _u32[{[tc]d}];
         \\  let point, file;
         \\  if (positions) {{
-        \\    const lineBase = _dBase + diagCount * {[dstride]d} + _u32[{[u16]d}] * 2;
         \\    const starts = new Array(_u32[{[lc]d}]);
         \\    for (let j = 0; j < starts.length; j++) starts[j] = _p(_u32[lineBase + j]);
         \\    point = lines(_src, starts, options.line ?? 1, options.column ?? 1, options.offset ?? 0);
@@ -180,6 +182,8 @@ fn writeDecode(w: *Writer) !void {
         .dstride = rt.DIAGNOSTIC_SIZE / 4,
         .u16 = rt.HDR_UTF16_COUNT_U32,
         .lc = rt.HDR_LINE_COUNT_U32,
+        .cc = rt.HDR_COMMENT_COUNT_U32,
+        .tc = rt.HDR_TOKEN_COUNT_U32,
     });
     try writeNodeFunction(w, .offsets);
     try writeNodeFunction(w, .location);
@@ -192,12 +196,37 @@ fn writeDecode(w: *Writer) !void {
         \\    return _n[i];
         \\  }}
         \\  const node = _inner;
+        \\  const path = options.filename ?? null;
         \\  const diagnostics = new Array(diagCount);
         \\  for (let j = 0; j < diagCount; j++) {{
         \\    const d = _dBase + j * {[stride]d};
-        \\    diagnostics[j] = {{ message: MESSAGES[_u32[d + {[m]d}]], start: _p(_u32[d + {[s]d}]), end: _p(_u32[d + {[e]d}]) }};
+        \\    diagnostics[j] = {{ severity: "error", message: MESSAGES[_u32[d + {[m]d}]], path, start: _p(_u32[d + {[s]d}]), end: _p(_u32[d + {[e]d}]), labels: [], help: null }};
         \\  }}
-        \\  return {{ stylesheet: node(root, 0), diagnostics }};
+        \\  const spans = commentCount === 0 ? null : new Int32Array(commentCount * 2);
+        \\  for (let j = 0; j < commentCount * 2; j++) spans[j] = _p(_u32[commentBase + j]);
+        \\  let tokens;
+        \\  if (withTokens) {{
+        \\    tokens = new Uint32Array(tokenCount);
+        \\    for (let j = 0, b = tokenBase; j < tokenCount; j++, b += {[tstride]d}) {{
+        \\      tokens[j] = ((_u32[b + {[ttag]d}] & 255) << 24) | _p(_u32[b + {[tend]d}]);
+        \\    }}
+        \\  }}
+        \\  let comments;
+        \\  return {{
+        \\    ast: node(root, 0),
+        \\    get comments() {{
+        \\      if (comments !== undefined) return comments;
+        \\      comments = new Array(commentCount);
+        \\      for (let j = 0; j < commentCount; j++) {{
+        \\        const s = spans[2 * j], e = spans[2 * j + 1];
+        \\        const value = _src.startsWith("*/", e - 2) ? _src.slice(s + 2, e - 2) : _src.slice(s + 2, e);
+        \\        comments[j] = positions ? {{ type: "Comment", loc: loc(s, e), value }} : {{ type: "Comment", start: s, end: e, value }};
+        \\      }}
+        \\      return comments;
+        \\    }},
+        \\    tokens,
+        \\    diagnostics,
+        \\  }};
         \\}}
         \\
     , .{
@@ -205,6 +234,9 @@ fn writeDecode(w: *Writer) !void {
         .m = rt.DIAGNOSTIC_MESSAGE_U32,
         .s = rt.DIAGNOSTIC_START_U32,
         .e = rt.DIAGNOSTIC_END_U32,
+        .tstride = rt.TOKEN_SIZE / 4,
+        .ttag = rt.TOKEN_TAG_U32,
+        .tend = rt.TOKEN_END_U32,
     });
 }
 

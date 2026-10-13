@@ -1,4 +1,4 @@
-import type { Position, ParseResult } from "./ast";
+import type { Contexts, Position, ParseResult } from "./ast";
 import type { ParseOptions } from "./index";
 
 export declare const tokenTypes: Readonly<Record<
@@ -9,5 +9,5 @@ export declare const tokenTypes: Readonly<Record<
   number
 >>;
 export declare const tokenNames: readonly string[];
-export declare function decode(buffer: ArrayBuffer, at: number, source: string, options: ParseOptions): ParseResult<Position>;
+export declare function decode(buffer: ArrayBuffer, at: number, source: string, options: ParseOptions, withTokens: boolean): ParseResult<Position, keyof Contexts>;
 export declare function decodeTokens(buffer: ArrayBuffer, at: number, source: string): Uint32Array;

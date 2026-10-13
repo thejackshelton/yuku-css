@@ -9,6 +9,8 @@ const gpa = std.heap.wasm_allocator;
 const flag = struct {
     const parse_rule_prelude = 1 << 0;
     const positions = 1 << 1;
+    const tokens = 1 << 2;
+    const context = 3;
 };
 
 export fn alloc(len: usize) [*]u8 {
@@ -32,12 +34,16 @@ export fn tokenize(ptr: [*]const u8, len: usize) usize {
 }
 
 fn parseBuffer(source: []const u8, flags: u32) ![]u8 {
-    var tree = try css.parse(gpa, source, .{ .parse_rule_prelude = flags & flag.parse_rule_prelude != 0 });
+    var tree = try css.parse(gpa, source, .{
+        .parse_rule_prelude = flags & flag.parse_rule_prelude != 0,
+        .context = std.enums.fromInt(css.parser.Context, flags >> flag.context) orelse .stylesheet,
+    });
     defer tree.deinit();
     const utf16: css.transfer.Utf16 = .init(source);
     const lines: css.transfer.Lines = if (flags & flag.positions != 0) .init(source) else .none;
-    const out = try prefixed(css.transfer.bufferSize(&tree, utf16, lines));
-    _ = css.transfer.serializeInto(&tree, utf16, lines, out[4..]);
+    const tokens = flags & flag.tokens != 0;
+    const out = try prefixed(css.transfer.bufferSize(&tree, utf16, lines, tokens));
+    _ = css.transfer.serializeInto(&tree, utf16, lines, tokens, out[4..]);
     return out;
 }
 
