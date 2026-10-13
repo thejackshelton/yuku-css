@@ -39,7 +39,7 @@ export function report(results: Results): void {
   const yuku = configs.find((config) => config.library === "yuku-css")!;
   const twin = configs.find((config) => config.library === "css-tree" && sameMode(config.mode, yuku.mode))!;
   const defaults = configs.find((config) => config.id === "css-tree parsed nopos")!;
-  const others = configs.filter((config) => config.library !== "yuku-css" && config.library !== "css-tree");
+  const others = configs.filter((config) => !config.library.startsWith("yuku-css") && config.library !== "css-tree");
   const headline = [yuku, twin, defaults, ...others];
   // the yuku-css configuration doing the same work, if there is one
   const same = (config: Config) =>
@@ -659,6 +659,17 @@ export function report(results: Results): void {
         wins.push(`On ${titleOf(runtime)}, parsing and printing beats ${against} on ${behind.length ? `files of ${list(ahead.map(({ bucket }) => bucket))}` : "every size of file"}, by ${span(ahead.map(({ lead }) => lead))}.`);
       if (behind.length)
         losses.push(`On ${titleOf(runtime)}, parsing and printing is slower than ${against} on files of ${list(behind.map(({ bucket }) => bucket))}, by ${span(behind.map(({ lead }) => 1 / lead))}.`);
+    }
+    for (const runtime of everywhere) {
+      const slower = files
+        .filter((file) => file.group === "npm" || file.group === "synthetic")
+        .flatMap((file) => {
+          const own = file.key in results.gate.failed[printing.id] ? undefined : sumOf(runtime, printing, [file.key]);
+          const other = file.key in results.gate.failed[rival(runtime).id] ? undefined : sumOf(runtime, rival(runtime), [file.key]);
+          return own && other && other.median < own.median ? [`${file.name} (${times(own, other)})`] : [];
+        });
+      if (slower.length)
+        losses.push(`On ${titleOf(runtime)}, parsing and printing is slower than ${runtime === "chromium" ? "`lightningcss-wasm`" : "the addon"} on ${list(slower)}.`);
     }
     const yukuBytes = download("yuku-css") && download("yuku-css/codegen") && download("yuku-css")! + download("yuku-css/codegen")!;
     if (yukuBytes && download("lightningcss-wasm"))
