@@ -71,7 +71,8 @@ export const divergences: Divergence[] = [
   },
   {
     rule:
-      "Beyond 128 nested blocks or functional pseudo-classes the rest is `Raw` with \"Nesting is too deep\"; " +
+      "Beyond 128 nested blocks, functional pseudo-classes, or value functions, parentheses and brackets, " +
+      "the rest is `Raw` with \"Nesting is too deep\"; " +
       "css-tree recurses until the JavaScript stack runs out",
     spec: "none, a bound on recursion",
     fixtures: [],
@@ -90,7 +91,6 @@ export const pending: Record<string, string> = {
   "definition-syntax-match/": LEXER,
   "sourceMaps/": GENERATOR,
   "stringify.css": BOTH,
-  "ast/value/": VALUES,
   "ast/atrulePrelude/": PRELUDES,
   "ast/mediaQuery/": PRELUDES,
   "ast/atrule/atrule/font-face.json single declaration": VALUES,

@@ -385,7 +385,7 @@ describe("contexts", () => {
       ["block", "{ a: b; c {} }", "Block"],
       ["declarationList", "a: b; c {} & d {}", "DeclarationList"],
       ["declaration", "a: b", "Declaration"],
-      ["value", "1px solid", "Raw"],
+      ["value", "1px solid", "Value"],
       ["atrulePrelude", "screen and (x)", "Raw"],
       ["mediaQueryList", "screen, print", "Raw"],
       ["mediaQuery", "screen", "Raw"],

@@ -42,6 +42,17 @@ const MESSAGES = [
   "CDC is expected",
   "Comment is expected",
   "Delim is expected",
+  "Hex or identifier is expected",
+  "Identifier \"u\" is expected",
+  "Delim \"+\" is expected",
+  "Plus sign is expected",
+  "Hyphen minus is expected",
+  "Hyphen minus or hex digit is expected",
+  "Hex digit is expected",
+  "Hex digit or question mark is expected",
+  "Too many hex digits",
+  "Too many question marks",
+  "Number of function is expected",
   "Relative selector is not allowed here",
   "Compound selector is expected",
   "Type selector must come first in a compound selector",
@@ -219,6 +230,17 @@ function decode(buffer, at, source, options, withTokens) {
     case 23: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "String", start, end, value: str(f1, f2) }; }
     case 24: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Percentage", start, end, value: str(f1, f2) }; }
     case 25: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Operator", start, end, value: str(f1, f2) }; }
+    case 26: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Value", start, end, children: nodeArr(f1, f2, depth + 1) }; }
+    case 27: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Number", start, end, value: str(f1, f2) }; }
+    case 28: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "Dimension", start, end, value: str(f1, f2), unit: str(f3, f4) }; }
+    case 29: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Hash", start, end, value: str(f1, f2) }; }
+    case 30: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Url", start, end, value: str(f1, f2) }; }
+    case 31: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "Function", start, end, name: str(f1, f2), children: nodeArr(f3, f4, depth + 1) }; }
+    case 32: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Parentheses", start, end, children: nodeArr(f1, f2, depth + 1) }; }
+    case 33: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Brackets", start, end, children: nodeArr(f1, f2, depth + 1) }; }
+    case 34: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "UnicodeRange", start, end, value: str(f1, f2) }; }
+    case 35: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Ratio", start, end, left: f1 === NULL ? null : node(f1, depth + 1), right: f2 === NULL ? null : node(f2, depth + 1) }; }
+    case 36: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "WhiteSpace", start, end, value: str(f1, f2) }; }
     }
   }
   function _location(i, depth) {
@@ -255,6 +277,17 @@ function decode(buffer, at, source, options, withTokens) {
     case 23: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "String", loc: loc(start, end), value: str(f1, f2) }; }
     case 24: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Percentage", loc: loc(start, end), value: str(f1, f2) }; }
     case 25: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Operator", loc: loc(start, end), value: str(f1, f2) }; }
+    case 26: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Value", loc: loc(start, end), children: nodeArr(f1, f2, depth + 1) }; }
+    case 27: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Number", loc: loc(start, end), value: str(f1, f2) }; }
+    case 28: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "Dimension", loc: loc(start, end), value: str(f1, f2), unit: str(f3, f4) }; }
+    case 29: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Hash", loc: loc(start, end), value: str(f1, f2) }; }
+    case 30: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Url", loc: loc(start, end), value: str(f1, f2) }; }
+    case 31: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "Function", loc: loc(start, end), name: str(f1, f2), children: nodeArr(f3, f4, depth + 1) }; }
+    case 32: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Parentheses", loc: loc(start, end), children: nodeArr(f1, f2, depth + 1) }; }
+    case 33: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Brackets", loc: loc(start, end), children: nodeArr(f1, f2, depth + 1) }; }
+    case 34: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "UnicodeRange", loc: loc(start, end), value: str(f1, f2) }; }
+    case 35: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Ratio", loc: loc(start, end), left: f1 === NULL ? null : node(f1, depth + 1), right: f2 === NULL ? null : node(f2, depth + 1) }; }
+    case 36: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "WhiteSpace", loc: null, value: str(f1, f2) }; }
     }
   }
   const _inner = positions ? _location : _offsets;

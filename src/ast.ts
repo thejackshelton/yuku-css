@@ -168,10 +168,77 @@ export type Identifier<P extends Position = Offsets> = P & { type: "Identifier";
 /** A string, its quotes removed and its escapes decoded. */
 export type StringNode<P extends Position = Offsets> = P & { type: "String"; value: string };
 
-/** A keyframe selector such as `50%`, without its `%`. */
+/** A percentage without its `%`, such as the keyframe selector `50%`. */
 export type Percentage<P extends Position = Offsets> = P & { type: "Percentage"; value: string };
 
+/** `,`, `/`, `*`, `+` or `-`; in a value, a `+` or `-` keeps one space on each side that has whitespace. */
 export type Operator<P extends Position = Offsets> = P & { type: "Operator"; value: string };
+
+/** A declaration value: its component values, without the whitespace and comments between them. */
+export type Value<P extends Position = Offsets> = P & { type: "Value"; children: ValueChild<P>[] };
+
+/** A component value. */
+export type ValueChild<P extends Position = Offsets> =
+  | Identifier<P>
+  | NumberNode<P>
+  | Dimension<P>
+  | Percentage<P>
+  | Hash<P>
+  | StringNode<P>
+  | Url<P>
+  | FunctionNode<P>
+  | Parentheses<P>
+  | Brackets<P>
+  | Operator<P>
+  | UnicodeRange<P>
+  | WhiteSpace<P>
+  | Raw<P>
+  | Value<P>;
+
+/** A number as written, sign and exponent included. */
+export type NumberNode<P extends Position = Offsets> = P & { type: "Number"; value: string };
+
+export type Dimension<P extends Position = Offsets> = P & {
+  type: "Dimension";
+  /** The number as written. */
+  value: string;
+  unit: string;
+};
+
+/** A hash, such as a hex color, without its `#`. */
+export type Hash<P extends Position = Offsets> = P & { type: "Hash"; value: string };
+
+/** A URL, without `url(`, quotes and `)`, its escapes decoded. */
+export type Url<P extends Position = Offsets> = P & { type: "Url"; value: string };
+
+export type FunctionNode<P extends Position = Offsets> = P & {
+  type: "Function";
+  /** As written, without `(`. */
+  name: string;
+  /**
+   * The arguments; for `var()`, an `Identifier`, then a comma `Operator` and a `Raw` fallback
+   * (a `Value` with `parseCustomProperty`); for `expression()`, a `Raw`.
+   */
+  children: ValueChild<P>[];
+};
+
+export type Parentheses<P extends Position = Offsets> = P & { type: "Parentheses"; children: ValueChild<P>[] };
+
+export type Brackets<P extends Position = Offsets> = P & { type: "Brackets"; children: ValueChild<P>[] };
+
+/** A `<urange>` as written, such as `U+0025-00FF`. */
+export type UnicodeRange<P extends Position = Offsets> = P & { type: "UnicodeRange"; value: string };
+
+/** A `<ratio>`, such as `16 / 9`. */
+export type Ratio<P extends Position = Offsets> = P & {
+  type: "Ratio";
+  left: NumberNode<P> | FunctionNode<P>;
+  /** Null for a lone number. */
+  right: NumberNode<P> | FunctionNode<P> | null;
+};
+
+/** The `" "` css-tree places in an empty custom property value, or `var()` fallback, that has whitespace. */
+export type WhiteSpace<P extends Position = Offsets> = P & { type: "WhiteSpace"; value: " " };
 
 export type CssNode<P extends Position = Offsets> =
   | StyleSheet<P>
@@ -193,7 +260,18 @@ export type CssNode<P extends Position = Offsets> =
   | Identifier<P>
   | StringNode<P>
   | Percentage<P>
-  | Operator<P>;
+  | Operator<P>
+  | Value<P>
+  | NumberNode<P>
+  | Dimension<P>
+  | Hash<P>
+  | Url<P>
+  | FunctionNode<P>
+  | Parentheses<P>
+  | Brackets<P>
+  | UnicodeRange<P>
+  | Ratio<P>
+  | WhiteSpace<P>;
 
 /** A problem in the source, in the shape Yuku gives it. */
 export interface Diagnostic extends Offsets {
@@ -222,8 +300,7 @@ export interface Contexts<P extends Position = Offsets> {
   block: Block<P>;
   declarationList: DeclarationList<P>;
   declaration: Declaration<P>;
-  /** Kept as written for now. */
-  value: Raw<P>;
+  value: Value<P>;
 }
 
 export interface ParseResult<P extends Position = Offsets, C extends keyof Contexts = "stylesheet"> {

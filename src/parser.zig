@@ -5,6 +5,7 @@ const std = @import("std");
 const ast = @import("ast.zig");
 const token = @import("token.zig");
 const lexer = @import("lexer.zig");
+const values = @import("syntax/value.zig");
 
 const Allocator = std.mem.Allocator;
 const NodeIndex = ast.NodeIndex;
@@ -31,16 +32,18 @@ pub const Context = enum(u4) {
 pub const Options = struct {
     /// When false, a rule's prelude is a `Raw`.
     parse_rule_prelude: bool = true,
+    /// When true, a custom property's value, and a `var()` fallback, is a `Value`, not a `Raw`.
+    parse_custom_property: bool = false,
     context: Context = .stylesheet,
 };
 
 pub const Error = error{OutOfMemory};
-const ParseError = error{ OutOfMemory, Syntax };
+pub const ParseError = error{ OutOfMemory, Syntax };
 
 // bounds the parser's recursion, and so the decoder's
-const max_depth = 128;
+pub const max_depth = 128;
 
-const Stop = enum { balance_end, left_curly_bracket, left_curly_bracket_or_semicolon, exclamation_mark_or_semicolon, semicolon_included };
+pub const Stop = enum { balance_end, left_curly_bracket, left_curly_bracket_or_semicolon, exclamation_mark_or_semicolon, semicolon_included };
 
 const Pseudo = enum { selector_list, selector, nth, identifier, lang };
 
@@ -87,7 +90,7 @@ fn tokenCapacity(len: usize) usize {
     return len / 2 + 64;
 }
 
-const Parser = struct {
+pub const Parser = struct {
     tree: ast.Tree,
     src: []const u8,
     options: Options,
@@ -132,7 +135,7 @@ const Parser = struct {
         return scan;
     }
 
-    fn next(p: *Parser) void {
+    pub fn next(p: *Parser) void {
         const n = p.index +% 1;
         if (n < p.count) {
             p.index = n;
@@ -149,7 +152,7 @@ const Parser = struct {
     }
 
     // css-tree's `skip`, which leaves `eof` set when it moves back
-    fn skipTo(p: *Parser, target: u32) void {
+    pub fn skipTo(p: *Parser, target: u32) void {
         if (target < p.count) {
             p.index = target;
             p.start = if (target > 0) p.tokens[target - 1].end else 0;
@@ -161,7 +164,7 @@ const Parser = struct {
         }
     }
 
-    fn lookupType(p: *const Parser, offset: i32) Tag {
+    pub fn lookupType(p: *const Parser, offset: i32) Tag {
         const i = @as(i64, p.index) + offset;
         return if (i >= 0 and i < p.count) p.tokens[@intCast(i)].tag else .eof;
     }
@@ -182,17 +185,17 @@ const Parser = struct {
         return std.ascii.eqlIgnoreCase(p.src[start..p.tokens[i].end], text);
     }
 
-    fn tokenStart(p: *const Parser, i: u32) u32 {
+    pub fn tokenStart(p: *const Parser, i: u32) u32 {
         if (i == p.index) return p.start;
         if (i > 0) return if (i < p.count) p.tokens[i - 1].end else @intCast(p.src.len);
         return p.first_offset;
     }
 
-    inline fn at(p: *const Parser, offset: u32) u8 {
+    pub inline fn at(p: *const Parser, offset: u32) u8 {
         return if (offset < p.src.len) p.src[offset] else 0;
     }
 
-    inline fn isDelim(p: *const Parser, comptime c: u8) bool {
+    pub inline fn isDelim(p: *const Parser, comptime c: u8) bool {
         return p.tag == .delim and p.src[p.start] == c;
     }
 
@@ -202,17 +205,17 @@ const Parser = struct {
         return i < p.count and p.tokens[i].tag == .delim and p.src[p.tokens[i - 1].end] == c;
     }
 
-    fn isBalanceEdge(p: *const Parser, token_index: u32) bool {
+    pub fn isBalanceEdge(p: *const Parser, token_index: u32) bool {
         const balance = if (p.index < p.count) p.balance[p.index] else p.count;
         return balance < token_index;
     }
 
-    fn skipSC(p: *Parser) void {
+    pub fn skipSC(p: *Parser) void {
         while (p.tag == .whitespace or p.tag == .comment) p.next();
     }
 
     /// Returns whether it passed a `{}` block on the way.
-    fn skipUntilBalanced(p: *Parser, start_token: u32, comptime stop: Stop) bool {
+    pub fn skipUntilBalanced(p: *Parser, start_token: u32, comptime stop: Stop) bool {
         var cursor = start_token;
         var block = false;
         while (cursor < p.count) : (cursor += 1) {
@@ -239,7 +242,7 @@ const Parser = struct {
         return block;
     }
 
-    fn eat(p: *Parser, comptime tag: Tag) ParseError!void {
+    pub fn eat(p: *Parser, comptime tag: Tag) ParseError!void {
         if (p.tag != tag) {
             switch (tag) {
                 .ident => if (p.tag == .function or p.tag == .url)
@@ -257,18 +260,18 @@ const Parser = struct {
         p.next();
     }
 
-    fn eatDelim(p: *Parser, comptime c: u8, comptime message: Message) ParseError!void {
+    pub fn eatDelim(p: *Parser, comptime c: u8, comptime message: Message) ParseError!void {
         if (!p.isDelim(c)) return p.fail(message, null);
         p.next();
     }
 
-    fn consume(p: *Parser, comptime tag: Tag) ParseError!String {
+    pub fn consume(p: *Parser, comptime tag: Tag) ParseError!String {
         const start = p.start;
         try p.eat(tag);
         return .{ .start = start, .end = p.start };
     }
 
-    fn fail(p: *Parser, message: Message, offset: ?u32) error{Syntax} {
+    pub fn fail(p: *Parser, message: Message, offset: ?u32) error{Syntax} {
         const len: u32 = @intCast(p.src.len);
         const at_offset: u32 = if (offset != null and offset.? < len)
             offset.?
@@ -278,13 +281,13 @@ const Parser = struct {
         return error.Syntax;
     }
 
-    fn report(p: *Parser, diagnostic: ast.Diagnostic) Error!void {
+    pub fn report(p: *Parser, diagnostic: ast.Diagnostic) Error!void {
         try p.tree.diagnostics.append(p.tree.allocator(), diagnostic);
     }
 
-    const Checkpoint = struct { index: u32, eof: bool, nodes: usize, extras: usize, scratch: usize, spec: usize };
+    pub const Checkpoint = struct { index: u32, eof: bool, nodes: usize, extras: usize, scratch: usize, spec: usize };
 
-    fn checkpoint(p: *const Parser) Checkpoint {
+    pub fn checkpoint(p: *const Parser) Checkpoint {
         return .{
             .index = p.index,
             .eof = p.eof,
@@ -295,7 +298,7 @@ const Parser = struct {
         };
     }
 
-    fn rewind(p: *Parser, to: Checkpoint) void {
+    pub fn rewind(p: *Parser, to: Checkpoint) void {
         p.tree.nodes.shrinkRetainingCapacity(to.nodes);
         p.tree.extras.shrinkRetainingCapacity(to.extras);
         p.scratch.shrinkRetainingCapacity(to.scratch);
@@ -324,11 +327,11 @@ const Parser = struct {
         };
     }
 
-    fn add(p: *Parser, data: ast.NodeData, start: u32, end: u32) Error!NodeIndex {
+    pub fn add(p: *Parser, data: ast.NodeData, start: u32, end: u32) Error!NodeIndex {
         return p.tree.addNode(data, .{ .start = start, .end = end });
     }
 
-    fn push(p: *Parser, node: NodeIndex) Error!void {
+    pub fn push(p: *Parser, node: NodeIndex) Error!void {
         if (p.scratch.items.len < p.scratch.capacity) {
             p.scratch.appendAssumeCapacity(node);
         } else {
@@ -336,7 +339,7 @@ const Parser = struct {
         }
     }
 
-    fn flush(p: *Parser, base: usize) Error!ast.IndexRange {
+    pub fn flush(p: *Parser, base: usize) Error!ast.IndexRange {
         const range = try p.tree.addExtra(p.scratch.items[base..]);
         p.scratch.shrinkRetainingCapacity(base);
         return range;
@@ -349,7 +352,7 @@ const Parser = struct {
         return .{ .start = spans[@backingInt(children[0])].start, .end = spans[@backingInt(children[children.len - 1])].end };
     }
 
-    fn pooled(p: *Parser, text: []const u8) Error!String {
+    pub fn pooled(p: *Parser, text: []const u8) Error!String {
         return p.tree.addString(text);
     }
 
@@ -456,7 +459,8 @@ const Parser = struct {
             .block => p.parseBlock(true, true),
             .declaration_list => p.declarationList(),
             .declaration => p.declaration(false),
-            .atrule_prelude, .media_query_list, .media_query, .value => {
+            .value => values.value(p),
+            .atrule_prelude, .media_query_list, .media_query => {
                 p.skipSC();
                 return p.raw(.balance_end, true);
             },
@@ -524,13 +528,13 @@ const Parser = struct {
         return p.add(data, start, p.start);
     }
 
-    fn raw(p: *Parser, comptime stop: Stop, exclude_whitespace: bool) Error!NodeIndex {
+    pub fn raw(p: *Parser, comptime stop: Stop, exclude_whitespace: bool) Error!NodeIndex {
         const start = p.start;
         _ = p.skipUntilBalanced(p.index, stop);
         return p.rawFrom(start, exclude_whitespace);
     }
 
-    fn rawFrom(p: *Parser, start: u32, exclude_whitespace: bool) Error!NodeIndex {
+    pub fn rawFrom(p: *Parser, start: u32, exclude_whitespace: bool) Error!NodeIndex {
         var end = p.start;
         if (exclude_whitespace and p.start > start and p.index > 0 and p.lookupType(-1) == .whitespace) {
             end = if (p.index > 1) p.tokenStart(p.index - 1) else p.first_offset;
@@ -880,7 +884,7 @@ const Parser = struct {
         return p.add(.{ .combinator = .{ .name = .{ .start = start, .end = p.start } } }, start, p.start);
     }
 
-    fn percentage(p: *Parser) ParseError!NodeIndex {
+    pub fn percentage(p: *Parser) ParseError!NodeIndex {
         const start = p.start;
         const end = p.end;
         const value: String = .{ .start = start, .end = (lexer.Lexer{ .src = p.src, .pos = start }).numberEnd(start) };
@@ -1004,20 +1008,20 @@ const Parser = struct {
         }
     }
 
-    fn identifier(p: *Parser) ParseError!NodeIndex {
+    pub fn identifier(p: *Parser) ParseError!NodeIndex {
         const start = p.start;
         const end = p.end;
         const name = try p.consume(.ident);
         return p.add(.{ .identifier = .{ .name = name } }, start, end);
     }
 
-    fn operator(p: *Parser) ParseError!NodeIndex {
+    pub fn operator(p: *Parser) ParseError!NodeIndex {
         const start = p.start;
         p.next();
         return p.add(.{ .operator = .{ .value = .{ .start = start, .end = p.start } } }, start, p.start);
     }
 
-    fn string(p: *Parser) ParseError!NodeIndex {
+    pub fn string(p: *Parser) ParseError!NodeIndex {
         const start = p.start;
         const end = p.end;
         try p.eat(.string);
@@ -1025,13 +1029,24 @@ const Parser = struct {
     }
 
     // css-tree's `string.decode`, quirks included
-    fn decodeString(p: *Parser, start: u32, end: u32) Error!String {
+    pub fn decodeString(p: *Parser, start: u32, end: u32) Error!String {
         const str = p.src[start..end];
         const len: u32 = @intCast(str.len);
         const quote = str[0];
         const first: u32 = if (quote == '"' or quote == '\'') 1 else 0;
         const last: u32 = if (first == 1 and len > 1 and str[len - 1] == quote) len - 1 else len;
-        if (std.mem.findScalar(u8, str[first..last], '\\') == null) return .{ .start = start + first, .end = start + last };
+        return p.decodeEscapes(start, end, first, last);
+    }
+
+    /// css-tree's escape decoding of `string` and `url`, over `first..last` of `start..end`.
+    pub fn decodeEscapes(p: *Parser, start: u32, end: u32, first: u32, last: u32) Error!String {
+        std.debug.assert(start <= end and end <= p.src.len);
+        std.debug.assert(first <= last and last <= end - start);
+        const str = p.src[start..end];
+        const len: u32 = @intCast(str.len);
+        if (std.mem.findScalar(u8, str[first..last], '\\') == null) {
+            return .{ .start = start + first, .end = start + last };
+        }
 
         const gpa = p.tree.allocator();
         var decoded: std.ArrayList(u8) = .empty;
@@ -1349,7 +1364,7 @@ test "parses each context" {
         .{ Context.declaration, "a: b", ast.Tag.declaration },
         .{ Context.selector, "a > b", ast.Tag.selector },
         .{ Context.block, "{ a: b }", ast.Tag.block },
-        .{ Context.value, "1px solid", ast.Tag.raw },
+        .{ Context.value, "1px solid", ast.Tag.value },
     };
     inline for (cases) |case| {
         var tree = try parse(std.testing.allocator, case[1], .{ .context = case[0] });

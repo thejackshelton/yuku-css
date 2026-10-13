@@ -290,6 +290,8 @@ fn writeCase(w: *Writer, comptime mode: Mode, comptime tag: usize, comptime name
         // css-tree gives the descendant combinator, whose name is no slice of the source, no position
         .location => if (comptime std.mem.eql(u8, name, "combinator"))
             try w.writeAll("loc: f1 >= _srcLen ? null : loc(start, end)")
+        else if (comptime std.mem.eql(u8, name, "white_space"))
+            try w.writeAll("loc: null")
         else
             try w.writeAll("loc: loc(start, end)"),
     }

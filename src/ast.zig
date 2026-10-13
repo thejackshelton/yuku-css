@@ -73,6 +73,22 @@ pub const NodeData = union(enum) {
     string: struct { value: String },
     percentage: struct { value: String },
     operator: struct { value: String },
+    value: struct { children: IndexRange },
+    /// As written, sign and exponent included.
+    number: struct { value: String },
+    dimension: struct { value: String, unit: String },
+    /// Without its `#`.
+    hash: struct { value: String },
+    /// Decoded, without `url(`, quotes and `)`.
+    url: struct { value: String },
+    function: struct { name: String, children: IndexRange },
+    parentheses: struct { children: IndexRange },
+    brackets: struct { children: IndexRange },
+    unicode_range: struct { value: String },
+    /// `right` is null for a lone number.
+    ratio: struct { left: NodeIndex, right: NodeIndex },
+    /// A pooled `" "` that css-tree places in an empty custom property value, with no position.
+    white_space: struct { value: String },
 };
 
 pub const Tag = std.meta.Tag(NodeData);
@@ -125,6 +141,17 @@ pub const Message = enum(u8) {
     cdc_expected,
     comment_expected,
     delim_expected,
+    hex_or_identifier_expected,
+    u_expected,
+    plus_sign_delim_expected,
+    plus_sign_expected,
+    range_hyphen_minus_expected,
+    hyphen_minus_or_hex_digit_expected,
+    hex_digit_expected,
+    hex_digit_or_question_mark_expected,
+    too_many_hex_digits,
+    too_many_question_marks,
+    number_or_function_expected,
     // where the specs read an error that css-tree does not
     relative_selector_not_allowed,
     compound_selector_expected,
@@ -178,6 +205,18 @@ pub const Message = enum(u8) {
             .cdc_expected => "CDC is expected",
             .comment_expected => "Comment is expected",
             .delim_expected => "Delim is expected",
+            .hex_or_identifier_expected => "Hex or identifier is expected",
+            .u_expected => "Identifier \"u\" is expected",
+            .plus_sign_delim_expected => "Delim \"+\" is expected",
+            .plus_sign_expected => "Plus sign is expected",
+            .range_hyphen_minus_expected => "Hyphen minus is expected",
+            .hyphen_minus_or_hex_digit_expected => "Hyphen minus or hex digit is expected",
+            .hex_digit_expected => "Hex digit is expected",
+            .hex_digit_or_question_mark_expected => "Hex digit or question mark is expected",
+            .too_many_hex_digits => "Too many hex digits",
+            .too_many_question_marks => "Too many question marks",
+            // css-tree's typo, kept so messages match
+            .number_or_function_expected => "Number of function is expected",
             .relative_selector_not_allowed => "Relative selector is not allowed here",
             .compound_selector_expected => "Compound selector is expected",
             .type_selector_not_first => "Type selector must come first in a compound selector",
