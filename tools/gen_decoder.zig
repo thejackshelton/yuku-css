@@ -106,7 +106,8 @@ fn writeLines(w: *Writer) !void {
         \\function lineStarts(src) {
         \\  let starts = new Int32Array((src.length >> 5) + 16), n = 0;
         \\  const generic = src.indexOf("\r") !== -1 || src.indexOf("\f") !== -1;
-        \\  for (let i = generic ? 0 : src.indexOf("\n"); i !== -1 && i < src.length; i = generic ? i + 1 : src.indexOf("\n", i + 1)) {
+        \\  let i = generic ? 0 : src.indexOf("\n");
+        \\  for (; i !== -1 && i < src.length; i = generic ? i + 1 : src.indexOf("\n", i + 1)) {
         \\    if (generic) {
         \\      const c = src.charCodeAt(i);
         \\      if (c !== 10 && c !== 12 && (c !== 13 || src.charCodeAt(i + 1) === 10)) continue;
@@ -121,7 +122,7 @@ fn writeLines(w: *Writer) !void {
         \\  starts[n] = 0x7fffffff;
         \\  return starts;
         \\}
-        \\// S[j] is where line j starts, the first line placed so that its columns count from `column`
+        \\// S[j] is where line j starts, the first placed so that its columns count from `column`
         \\function locator(src, line, column, base, file) {
         \\  const starts = lineStarts(src);
         \\  let count = 0;
@@ -136,7 +137,9 @@ fn writeLines(w: *Writer) !void {
         \\    blocks[b] = j;
         \\  }
         \\  const point = (offset, j) =>
-        \\    offset < first ? { offset: base + offset, line: 0, column: 0 } : { offset: base + offset, line: line + j, column: offset - S[j] + 1 };
+        \\    offset < first
+        \\      ? { offset: base + offset, line: 0, column: 0 }
+        \\      : { offset: base + offset, line: line + j, column: offset - S[j] + 1 };
         \\  if (first === 1) {
         \\    return (s, e) => {
         \\      let j = blocks[s >> 6];
@@ -201,9 +204,12 @@ fn writeDecode(w: *Writer) !void {
         \\    return r;
         \\  }}
         \\  const positions = options.positions === true;
-        \\  const commentBase = _dBase + diagCount * {[dstride]d} + _u32[{[u16]d}] * 2, commentCount = _u32[{[cc]d}];
+        \\  const commentBase = _dBase + diagCount * {[dstride]d} + _u32[{[u16]d}] * 2;
+        \\  const commentCount = _u32[{[cc]d}];
         \\  const tokenBase = commentBase + commentCount * 2, tokenCount = _u32[{[tc]d}];
-        \\  const loc = positions ? locator(_src, options.line ?? 1, options.column ?? 1, options.offset ?? 0, options.filename || "<unknown>") : null;
+        \\  const file = options.filename || "<unknown>";
+        \\  const line = options.line ?? 1, column = options.column ?? 1;
+        \\  const loc = positions ? locator(_src, line, column, options.offset ?? 0, file) : null;
         \\
     , .{
         .src = rt.HDR_SOURCE_LEN_U32,

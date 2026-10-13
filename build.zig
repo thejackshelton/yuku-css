@@ -44,7 +44,8 @@ pub fn build(b: *std.Build) void {
     });
     profile.entry = .disabled;
     profile.rdynamic = true;
-    b.step("profile", "Build the per-phase profiling wasm").dependOn(&b.addInstallArtifact(profile, .{}).step);
+    const install_profile = b.addInstallArtifact(profile, .{});
+    b.step("profile", "Build the per-phase profiling wasm").dependOn(&install_profile.step);
 
     const gen_decoder = b.addExecutable(.{
         .name = "gen_decoder",

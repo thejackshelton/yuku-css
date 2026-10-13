@@ -138,7 +138,8 @@ function utf16(u32, base, count, firstNa) {
 function lineStarts(src) {
   let starts = new Int32Array((src.length >> 5) + 16), n = 0;
   const generic = src.indexOf("\r") !== -1 || src.indexOf("\f") !== -1;
-  for (let i = generic ? 0 : src.indexOf("\n"); i !== -1 && i < src.length; i = generic ? i + 1 : src.indexOf("\n", i + 1)) {
+  let i = generic ? 0 : src.indexOf("\n");
+  for (; i !== -1 && i < src.length; i = generic ? i + 1 : src.indexOf("\n", i + 1)) {
     if (generic) {
       const c = src.charCodeAt(i);
       if (c !== 10 && c !== 12 && (c !== 13 || src.charCodeAt(i + 1) === 10)) continue;
@@ -153,7 +154,7 @@ function lineStarts(src) {
   starts[n] = 0x7fffffff;
   return starts;
 }
-// S[j] is where line j starts, the first line placed so that its columns count from `column`
+// S[j] is where line j starts, the first placed so that its columns count from `column`
 function locator(src, line, column, base, file) {
   const starts = lineStarts(src);
   let count = 0;
@@ -168,7 +169,9 @@ function locator(src, line, column, base, file) {
     blocks[b] = j;
   }
   const point = (offset, j) =>
-    offset < first ? { offset: base + offset, line: 0, column: 0 } : { offset: base + offset, line: line + j, column: offset - S[j] + 1 };
+    offset < first
+      ? { offset: base + offset, line: 0, column: 0 }
+      : { offset: base + offset, line: line + j, column: offset - S[j] + 1 };
   if (first === 1) {
     return (s, e) => {
       let j = blocks[s >> 6];
@@ -227,9 +230,12 @@ function decode(buffer, at, source, options, withTokens) {
     return r;
   }
   const positions = options.positions === true;
-  const commentBase = _dBase + diagCount * 3 + _u32[7] * 2, commentCount = _u32[8];
+  const commentBase = _dBase + diagCount * 3 + _u32[7] * 2;
+  const commentCount = _u32[8];
   const tokenBase = commentBase + commentCount * 2, tokenCount = _u32[9];
-  const loc = positions ? locator(_src, options.line ?? 1, options.column ?? 1, options.offset ?? 0, options.filename || "<unknown>") : null;
+  const file = options.filename || "<unknown>";
+  const line = options.line ?? 1, column = options.column ?? 1;
+  const loc = positions ? locator(_src, line, column, options.offset ?? 0, file) : null;
   function _offsets(i, depth) {
     if (depth >= DEPTH_MAX) return _deep(i);
     const b = (i * 32 + 40) >> 2;

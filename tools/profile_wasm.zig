@@ -24,7 +24,8 @@ export fn lexOnly(ptr: [*]const u8, len: usize) u32 {
 
 /// Parses, without serializing, and returns the node count.
 export fn parseOnly(ptr: [*]const u8, len: usize, flags: u32) u32 {
-    var tree = css.parse(gpa, ptr[0..len], .{ .parse_rule_prelude = flags & 1 != 0 }) catch return 0;
+    const options: css.parser.Options = .{ .parse_rule_prelude = flags & 1 != 0 };
+    var tree = css.parse(gpa, ptr[0..len], options) catch return 0;
     defer tree.deinit();
     return @intCast(tree.nodes.len);
 }

@@ -1,4 +1,4 @@
-// css-tree's parser, over the token list: the same nodes, the same recovery to `Raw`, the same errors.
+// css-tree's parser over tokens pulled from the lexer, with the same nodes, recovery and errors.
 // Where CSS Syntax, Selectors, or Nesting read the source otherwise, see `nestedRuleAhead` and `blockKind`.
 
 const std = @import("std");
@@ -57,7 +57,7 @@ fn stops(comptime stop: Stop, c: u8) bool {
     };
 }
 
-// the bytes a balanced skip looks at: brackets, stop characters, and what may hide them
+// the bytes a balanced skip looks at, the brackets and stop characters and what may hide them
 const balance_byte: [256]bool = blk: {
     var t: [256]bool = @splat(false);
     for ("()[]{};!\"'/\\<") |c| t[c] = true;
@@ -102,7 +102,12 @@ const pseudos: std.StaticStringMapWithEql(Pseudo, std.static_string_map.eqlAscii
 /// Parses `source` as `options.context`. Never fails on bad CSS: what does not parse becomes `Raw`,
 /// with a diagnostic.
 pub fn parse(gpa: Allocator, source: []const u8, options: Options) Error!ast.Tree {
-    var p: Parser = .{ .tree = .init(gpa, source), .src = source, .options = options, .lex = .init(source) };
+    var p: Parser = .{
+        .tree = .init(gpa, source),
+        .src = source,
+        .options = options,
+        .lex = .init(source),
+    };
     errdefer p.tree.deinit();
     try p.begin();
     p.tree.root = try p.root();
@@ -125,7 +130,7 @@ pub fn tokenize(gpa: Allocator, tokens: *token.TokenList, source: []const u8) Er
 
 const none = std.math.maxInt(u32);
 
-// a block css-tree's tokenizer has open: a closer closes only the innermost one
+// a block css-tree's tokenizer has open, which only the innermost one's closer closes
 const Open = struct { closer: Tag, start: u32, parent: u32 };
 
 // where the parser is in the tokens, as `Checkpoint` saves it
@@ -156,14 +161,16 @@ pub const Parser = struct {
     // the token before it, `eof` before the first
     prev_tag: Tag = .eof,
     prev_start: u32 = 0,
-    // the innermost open block, an index into `opens`, and where the block the current token closes opens
+    // the innermost open block as an index into `opens`
     open: u32 = none,
+    // where the block the current token closes opened
+
     closes: u32 = none,
     opens: std.ArrayList(Open) = .empty,
     // the closers of the blocks a balanced skip has opened
     nest: std.ArrayList(Tag) = .empty,
 
-    // each comment once, in order: lexing past `comment_mark` again after a rewind finds none new
+    // each comment once and in order, since lexing below `comment_mark` again records none
     comments: std.ArrayList(ast.Span) = .empty,
     comment_mark: u32 = 0,
     comments_dropped: bool = false,
@@ -201,7 +208,9 @@ pub const Parser = struct {
             p.comments.clearRetainingCapacity();
             var start = p.first_offset;
             for (tokens.items) |t| {
-                if (t.tag == .comment) try p.comments.append(gpa, .{ .start = start, .end = t.end });
+                if (t.tag == .comment) {
+                    try p.comments.append(gpa, .{ .start = start, .end = t.end });
+                }
                 start = t.end;
             }
         }
@@ -214,10 +223,13 @@ pub const Parser = struct {
         while (p.lex.pos < p.src.len) {
             const start = p.lex.pos;
             if (p.lex.next() == .comment) p.recordComment(start, p.lex.pos);
+            std.debug.assert(p.lex.pos > start);
         }
+        std.debug.assert(p.lex.pos == p.src.len);
     }
 
     pub fn next(p: *Parser) void {
+        std.debug.assert(p.lex.pos == p.end or p.tag == .eof);
         if (p.tag != .eof) {
             p.prev_start = p.tokenStart();
             p.prev_tag = p.tag;
@@ -226,6 +238,7 @@ pub const Parser = struct {
             p.start = p.end;
             p.tag = p.lex.next();
             p.end = p.lex.pos;
+            std.debug.assert(p.end > p.start);
             p.track();
         } else {
             p.eof = true;
@@ -257,6 +270,8 @@ pub const Parser = struct {
     }
 
     fn pushOpen(p: *Parser, closer: Tag, start: u32) void {
+        std.debug.assert(role[@backingInt(closer)] == .closer);
+        std.debug.assert(start < p.src.len);
         const entry: Open = .{ .closer = closer, .start = start, .parent = p.open };
         if (p.opens.items.len < p.opens.capacity) {
             p.opens.appendAssumeCapacity(entry);
@@ -270,6 +285,8 @@ pub const Parser = struct {
     }
 
     fn recordComment(p: *Parser, start: u32, end: u32) void {
+        std.debug.assert(start + 2 <= end);
+        std.debug.assert(end <= p.src.len);
         if (start < p.comment_mark) return;
         p.comment_mark = end;
         if (p.comments.items.len < p.comments.capacity) {
@@ -294,6 +311,8 @@ pub const Parser = struct {
     }
 
     fn restore(p: *Parser, to: Position) void {
+        std.debug.assert(to.start <= to.end);
+        std.debug.assert(to.end <= p.src.len);
         p.end = to.end;
         p.lex.pos = to.end;
         p.tag = to.tag;
@@ -356,8 +375,10 @@ pub const Parser = struct {
         return l.pos < p.src.len and l.next() == .delim and p.src[p.end] == c;
     }
 
-    // whether the current token closes a block opened before `limit`, which ends a balanced run there
+    // whether the current token closes a block opened before `limit`, ending a balanced run there
     pub fn isBalanceEdge(p: *const Parser, limit: u32) bool {
+        std.debug.assert(limit <= p.src.len);
+        std.debug.assert(p.closes == none or p.closes < p.start or p.prev_tag == .eof);
         return p.closes != none and p.closes < limit;
     }
 
@@ -366,7 +387,7 @@ pub const Parser = struct {
     }
 
     const Balanced = struct {
-        /// Where the run stops: the start of the token it stops at, or the source length.
+        /// Where the run stops, the start of the token it stops at or the source length.
         stop: u32,
         /// Whether it passed a `{}` block on the way.
         block: bool,
@@ -374,14 +395,17 @@ pub const Parser = struct {
         construct_end: u32,
     };
 
-    // css-tree's balanced skip from the current token, over bytes rather than tokens: only brackets,
-    // the stop characters, and what can hide them (strings, comments, urls and escapes) matter
+    // css-tree's balanced skip from the current token, over bytes rather than tokens, since only
+    // brackets and stop characters matter, and the strings, comments, urls and escapes hiding them
     fn scanBalanced(p: *Parser, comptime stop: Stop, comptime record: bool) Balanced {
         const src = p.src;
         const len: u32 = @intCast(src.len);
         const first = p.tokenStart();
+        std.debug.assert(first <= p.end);
+        std.debug.assert(p.end <= len);
         // whitespace the current token ends with is its own
-        var result: Balanced = .{ .stop = first, .block = false, .construct_end = if (p.tag == .whitespace) first else p.end };
+        const own_end = if (p.tag == .whitespace) first else p.end;
+        var result: Balanced = .{ .stop = first, .block = false, .construct_end = own_end };
         if (p.tag == .eof or p.closes != none) return result;
         if (stops(stop, src[first])) return result;
         p.nest.clearRetainingCapacity();
@@ -395,7 +419,7 @@ pub const Parser = struct {
         const from = p.end;
         var l: lexer.Lexer = .{ .src = src, .pos = from };
         var i = from;
-        while (true) {
+        while (i < len) {
             while (i < len and !balance_byte[src[i]]) i += 1;
             if (i >= len) break;
             const c = src[i];
@@ -467,12 +491,15 @@ pub const Parser = struct {
         }
         if (record and l.suspect) p.lex.suspect = true;
         result.stop = @min(i, len);
+        std.debug.assert(result.stop >= from);
         return result;
     }
 
     // whether the `(` at `i` ends a `url(` name that starts a token, given where the scan started
     // and where its last string, comment, url or escaped name ended
     fn urlStart(p: *const Parser, from: u32, i: u32, construct_end: u32) bool {
+        std.debug.assert(p.src[i] == '(');
+        std.debug.assert(from <= i);
         if (i < from + 3 or construct_end > i - 3) return false;
         if (!std.ascii.eqlIgnoreCase(p.src[i - 3 .. i], "url")) return false;
         if (i - 3 == from) return true;
@@ -481,6 +508,8 @@ pub const Parser = struct {
     }
 
     fn pushNest(p: *Parser, closer: Tag) void {
+        std.debug.assert(role[@backingInt(closer)] == .closer);
+        std.debug.assert(p.nest.items.len <= p.nest.capacity);
         if (p.nest.items.len < p.nest.capacity) {
             p.nest.appendAssumeCapacity(closer);
         } else {
@@ -493,6 +522,8 @@ pub const Parser = struct {
     /// Returns whether it passed a `{}` block on the way.
     pub fn skipUntilBalanced(p: *Parser, comptime stop: Stop) bool {
         const run = p.scanBalanced(stop, true);
+        std.debug.assert(run.stop >= p.tokenStart() or p.tag == .eof);
+        std.debug.assert(run.construct_end <= p.src.len);
         if (p.tag == .eof) {
             p.eof = true;
         } else if (run.stop == p.tokenStart()) {
@@ -507,8 +538,10 @@ pub const Parser = struct {
 
     // makes the token at `run.stop` current, with the block structure it had at the scan's start
     fn moveTo(p: *Parser, run: Balanced) void {
+        std.debug.assert(run.stop > p.start);
+        std.debug.assert(run.stop <= p.src.len);
         if (p.tag.isBlockOpener() and p.open != none) p.open = p.opens.items[p.open].parent;
-        // the token before the stop is whitespace when the whitespace before it is no part of a construct
+        // the token before the stop is whitespace unless that whitespace ends a construct
         var ws = run.stop;
         while (ws > run.construct_end and lexer.isSpace(p.src[ws - 1])) ws -= 1;
         p.end = run.stop;
@@ -562,7 +595,15 @@ pub const Parser = struct {
         try p.tree.diagnostics.append(p.tree.allocator(), diagnostic);
     }
 
-    pub const Checkpoint = struct { at: Position, eof: bool, nodes: usize, extras: usize, scratch: usize, spec: usize, opens: usize };
+    pub const Checkpoint = struct {
+        at: Position,
+        eof: bool,
+        nodes: usize,
+        extras: usize,
+        scratch: usize,
+        spec: usize,
+        opens: usize,
+    };
 
     pub fn checkpoint(p: *const Parser) Checkpoint {
         return .{
@@ -819,7 +860,9 @@ pub const Parser = struct {
 
     pub fn rawFrom(p: *Parser, start: u32, exclude_whitespace: bool) Error!NodeIndex {
         var end = p.start;
-        if (exclude_whitespace and p.start > start and p.prev_tag == .whitespace) end = p.prev_start;
+        if (exclude_whitespace and p.start > start and p.prev_tag == .whitespace) {
+            end = p.prev_start;
+        }
         return p.add(.{ .raw = .{ .value = .{ .start = start, .end = end } } }, start, end);
     }
 
@@ -996,7 +1039,9 @@ pub const Parser = struct {
             important = try p.consume(.ident);
             p.skipSC();
         }
-        if (!p.eof and p.tag != .semicolon and !p.isBalanceEdge(first)) return p.fail(.unexpected_input, null);
+        if (!p.eof and p.tag != .semicolon and !p.isBalanceEdge(first)) {
+            return p.fail(.unexpected_input, null);
+        }
         return p.add(.{ .declaration = .{ .important = important, .property = property, .value = value } }, start, p.start);
     }
 
@@ -1375,7 +1420,8 @@ pub const Parser = struct {
     fn nth(p: *Parser) ParseError!NodeIndex {
         p.skipSC();
         const start = p.start;
-        const value = if (p.lookupValue("odd") or p.lookupValue("even")) try p.identifier() else try p.anPlusB();
+        const keyword = p.lookupValue("odd") or p.lookupValue("even");
+        const value = if (keyword) try p.identifier() else try p.anPlusB();
         var end = p.start;
         p.skipSC();
         var of: NodeIndex = .null;
