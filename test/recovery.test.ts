@@ -1,4 +1,4 @@
-// yuku-css against css-tree on broken and unusual CSS: edge cases, then the corpus mutated at random,
+// yuku-css against css-tree on broken and unusual CSS: edge cases and values, then the corpus mutated at random,
 // where every recovery path to `Raw` must land where css-tree's does.
 import { describe, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
@@ -111,6 +111,70 @@ describe("parity on edge cases", () => {
   }
 });
 
+// declaration values, each read as css-tree reads it, with custom properties raw and then parsed
+const VALUES = [
+  "a{b:1px 2em -3.5e2% +.5 1e3 0}",
+  "a{b:#fff #1 # a #-x}",
+  "a{b:'x' \"y\" url(z) url( 'w' ) URL(\"v\") url(\"u\" t) url() url(\\))}",
+  "a{b:f(g, h(i)) (j k) [l m] ( ) [] f()}",
+  "a{b:1 + 2 - 3 * 4 / 5 , 6+7 -8 +-9 1 +2}",
+  "a{b:calc(1px + 2px) calc( (1 - 2)*3 ) calc(1px+2px) calc(1px -2px)}",
+  "a{b:u+0025-00ff U+4?? u+1 u+? u+?????? u+1-2 u+12345678 u+1??????? u+1-? u+-1 u+ u+x u+1e3 u+5%}",
+  "a{b:var(--x) var( --x , ) var(--x,) var(--x, a b) var(--x, (a) !important) var(x) var(1) var()}",
+  "a{b:VAR(--x, a) var(--x, a{b}) var(--x, ;) var(--x, !)}",
+  "a{b:expression(a ? b : c) expression() EXPRESSION({)}",
+  "a{b:c !important; d:e!ie; f: g ! important}",
+  "a{b:c d{e:f}}",
+  "a{b:c; d: e{}; f: (g{}) }",
+  "a{b:c &d}",
+  "a{b:c >d; e: f ~ g; h: i | j; k: l = m; n: o < p}",
+  "a{b:c:d; e:f;g}",
+  "a{b:'x\ny'; c: url(a\"b); d: \\}",
+  "a{b:/* x */c/* y */ d /* z */}",
+  "a{--x:; --y: ; --z:/**/; --w: /**/ ; --v: a b ; --u:{a}; --t: 1 + 2}",
+  "a{--x:var(--y, ); --z: var(--y,/**/ ) !important}",
+  "a{b:@c; d: {e}; f: ]}",
+  "a{b:(((((((((a)))))))))}",
+  "a{b:c}d{e:(}",
+  "a{b:f(}",
+  "a{b:[}",
+  "a{b:u+1",
+  "a{b:var(--x,",
+  "a{b:1 # !important {} c:d}",
+  "a{b:c # !x{} d:e #;f:g}",
+];
+
+describe("parity on values", () => {
+  for (const source of VALUES) {
+    test(JSON.stringify(source), () => {
+      expectTokens(source);
+      expectParity(source);
+      expectParity(source, { parseCustomProperty: true });
+    });
+  }
+});
+
+// the <urange> and <an-plus-b> strings css-tree's own parse tests read, valid and invalid
+const GENERIC = JSON.parse(readFileSync(new URL("suite/definition-syntax-match/generic.json", import.meta.url), "utf8"));
+const GRAMMAR: [string, (text: string) => string][] = [
+  ["<urange>", (text) => `a{b:${text}}`],
+  ["<urange>#", (text) => `a{b:${text}}`],
+  ["<an-plus-b>", (text) => `:nth-child(${text}){}`],
+];
+
+describe("parity on css-tree's generic grammar strings", () => {
+  for (const [name, wrap] of GRAMMAR) {
+    const { valid = [], invalid = [] } = GENERIC[name] as { valid?: string[]; invalid?: string[] };
+    for (const text of [...valid, ...invalid]) {
+      const source = wrap(text);
+      test(`${name} ${JSON.stringify(text)}`, () => {
+        expectTokens(source);
+        expectParity(source);
+      });
+    }
+  }
+});
+
 // xorshift, so every run mutates the same way
 function random(seed: number): () => number {
   let state = seed;
@@ -140,6 +204,27 @@ describe("parity on mutated sources", () => {
     test(`mutation ${i}`, () => {
       expectTokens(source);
       expectParity(source);
+    });
+  }
+});
+
+// value tokens dropped into the corpus, custom properties parsed in every other source
+const VALUE_JUNK = ["u+", "?", "var(", "expression(", "url(", "calc(", "!", "#", "+", "-", "*", "/", ",", "(", ")", "[", "]", "1e", "%", "--x:", "'", " "];
+
+describe("parity on mutated values", () => {
+  const next = random(0x2545f491);
+  for (let i = 0; i < 400; i++) {
+    const file = FILES[Math.floor(next() * FILES.length)]!;
+    let at = Math.floor(next() * file.length);
+    const colon = file.indexOf(":", at);
+    if (colon !== -1) at = colon + 1 + Math.floor(next() * 8);
+    const removed = next() < 0.5 ? Math.floor(next() * 6) : 0;
+    let inserted = "";
+    for (let j = Math.floor(next() * 3); j >= 0; j--) inserted += VALUE_JUNK[Math.floor(next() * VALUE_JUNK.length)];
+    const source = file.slice(0, at) + inserted + file.slice(at + removed);
+    const options = { parseCustomProperty: i % 2 === 1 };
+    test(`value mutation ${i}`, () => {
+      expectParity(source, options);
     });
   }
 });

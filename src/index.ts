@@ -18,8 +18,8 @@ export interface CssSyntaxError extends SyntaxError {
 
 export interface ParseOptions {
   /**
-   * What the source is read as, by css-tree's name for it. `atrulePrelude`, `mediaQueryList`,
-   * `mediaQuery` and `value` give a `Raw` for now.
+   * What the source is read as, by css-tree's name for it. `atrulePrelude`, `mediaQueryList` and
+   * `mediaQuery` give a `Raw` for now.
    * @default "stylesheet"
    */
   context?: ParseContext;
@@ -53,7 +53,7 @@ export interface ParseOptions {
    */
   parseRulePrelude?: boolean;
   /**
-   * Parse declaration values. Accepted for css-tree's API; values are `Raw` for now.
+   * Parse declaration values as a `Value`. When false, they are `Raw`.
    * @default true
    */
   parseValue?: boolean;
@@ -63,7 +63,7 @@ export interface ParseOptions {
    */
   parseAtrulePrelude?: boolean;
   /**
-   * Parse custom property values. Accepted for css-tree's API; they are `Raw`, as css-tree keeps them by default.
+   * Parse custom property values, and `var()` fallbacks, as a `Value`. When false, they are `Raw`.
    * @default false
    */
   parseCustomProperty?: boolean;
@@ -118,7 +118,12 @@ export function parse(source: string, options: ParseOptions = {}): ParseResult<P
   const tokens = options.tokens === true || options.onToken !== undefined;
   if (tokens && source.length > TOKEN_END_MAX) throw new RangeError("yuku-css: tokens take at most 16 MiB of source");
   const flags =
-    (options.parseRulePrelude === false ? 0 : 1) | (options.positions === true ? 2 : 0) | (tokens ? 4 : 0) | (context << 3);
+    (options.parseRulePrelude === false ? 0 : 1) |
+    (options.positions === true ? 2 : 0) |
+    (tokens ? 4 : 0) |
+    (context << 3) |
+    (options.parseValue === false ? 0 : 1 << 7) |
+    (options.parseCustomProperty === true ? 1 << 8 : 0);
   const result = run(
     source,
     (pointer, len) => exports!.parse(pointer, len, flags),

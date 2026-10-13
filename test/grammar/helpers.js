@@ -1,5 +1,6 @@
 // css-tree's lib/__tests/helpers/index.js, and its `parse`, as the ported lexer tests use them
 import { parse as parseCss } from "yuku-css";
+import { fromPlainObject } from "yuku-css/ast";
 export { lazyValues } from "../ast/helpers.js";
 
 export const cssWideKeywords = [
@@ -10,7 +11,7 @@ export const cssWideKeywords = [
     'revert-layer'
 ];
 
-/** css-tree's `parse`, which returns the tree. */
+/** css-tree's `parse`, which returns the tree, its children in `List`s. */
 export function parse(source, options) {
-    return parseCss(source, options).ast;
+    return fromPlainObject(parseCss(source, options).ast);
 }

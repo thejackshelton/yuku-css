@@ -1,7 +1,11 @@
 // css-tree's `Lexer` over the wasm matcher: names resolve and values match in Zig, and the match
 // tree, errors and dictionaries are built here in css-tree's shapes
 import { keyword, property } from "../ast/names";
-import { generate as generateCss } from "../codegen";
+import { generate as generateCss, type Handlers } from "../codegen";
+import { List } from "../ast/list";
+import type { AnyNode, Node } from "../ast/node";
+import { walk as walkTree } from "../ast/walk";
+import { STRUCTURES } from "./structure";
 import { MESSAGES } from "./tables";
 import {
   customError,
@@ -65,7 +69,9 @@ interface Exports {
   find(id: number, kind: number, pointer: number, nameLen: number, atruleLen: number): number;
   descriptorRoot(id: number, descriptor: number): number;
   inputBuffer(len: number): number;
+  tokenBuffer(count: number): number;
   match(id: number, descriptor: number, cssWide: number, len: number): number;
+  matchTokens(id: number, descriptor: number, cssWide: number, len: number, count: number): number;
   names(id: number): number;
   defsLayout(): number;
 }
@@ -311,6 +317,206 @@ function syntaxMatchError(
   });
 }
 
+// what a tree prints as tokens, each with the node that printed it, as css-tree's prepare-tokens
+interface Printed {
+  values: string[];
+  types: number[];
+  nodes: unknown[];
+}
+
+function printTokens(value: Node): Printed {
+  const printed: Printed = { values: [], types: [], nodes: [] };
+  let current: unknown = null;
+  generateCss(value, {
+    decorator: (handlers): Handlers => ({
+      ...handlers,
+      node(node) {
+        const outer = current;
+        current = node;
+        handlers.node.call(this, node);
+        current = outer;
+      },
+      emit(text, type, auto) {
+        printed.values.push(text);
+        printed.types.push(type);
+        printed.nodes.push(auto ? null : current);
+      },
+      result: () => "",
+    }),
+  });
+  return printed;
+}
+
+function utf8Length(text: string): number {
+  let len = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (c < 0x80) len += 1;
+    else if (c < 0x800) len += 2;
+    else if (c >= 0xd800 && c < 0xdc00 && i + 1 < text.length) {
+      len += 4;
+      i++;
+    } else len += 3;
+  }
+  return len;
+}
+
+type Located = { loc?: { source?: string; start?: Position; end?: Position } | null } | null;
+
+function fromLoc(node: unknown, point: "start" | "end"): Position | null {
+  const value = (node as Located)?.loc?.[point];
+  if (!value) return null;
+  return "line" in value ? buildLoc(value) : value;
+}
+
+// css-tree's `SyntaxMatchError` over printed tokens: where the mismatch is, by the node it is in
+// when the value is a tree
+function treeMatchError(message: string, generated: string, printed: Printed, longest: number, node: unknown): SyntaxMatchError {
+  const { values, nodes } = printed;
+  const mismatchNode = longest < values.length ? (nodes[longest] ?? null) : null;
+  const badNode = mismatchNode !== node ? mismatchNode : null;
+  let mismatchOffset = 0;
+  let mismatchLength = 0;
+  let entries = 0;
+  let css = "";
+  for (let i = 0; i < values.length; i++) {
+    const token = values[i]!;
+    if (i === longest) {
+      mismatchLength = token.length;
+      mismatchOffset = css.length;
+    }
+    if (badNode !== null && nodes[i] === badNode) entries = i <= longest ? entries + 1 : 0;
+    css += token;
+  }
+  const origin = { offset: 0, line: 1, column: 1 };
+  let start: Position;
+  let end: Position;
+  if (longest === values.length || entries > 1) {
+    start = fromLoc(badNode || node, "end") || buildLoc(origin, css);
+    end = buildLoc(start);
+  } else {
+    start = fromLoc(badNode, "start") || buildLoc(fromLoc(node, "start") || origin, css.slice(0, mismatchOffset));
+    end = fromLoc(badNode, "end") || buildLoc(start, css.substr(mismatchOffset, mismatchLength));
+  }
+  const error = syntaxMatchError(message, generated, css, mismatchOffset, mismatchLength, false);
+  return Object.assign(error, {
+    ...start,
+    loc: { source: (node as Located)?.loc?.source || "<unknown>", start, end },
+  });
+}
+
+function firstNode(match: MatchNode): unknown {
+  return "node" in match ? match.node : firstNode(match.match[0]!);
+}
+
+function lastNode(match: MatchNode): unknown {
+  return "node" in match ? match.node : lastNode(match.match[match.match.length - 1]!);
+}
+
+/** A run of sibling nodes a definition matched, as css-tree's fragment search finds it. */
+export interface Fragment {
+  parent: List<AnyNode> | AnyNode[];
+  nodes: List<AnyNode> | AnyNode[];
+}
+
+// css-tree's `matchFragments`: for each match of the named definition, the siblings from its first
+// node to its last
+function matchFragments(ast: unknown, match: MatchResult, type: string, name: string): Fragment[] {
+  const fragments: Fragment[] = [];
+  const find = (match: MatchNode): void => {
+    const syntax = match.syntax as { type?: string; name?: string } | null;
+    if (syntax !== null && syntax.type === type && syntax.name === name) {
+      const start = firstNode(match);
+      const end = lastNode(match);
+      walkTree(ast as Node, (node, item, list) => {
+        if (node !== start || list === undefined) return;
+        if (Array.isArray(list)) {
+          const nodes: AnyNode[] = [];
+          for (let i = item as number; i < list.length; i++) {
+            nodes.push(list[i]!);
+            if (list[i] === end) break;
+          }
+          fragments.push({ parent: list, nodes });
+          return;
+        }
+        const nodes = new List<AnyNode>();
+        for (let cursor = item as { data: AnyNode; next: unknown } | null; cursor !== null; cursor = cursor.next as never) {
+          nodes.appendData(cursor.data);
+          if (cursor.data === end) break;
+        }
+        fragments.push({ parent: list, nodes });
+      });
+    }
+    if ("match" in match) match.match.forEach(find);
+  };
+  if (match.matched !== null) find(match.matched);
+  return fragments;
+}
+
+/** A node `checkStructure` finds malformed, and why. */
+export interface StructureWarning {
+  node: unknown;
+  message: string;
+}
+
+function isValidNumber(value: unknown): boolean {
+  return typeof value === "number" && isFinite(value) && Math.floor(value) === value && value >= 0;
+}
+
+function isValidLocation(loc: unknown): boolean {
+  const at = loc as Position | undefined;
+  return Boolean(at) && isValidNumber(at!.offset) && isValidNumber(at!.line) && isValidNumber(at!.column);
+}
+
+// css-tree's structure check of one node; a yuku-css node's numeric `start` and `end` stand for `loc`
+function checkNode(node: any, warn: (node: unknown, message: string) => void): void {
+  const fields = STRUCTURES[node?.type];
+  if (fields === undefined) return warn(node, "Unknown node type `" + node?.type + "`");
+  const type: string = node.type;
+  if (!node || node.constructor !== Object) return warn(node, "Type of node should be an Object");
+  const offsets = isValidNumber(node.start) && isValidNumber(node.end) && !Object.hasOwn(node, "loc");
+  for (let key in node) {
+    if (!Object.hasOwn(node, key)) continue;
+    let valid = true;
+    if (key === "type") {
+      if (node.type !== type) warn(node, "Wrong node type `" + node.type + "`, expected `" + type + "`");
+    } else if (key === "loc") {
+      if (node.loc === null) continue;
+      if (node.loc && node.loc.constructor === Object) {
+        if (typeof node.loc.source !== "string") key += ".source";
+        else if (!isValidLocation(node.loc.start)) key += ".start";
+        else if (!isValidLocation(node.loc.end)) key += ".end";
+        else continue;
+      }
+      valid = false;
+    } else if (offsets && (key === "start" || key === "end")) {
+      continue;
+    } else if (Object.hasOwn(fields, key)) {
+      const value = node[key];
+      valid = fields[key]!.some((field) =>
+        field === "string"
+          ? typeof value === "string"
+          : field === "boolean"
+            ? typeof value === "boolean"
+            : field === "null"
+              ? value === null
+              : field === "list"
+                ? value instanceof List || Array.isArray(value)
+                : Boolean(value) && value.type === field,
+      );
+    } else {
+      warn(node, "Unknown field `" + key + "` for " + type + " node type");
+    }
+    if (!valid) warn(node, "Bad value for `" + type + "." + key + "`");
+  }
+  if (!offsets && !Object.hasOwn(node, "loc")) warn(node, "Field `" + type + ".loc` is missed");
+  for (const key in fields) {
+    if (Object.hasOwn(fields, key) && !Object.hasOwn(node, key)) {
+      warn(node, "Field `" + type + "." + key + "` is missed");
+    }
+  }
+}
+
 /** css-tree's lexer: matches values against the grammar it holds. */
 export class Lexer {
   readonly cssWideKeywords: string[];
@@ -375,18 +581,53 @@ export class Lexer {
   }
 
   private matchSyntax(id: number, descriptor: Descriptor | null, value: unknown, useCssWideKeywords: boolean): MatchResult {
-    const source = typeof value === "string" ? value : valueText(value);
     const e = exports();
+    if (typeof value !== "string" && value !== null && typeof value === "object" && typeof (value as Node).type === "string") {
+      return this.matchTree(id, descriptor, value as Node, useCssWideKeywords);
+    }
+    const source = typeof value === "string" ? value : String(value ?? "");
     const capacity = source.length * 3;
     const pointer = e.inputBuffer(capacity);
     if (pointer === 0 && capacity > 0) throw new Error("yuku-css: out of memory");
     const len = encoder.encodeInto(source, new Uint8Array(e.memory.buffer, pointer, capacity)).written;
     const at = e.match(this.id, id, useCssWideKeywords ? 1 : 0, len);
     if (at === 0) throw new Error("yuku-css: out of memory");
-    return this.readMatch(new Uint32Array(e.memory.buffer, at), source, len === source.length, descriptor);
+    return this.readMatch(new Uint32Array(e.memory.buffer, at), source, len === source.length, descriptor, null, null);
   }
 
-  private readMatch(words: Uint32Array, source: string, ascii: boolean, descriptor: Descriptor | null): MatchResult {
+  // a tree is matched as the tokens it prints, each naming the node that printed it, as css-tree does
+  private matchTree(id: number, descriptor: Descriptor | null, value: Node, useCssWideKeywords: boolean): MatchResult {
+    const e = exports();
+    const printed = printTokens(value);
+    const source = printed.values.join("");
+    const count = printed.values.length;
+    const capacity = source.length * 3;
+    const pointer = e.inputBuffer(capacity);
+    if (pointer === 0 && capacity > 0) throw new Error("yuku-css: out of memory");
+    const len = encoder.encodeInto(source, new Uint8Array(e.memory.buffer, pointer, capacity)).written;
+    const tokens = e.tokenBuffer(count);
+    if (tokens === 0 && count > 0) throw new Error("yuku-css: out of memory");
+    const words = new Uint32Array(e.memory.buffer, tokens, count * 2);
+    const ascii = len === source.length;
+    for (let i = 0, end = 0; i < count; i++) {
+      const text = printed.values[i]!;
+      end += ascii ? text.length : utf8Length(text);
+      words[i * 2] = end;
+      words[i * 2 + 1] = printed.types[i]!;
+    }
+    const at = e.matchTokens(this.id, id, useCssWideKeywords ? 1 : 0, len, count);
+    if (at === 0) throw new Error("yuku-css: out of memory");
+    return this.readMatch(new Uint32Array(e.memory.buffer, at), source, ascii, descriptor, printed, value);
+  }
+
+  private readMatch(
+    words: Uint32Array,
+    source: string,
+    ascii: boolean,
+    descriptor: Descriptor | null,
+    printed: Printed | null,
+    value: unknown,
+  ): MatchResult {
     const status = words[0]!;
     const iterations = words[1]!;
     if (status === 4) {
@@ -398,7 +639,12 @@ export class Lexer {
     }
     const at = ascii ? (offset: number) => offset : (offset: number) => utf16OffsetOf(source, offset);
     if (status !== 0) {
-      const atEnd = words[3]! >= words[2]!;
+      const longest = words[3]!;
+      if (printed !== null) {
+        const error = () => treeMatchError(STATUS[status]!, this.generated(descriptor), printed, longest, value);
+        return new Result(null, error, iterations);
+      }
+      const atEnd = longest >= words[2]!;
       const first = words[8]!;
       const start = words[4]!;
       const end = words[5]!;
@@ -412,21 +658,28 @@ export class Lexer {
     }
     const wide = words[7] !== 0;
     const entries = words.slice(HEADER, HEADER + 4 * words[9]!);
-    return new Result(() => this.tree(entries, source, at, wide ? null : descriptor), null, iterations);
+    return new Result(() => this.tree(entries, source, at, wide ? null : descriptor, printed), null, iterations);
   }
 
-  private tree(entries: Uint32Array, source: string, at: (offset: number) => number, descriptor: Descriptor | null): MatchNode {
+  private tree(
+    entries: Uint32Array,
+    source: string,
+    at: (offset: number) => number,
+    descriptor: Descriptor | null,
+    printed: Printed | null,
+  ): MatchNode {
     const root: MatchNode = { syntax: descriptor === null ? null : this.reference(descriptor), match: [] };
     const stack: { match: MatchNode[] }[] = [root];
     let host = root as { match: MatchNode[] };
     for (let base = 0; base < entries.length; base += 4) {
-      const kind = entries[base];
+      const kind = entries[base]! & 0xff;
       const syntax = entries[base + 1]!;
       if (kind === ENTRY_TOKEN) {
+        const index = entries[base]! >>> 8;
         host.match.push({
           syntax: syntax === NONE ? null : syntaxAt(syntax),
-          token: source.slice(at(entries[base + 2]!), at(entries[base + 3]!)),
-          node: null,
+          token: printed === null ? source.slice(at(entries[base + 2]!), at(entries[base + 3]!)) : printed.values[index]!,
+          node: printed === null ? null : printed.nodes[index],
         });
       } else if (kind === ENTRY_OPEN) {
         const next = { syntax: syntaxAt(syntax), match: [] as MatchNode[] };
@@ -560,6 +813,7 @@ export class Lexer {
     if (typeof syntax !== "string" && (!syntax || !syntax.type)) {
       return buildMatchResult(null, syntaxReferenceError("Bad syntax"));
     }
+    if (this.ids.has(syntax as Descriptor)) return this.matchDescriptor(syntax as Descriptor, value, false);
     const source = typeof syntax === "string" ? syntax : generate(syntax);
     let id = this.anonymous.get(source);
     if (id === undefined) {
@@ -582,6 +836,37 @@ export class Lexer {
       throw definitionSyntaxError(message, source, offset);
     }
     return id;
+  }
+
+  /** Each run of nodes in `value` a definition named `name`, of `type`, matched in the property. */
+  findValueFragments(propertyName: string, value: unknown, type: string, name: string): Fragment[] {
+    return matchFragments(value, this.matchProperty(propertyName, value), type, name);
+  }
+
+  findDeclarationValueFragments(declaration: { type: string; property: string; value: unknown }, type: string, name: string): Fragment[] {
+    return matchFragments(declaration.value, this.matchDeclaration(declaration), type, name);
+  }
+
+  /** `findDeclarationValueFragments` over every declaration in `ast`. */
+  findAllFragments(ast: unknown, type: string, name: string): Fragment[] {
+    const result: Fragment[] = [];
+    walkTree(ast as Node, {
+      visit: "Declaration",
+      enter: (declaration) => {
+        result.push(...this.findDeclarationValueFragments(declaration as never, type, name));
+      },
+    });
+    return result;
+  }
+
+  /** Every node of `ast` that breaks css-tree's node structure, or false when none does. */
+  checkStructure(ast: unknown): StructureWarning[] | false {
+    const warns: StructureWarning[] = [];
+    const warn = (node: unknown, message: string) => {
+      warns.push({ node, message });
+    };
+    walkTree(ast as Node, (node) => checkNode(node, warn));
+    return warns.length ? warns : false;
   }
 
   getAtrule(atruleName: string, fallbackBasename = true): AtruleDescriptor | null {
@@ -769,15 +1054,6 @@ export class Lexer {
   toString(): string {
     return JSON.stringify(this.dump());
   }
-}
-
-// a css-tree tree as text, which the lexer matches; its nodes are not kept, so no match names one
-function valueText(value: unknown): string {
-  if (value === null || typeof value !== "object") return String(value ?? "");
-  const node = value as { type?: string; value?: string };
-  if (node.type === "Raw" && typeof node.value === "string") return node.value;
-  if (typeof node.type === "string") return generateCss(node as Parameters<typeof generateCss>[0]);
-  throw new TypeError("yuku-css: the lexer matches a string or a css-tree node");
 }
 
 function create(builtin: boolean, config: LexerConfig): Lexer {

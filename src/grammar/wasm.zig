@@ -22,6 +22,7 @@ var failure: syntax.Failure = .{ .message = .unexpected_input, .offset = 0 };
 // the value a match reads and the words it writes, kept between calls
 var input: std.ArrayList(u8) = .empty;
 var output: std.ArrayList(u32) = .empty;
+var given: std.ArrayList(css.token.Token) = .empty;
 
 /// Room for `len` bytes of the next value to match, or 0 when out of memory.
 export fn inputBuffer(len: u32) u32 {
@@ -186,21 +187,46 @@ export fn descriptorRoot(id: u32, descriptor: u32) u32 {
 export fn match(id: u32, descriptor: u32, css_wide: u32, len: u32) u32 {
     assert(len <= input.capacity);
     const source = input.items.ptr[0..len];
-    matchWords(lexerAt(id), descriptor, css_wide != 0, source) catch return 0;
-    return @intFromPtr(output.items.ptr);
-}
-
-const header_words = 10;
-
-fn matchWords(l: *Lexer, descriptor: u32, css_wide: bool, source: []const u8) !void {
-    assert(descriptor < l.descriptors.items.len);
     tokens.clearRetainingCapacity();
-    try css.tokenize(gpa, &tokens, source);
+    css.tokenize(gpa, &tokens, source) catch return 0;
     const view: generic.Tokens = .{
         .source = source,
         .list = tokens.items,
         .first = generic.bomLen(source),
     };
+    matchWords(lexerAt(id), descriptor, css_wide != 0, view) catch return 0;
+    return @intFromPtr(output.items.ptr);
+}
+
+/// Room for `count` tokens of the next `matchTokens`, each an end and a tag as
+/// `css.token.Token`, or 0 when out of memory.
+export fn tokenBuffer(count: u32) u32 {
+    given.ensureTotalCapacity(gpa, count) catch return 0;
+    assert(given.capacity >= count);
+    return @intFromPtr(given.items.ptr);
+}
+
+/// `match`, over `count` tokens the host wrote to the token buffer, as css-tree matches the
+/// tokens it prints a tree to, rather than tokens read from the text.
+export fn matchTokens(id: u32, descriptor: u32, css_wide: u32, len: u32, count: u32) u32 {
+    assert(len <= input.capacity);
+    assert(count <= given.capacity);
+    const list = given.items.ptr[0..count];
+    var previous: u32 = 0;
+    for (list) |t| {
+        if (t.end > len or t.end < previous) return 0;
+        previous = t.end;
+    }
+    const view: generic.Tokens = .{ .source = input.items.ptr[0..len], .list = list, .first = 0 };
+    matchWords(lexerAt(id), descriptor, css_wide != 0, view) catch return 0;
+    return @intFromPtr(output.items.ptr);
+}
+
+const header_words = 10;
+
+fn matchWords(l: *Lexer, descriptor: u32, css_wide: bool, view: generic.Tokens) !void {
+    assert(descriptor < l.descriptors.items.len);
+    assert(view.first <= view.source.len);
     var result: match_.Result = undefined;
     var wide = false;
     for (0..view.len()) |i| {
@@ -245,8 +271,9 @@ fn matchWords(l: *Lexer, descriptor: u32, css_wide: bool, source: []const u8) !v
         const c = matcher.cell(at);
         const entry = words[header_words + 4 * i ..][0..4];
         const has_token = c.entry == .token;
+        assert(!has_token or c.token < 1 << 24);
         entry.* = .{
-            @backingInt(c.entry),
+            @as(u32, @backingInt(c.entry)) | (if (has_token) c.token << 8 else 0),
             c.syntax,
             if (has_token) view.start(c.token) else 0,
             if (has_token) view.list[c.token].end else 0,

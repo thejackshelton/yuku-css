@@ -1,11 +1,13 @@
 // css-tree's own fixtures against yuku-css, as yuku-tsrx runs its suite: diagnostics are the failure
 // signal, a fixture's error is the first diagnostic, and trees compare without positions. A fixture
-// css-tree recovers from has the errors css-tree reports on the way.
+// css-tree recovers from has the errors css-tree reports on the way. A passing tree printed, read
+// back and printed again gives the same text.
 import { expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import * as csstree from "css-tree";
 import { parse, tokenize, tokenNames, type ParseOptions } from "yuku-css";
+import { generate } from "yuku-css/codegen";
 import { listed, reasonOf } from "./divergences";
 
 interface Fixture {
@@ -14,6 +16,8 @@ interface Fixture {
   error?: string;
   offset?: string;
   options?: ParseOptions;
+  /** Why css-tree's own round trip skips the fixture. */
+  skipRoundtrip?: string;
 }
 
 const SUITE = new URL("suite/", import.meta.url);
@@ -46,7 +50,7 @@ for (const path of files("ast/")) {
   }
 }
 
-test.each(ast)("%s", (id, scope, { source, ast, error, offset, options }) => {
+test.each(ast)("%s", (id, scope, { source, ast, error, offset, options, skipRoundtrip }) => {
   check(id, () => {
     const result = parse(source, { ...options, context: scope as ParseOptions["context"] });
     if (error === undefined) {
@@ -59,6 +63,9 @@ test.each(ast)("%s", (id, scope, { source, ast, error, offset, options }) => {
       expect(result.diagnostics.map((d) => [d.message, d.start])).toEqual(errors);
       const expected = ast!.type.toLowerCase() !== scope.toLowerCase() && WRAPPER[scope] ? WRAPPER[scope](ast!) : ast;
       expect(json(result.ast)).toBe(json(expected));
+      if (skipRoundtrip !== undefined) return;
+      const css = generate(result.ast);
+      expect(generate(parse(css, { ...options, context: scope as ParseOptions["context"] }).ast)).toBe(css);
       return;
     }
     expect(result.diagnostics[0]).toMatchObject({ message: error, start: offset!.indexOf("^") });

@@ -12,6 +12,7 @@ import {
   type ParseResult,
   type Positions,
   type PseudoClassSelector,
+  type Raw,
   type Rule,
   type Selector,
   type SelectorList,
@@ -71,7 +72,8 @@ describe("style sheet", () => {
       "TypeSelector d",
       "Block { color: red !important; & e { --x: { y } } }",
       "Declaration color: red !important",
-      "Raw red",
+      "Value red ",
+      "Identifier red",
       "Rule & e { --x: { y } }",
       "SelectorList & e",
       "Selector & e",
@@ -165,7 +167,7 @@ describe("declarations", () => {
       end: 8,
       important: false,
       property: "b",
-      value: { type: "Raw", start: 7, end: 8, value: "c" },
+      value: { type: "Value", start: 7, end: 8, children: [{ type: "Identifier", start: 7, end: 8, name: "c" }] },
     });
     expect(important!.important).toBe(true);
     expect(other!.important).toBe("ie");
@@ -179,7 +181,7 @@ describe("declarations", () => {
   });
 
   test("a custom property keeps its whitespace and any block", () => {
-    expect((rule("a { --x: { y } ; }").block.children[0] as Declaration).value.value).toBe(" { y } ");
+    expect(((rule("a { --x: { y } ; }").block.children[0] as Declaration).value as Raw).value).toBe(" { y } ");
   });
 });
 
@@ -289,7 +291,8 @@ describe("positions", () => {
       "TypeSelector é😀",
       "Block { a: 'ü' }",
       "Declaration a: 'ü' ",
-      "Raw 'ü'",
+      "Value 'ü' ",
+      "String 'ü'",
       "Rule .日本 {}",
       "SelectorList .日本",
       "Selector .日本",
@@ -385,7 +388,7 @@ describe("contexts", () => {
       ["block", "{ a: b; c {} }", "Block"],
       ["declarationList", "a: b; c {} & d {}", "DeclarationList"],
       ["declaration", "a: b", "Declaration"],
-      ["value", "1px solid", "Raw"],
+      ["value", "1px solid", "Value"],
       ["atrulePrelude", "screen and (x)", "Raw"],
       ["mediaQueryList", "screen, print", "Raw"],
       ["mediaQuery", "screen", "Raw"],
@@ -488,12 +491,14 @@ describe("options", () => {
 });
 
 describe("what the specs reject and css-tree reads", () => {
+  // values raw, so no value grammar error joins them
   test("tokenizer parse errors (css-syntax-3 §4)", () => {
+    const raw = { parseValue: false };
     expect(errors("/* x")).toEqual([["Unterminated comment", 4]]);
-    expect(errors('.a { content: "x }')).toEqual([["Unterminated string", 18]]);
-    expect(errors(".a{b:'x\ny'}")).toEqual([["Newline in string", 7], ["Unterminated string", 11]]);
-    expect(errors(".a{b:url(x")).toEqual([["Unterminated url", 10]]);
-    expect(errors(".a{b:url(x) url(a\"b) url(a b) url(a\\\nb)}")).toEqual([
+    expect(errors('.a { content: "x }', raw)).toEqual([["Unterminated string", 18]]);
+    expect(errors(".a{b:'x\ny'}", raw)).toEqual([["Newline in string", 7], ["Unterminated string", 11]]);
+    expect(errors(".a{b:url(x", raw)).toEqual([["Unterminated url", 10]]);
+    expect(errors(".a{b:url(x) url(a\"b) url(a b) url(a\\\nb)}", raw)).toEqual([
       ["Unexpected character in url", 17],
       ["Invalid escape", 35],
     ]);
@@ -503,8 +508,16 @@ describe("what the specs reject and css-tree reads", () => {
   // CSS Syntax 3 no longer reads EOF inside a block, function or at-rule as a parse error
   test("a source that ends inside a block is no error", () => {
     for (const source of [".a{", ".a { color: red", "@media (x", ".a { x: ( }", ".a { x: ({) } .b{}"]) {
-      expect([source, errors(source)]).toEqual([source, []]);
+      expect([source, errors(source, { parseValue: false })]).toEqual([source, []]);
     }
+    expect(errors(".a { color: red")).toEqual([]);
+  });
+
+  // as css-tree reads it, a value holds no `{`, `}` or `;` outside a function or block it can read
+  test("a value that holds a token css-tree cannot read is raw", () => {
+    expect(errors(".a { x: ( }")).toEqual([['")" is expected', 10]]);
+    expect(errors(".a { x: ({) } .b{}")).toEqual([['")" is expected', 9]]);
+    expect(errors(".a{b:'x\ny'}")).toEqual([["Unexpected input", 5], ["Newline in string", 7], ["Unterminated string", 11]]);
   });
 
   test("a leading combinator outside a relative selector (selectors-4 §3.1)", () => {
