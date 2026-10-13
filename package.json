@@ -1,0 +1,45 @@
+{
+  "name": "yuku-css",
+  "version": "0.1.0",
+  "description": "A fast CSS parser written in Zig, compiled to WebAssembly",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yuku-toolchain/yuku-css.git"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./dist/index.js",
+    "./package.json": "./package.json"
+  },
+  "imports": {
+    "#module": {
+      "workerd": "./dist/module/workerd.js",
+      "default": "./dist/module/inline.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "zig build && tsdown",
+    "test": "bun run build && bun test",
+    "typecheck": "tsc",
+    "bench": "bun run build && node bench/index.ts",
+    "corpus": "bun test/corpus.ts",
+    "prepublishOnly": "bun run build"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.3",
+    "@types/css-tree": "3.2.0",
+    "css-tree": "3.2.1",
+    "postcss": "8.5.30",
+    "tinybench": "6.2.2",
+    "tsdown": "0.23.1",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
