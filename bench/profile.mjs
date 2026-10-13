@@ -15,6 +15,8 @@ const ROUNDS = Number(process.env.ROUNDS ?? 15);
 // values parsed, as parse() does by default, unless VALUES=raw
 const parseValue = process.env.VALUES !== "raw";
 
+// another checkout to profile, such as main for a before and after; it has no phase split
+const ROOT = process.env.ROOT ? new URL(`file://${process.env.ROOT}/`) : new URL("../", import.meta.url);
 const encoder = new TextEncoder();
 
 function median(xs) {
@@ -46,13 +48,12 @@ function row(name, file, bytes, nodes, wire, phases) {
 }
 
 async function profileCss() {
-  const { decode } = await import("../src/decode.js");
-  const { parse } = await import("../dist/index.js");
-  const module = new WebAssembly.Module(readFileSync(new URL("../zig-out/bin/yuku-css.wasm", import.meta.url)));
+  const { decode } = await import(new URL("src/decode.js", ROOT).href);
+  const { parse } = await import(new URL("dist/index.js", ROOT).href);
+  const module = new WebAssembly.Module(readFileSync(new URL("zig-out/bin/yuku-css.wasm", ROOT)));
   const ex = new WebAssembly.Instance(module).exports;
-  const prof = new WebAssembly.Instance(
-    new WebAssembly.Module(readFileSync(new URL("../zig-out/bin/yuku-css-profile.wasm", import.meta.url))),
-  ).exports;
+  const profPath = new URL("zig-out/bin/yuku-css-profile.wasm", ROOT);
+  const prof = process.env.ROOT ? null : new WebAssembly.Instance(new WebAssembly.Module(readFileSync(profPath))).exports;
   for (const file of cssFiles) {
     const source = readFileSync(file, "utf8");
     const bytes = Buffer.byteLength(source);
@@ -79,15 +80,19 @@ async function profileCss() {
         nodes = new Uint32Array(ex.memory.buffer, r + 4, 1)[0];
         ex.free(r, 4 + size);
       });
-      const cap0 = source.length * 3 || 1;
-      const pp = prof.alloc(cap0);
-      const pn = encoder.encodeInto(source, new Uint8Array(prof.memory.buffer, pp, cap0)).written;
-      const lex = time(() => prof.lexOnly(pp, pn));
-      const tree = time(() => prof.parseOnly(pp, pn, flags & ~2));
-      prof.free(pp, cap0);
+      let lex = NaN, tree = NaN;
+      if (prof) {
+        const cap0 = source.length * 3 || 1;
+        const pp = prof.alloc(cap0);
+        const pn = encoder.encodeInto(source, new Uint8Array(prof.memory.buffer, pp, cap0)).written;
+        lex = time(() => prof.lexOnly(pp, pn));
+        tree = time(() => prof.parseOnly(pp, pn, flags & ~2));
+        prof.free(pp, cap0);
+      }
       const [p, cap, n] = encode();
       const r = ex.parse(p, n, flags);
       ex.free(p, cap);
+      // main decodes as decode(buffer, at, source, options, withTokens) too
       const dec = time(() => decode(ex.memory.buffer, r + 4, source, opts, false).ast);
       ex.free(r, 4 + size);
       const full = time(() => parse(source, opts).ast);
