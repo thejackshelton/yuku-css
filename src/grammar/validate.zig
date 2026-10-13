@@ -79,6 +79,22 @@ pub fn propertyName(raw: []const u8, buffer: []u8) PropertyName {
     };
 }
 
+// what `resolve` answers for a custom property
+const custom_property = none - 1;
+
+/// The descriptor of the property written `raw`, `none` when there is none, `custom` for a custom
+/// property; remembered by the lexer, as a sheet repeats its property names.
+fn resolve(gpa: Allocator, l: *Lexer, raw: []const u8, lowered: *std.ArrayList(u8)) !u32 {
+    assert(raw.len > 0);
+    if (l.property_cache.get(raw)) |known| return known;
+    try lowered.resize(gpa, raw.len);
+    const name = propertyName(raw, lowered.items);
+    const descriptor = if (name.custom) custom_property else findProperty(l, name);
+    try l.property_cache.put(gpa, try l.owned.allocator().dupe(u8, raw), descriptor);
+    assert(descriptor == custom_property or descriptor == none or descriptor < l.descriptors.items.len);
+    return descriptor;
+}
+
 /// The property's descriptor, as `getProperty` finds it, or `none`.
 pub fn findProperty(l: *const Lexer, name: PropertyName) u32 {
     assert(!name.custom);
@@ -171,8 +187,6 @@ pub fn validate(
             continue;
         }
         known.value_ptr.* = @intCast(out.items.len);
-        try lowered.resize(gpa, raw.len);
-        const name = propertyName(raw, lowered.items);
         var record: [record_words]u32 = @splat(none);
         record[@backingInt(Record.property_start)] = declaration.property.start;
         record[@backingInt(Record.property_end)] = declaration.property.end;
@@ -181,8 +195,8 @@ pub fn validate(
         record[@backingInt(Record.iterations)] = 0;
         record[@backingInt(Record.entry_count)] = 0;
         record[@backingInt(Record.wide)] = 0;
-        const descriptor = if (name.custom) none else findProperty(l, name);
-        if (name.custom) {
+        const descriptor = try resolve(gpa, l, raw, lowered);
+        if (descriptor == custom_property) {
             record[@backingInt(Record.status)] = @backingInt(Status.custom_property);
         } else if (descriptor == none) {
             record[@backingInt(Record.status)] = @backingInt(Status.unknown_property);

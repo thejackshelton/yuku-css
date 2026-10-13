@@ -121,6 +121,8 @@ pub const Lexer = struct {
     types: std.StringHashMapUnmanaged(u32) = .empty,
     properties: std.StringHashMapUnmanaged(u32) = .empty,
     atrules: std.StringHashMapUnmanaged(Atrule) = .empty,
+    /// Each property as written, to what it resolves to, for `validate.zig`.
+    property_cache: std.StringHashMapUnmanaged(u32) = .empty,
     graph: Graph,
     /// The names and units a custom lexer was given.
     owned: std.heap.ArenaAllocator,
@@ -165,6 +167,7 @@ pub const Lexer = struct {
     pub fn deinit(l: *Lexer) void {
         l.descriptors.deinit(l.gpa);
         l.css_wide_keywords.deinit(l.gpa);
+        l.property_cache.deinit(l.gpa);
         l.types.deinit(l.gpa);
         l.properties.deinit(l.gpa);
         var it = l.atrules.valueIterator();

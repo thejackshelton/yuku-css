@@ -69,6 +69,16 @@ const Once = struct {
     add: bool,
 };
 
+// appends where there is room without a call, as the stacks reach their size in the first matches
+inline fn push(comptime T: type, gpa: Allocator, list: *std.ArrayList(T), item: T) !void {
+    if (list.items.len < list.capacity) {
+        @branchHint(.likely);
+        list.appendAssumeCapacity(item);
+        return;
+    }
+    try list.append(gpa, item);
+}
+
 // a state is a graph node, or with this bit a `Once`
 const dynamic: u32 = 1 << 31;
 const stash_empty = none;
@@ -141,17 +151,14 @@ pub const Matcher = struct {
         assert(c.entry != .stub);
         assert(c.prev < m.matches.items.len);
         m.match_top = @intCast(m.matches.items.len);
-        try m.matches.append(m.gpa, c);
+        try push(MatchCell, m.gpa, &m.matches, c);
     }
 
     fn pushThen(m: *Matcher, state: u32) !void {
         assert(state != graph_.match);
         assert(m.then_top == none or m.then_top < m.thens.items.len);
         const index: u32 = @intCast(m.thens.items.len);
-        try m.thens.append(
-            m.gpa,
-            .{ .state = state, .match = m.match_top, .syntax = m.syntax_top, .prev = m.then_top },
-        );
+        try push(ThenCell, m.gpa, &m.thens, .{ .state = state, .match = m.match_top, .syntax = m.syntax_top, .prev = m.then_top });
         m.then_top = index;
     }
 
@@ -159,7 +166,7 @@ pub const Matcher = struct {
         assert(prev == none or prev < m.elses.items.len);
         assert(m.token <= m.tokens.len());
         const index: u32 = @intCast(m.elses.items.len);
-        try m.elses.append(m.gpa, .{
+        try push(ElseCell, m.gpa, &m.elses, .{
             .state = state,
             .match = m.match_top,
             .syntax = m.syntax_top,
@@ -192,10 +199,7 @@ pub const Matcher = struct {
         var opts: u32 = if (m.syntax_top != none) m.syntaxes.items[m.syntax_top].opts else none;
         if (def.tag == .type and def.flags & syntax.flag.range != 0) opts = syntax_node + 1;
         const index: u32 = @intCast(m.syntaxes.items.len);
-        try m.syntaxes.append(
-            m.gpa,
-            .{ .syntax = syntax_node, .opts = opts, .prev = m.syntax_top },
-        );
+        try push(SyntaxCell, m.gpa, &m.syntaxes, .{ .syntax = syntax_node, .opts = opts, .prev = m.syntax_top });
         m.syntax_top = index;
         const token = m.cell(m.match_top).token;
         try m.pushMatch(
@@ -312,7 +316,7 @@ pub const Matcher = struct {
         assert(once.node < m.lexer.graph.nodes.items.len);
         const index: u32 = @intCast(m.onces.items.len);
         assert(index < dynamic);
-        try m.onces.append(m.gpa, once);
+        try push(Once, m.gpa, &m.onces, once);
         return index | dynamic;
     }
 
