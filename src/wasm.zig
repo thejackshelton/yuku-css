@@ -8,7 +8,6 @@ const gpa = std.heap.wasm_allocator;
 // packed by src/index.ts
 const flag = struct {
     const parse_rule_prelude = 1 << 0;
-    const positions = 1 << 1;
     const tokens = 1 << 2;
     const context = 3;
     const context_mask = 0xF;
@@ -48,10 +47,9 @@ fn parseBuffer(source: []const u8, flags: u32) ![]u8 {
     });
     defer tree.deinit();
     const utf16: css.transfer.Utf16 = .init(source);
-    const lines: css.transfer.Lines = if (flags & flag.positions != 0) .init(source) else .none;
     const tokens = flags & flag.tokens != 0;
-    const out = try prefixed(css.transfer.bufferSize(&tree, utf16, lines, tokens));
-    _ = css.transfer.serializeInto(&tree, utf16, lines, tokens, out[4..]);
+    const out = try prefixed(css.transfer.bufferSize(&tree, utf16, tokens));
+    _ = css.transfer.serializeInto(&tree, utf16, tokens, out[4..]);
     return out;
 }
 

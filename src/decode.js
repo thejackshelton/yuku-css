@@ -135,24 +135,47 @@ function utf16(u32, base, count, firstNa) {
     return j === 0 ? v : v - u32[base + 2 * j - 1];
   };
 }
-function lines(src, starts, line, column, base) {
-  const count = starts.length;
-  const first = src.charCodeAt(0) === 0xFEFF || src.charCodeAt(0) === 0xFFFE ? 1 : 0;
-  let j = 0;
-  return (offset) => {
-    if (offset < first) return { offset: base + offset, line: 0, column: 0 };
-    if ((j > 0 && starts[j - 1] > offset) || (j < count && starts[j] <= offset)) {
-      let lo = 0, hi = count;
-      while (lo < hi) {
-        const mid = (lo + hi) >>> 1;
-        if (starts[mid] <= offset) lo = mid + 1;
-        else hi = mid;
-      }
-      j = lo;
+function lineStarts(src) {
+  let starts = new Int32Array((src.length >> 5) + 16), n = 0;
+  const generic = src.indexOf("\r") !== -1 || src.indexOf("\f") !== -1;
+  for (let i = generic ? 0 : src.indexOf("\n"); i !== -1 && i < src.length; i = generic ? i + 1 : src.indexOf("\n", i + 1)) {
+    if (generic) {
+      const c = src.charCodeAt(i);
+      if (c !== 10 && c !== 12 && (c !== 13 || src.charCodeAt(i + 1) === 10)) continue;
     }
+    if (n + 1 >= starts.length) {
+      const grown = new Int32Array(starts.length * 2);
+      grown.set(starts);
+      starts = grown;
+    }
+    starts[n++] = i + 1;
+  }
+  starts[n] = 0x7fffffff;
+  return starts;
+}
+function locator(src, line, column, base, file) {
+  const starts = lineStarts(src);
+  const blocks = new Int32Array((src.length >> 6) + 2);
+  for (let b = 0, j = 0; b < blocks.length; b++) {
+    while (starts[j] <= b << 6) j++;
+    blocks[b] = j;
+  }
+  const first = src.charCodeAt(0) === 0xFEFF || src.charCodeAt(0) === 0xFFFE ? 1 : 0;
+  const point = (offset, j) => {
+    if (offset < first) return { offset: base + offset, line: 0, column: 0 };
     return j === 0
       ? { offset: base + offset, line, column: column + offset - first }
       : { offset: base + offset, line: line + j, column: offset - starts[j - 1] + 1 };
+  };
+  return (s, e) => {
+    let j = blocks[s >> 6];
+    while (starts[j] <= s) j++;
+    const start = point(s, j);
+    if (starts[j] <= e) {
+      j = blocks[e >> 6];
+      while (starts[j] <= e) j++;
+    }
+    return { source: file, start, end: point(e, j) };
   };
 }
 function decode(buffer, at, source, options, withTokens) {
@@ -163,7 +186,7 @@ function decode(buffer, at, source, options, withTokens) {
   const _firstNa = _u32[6];
   const nodeCount = _u32[0], extraCount = _u32[1], spLen = _u32[2];
   const diagCount = _u32[4], root = _u32[5];
-  const _extraBase = (44 + nodeCount * 32) >> 2;
+  const _extraBase = (40 + nodeCount * 32) >> 2;
   const _spOff = (_extraBase + extraCount) * 4;
   const _dBase = (_spOff + ((spLen + 3) & ~3)) >> 2;
   const _p = utf16(_u32, _dBase + diagCount * 3, _u32[7], _firstNa);
@@ -185,20 +208,12 @@ function decode(buffer, at, source, options, withTokens) {
     return r;
   }
   const positions = options.positions === true;
-  const lineBase = _dBase + diagCount * 3 + _u32[7] * 2;
-  const commentBase = lineBase + _u32[8], commentCount = _u32[9];
-  const tokenBase = commentBase + commentCount * 2, tokenCount = _u32[10];
-  let point, file;
-  if (positions) {
-    const starts = new Array(_u32[8]);
-    for (let j = 0; j < starts.length; j++) starts[j] = _p(_u32[lineBase + j]);
-    point = lines(_src, starts, options.line ?? 1, options.column ?? 1, options.offset ?? 0);
-    file = options.filename || "<unknown>";
-  }
-  const loc = (s, e) => ({ source: file, start: point(s), end: point(e) });
+  const commentBase = _dBase + diagCount * 3 + _u32[7] * 2, commentCount = _u32[8];
+  const tokenBase = commentBase + commentCount * 2, tokenCount = _u32[9];
+  const loc = positions ? locator(_src, options.line ?? 1, options.column ?? 1, options.offset ?? 0, options.filename || "<unknown>") : null;
   function _offsets(i, depth) {
     if (depth >= DEPTH_MAX) return _deep(i);
-    const b = (i * 32 + 44) >> 2;
+    const b = (i * 32 + 40) >> 2;
     const h0 = _u32[b];
     const flags = h0 >>> 16;
     let start = _u32[b + 6], end = _u32[b + 7];
@@ -245,7 +260,7 @@ function decode(buffer, at, source, options, withTokens) {
   }
   function _location(i, depth) {
     if (depth >= DEPTH_MAX) return _deep(i);
-    const b = (i * 32 + 44) >> 2;
+    const b = (i * 32 + 40) >> 2;
     const h0 = _u32[b];
     const flags = h0 >>> 16;
     let start = _u32[b + 6], end = _u32[b + 7];

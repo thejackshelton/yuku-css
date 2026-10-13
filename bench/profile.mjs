@@ -61,7 +61,7 @@ async function profileCss() {
       return [p, cap, n];
     };
     for (const positions of [false, true]) {
-      const flags = 1 | (positions ? 2 : 0);
+      const flags = 1;
       const opts = { positions };
       const enc = time(() => {
         const [p, cap] = encode();

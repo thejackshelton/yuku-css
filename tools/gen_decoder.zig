@@ -97,28 +97,53 @@ fn writeUtf16(w: *Writer) !void {
     );
 }
 
-// css-tree's OffsetToLocation, from the line starts Zig writes: lines and columns count from
-// `line` and `column`, a line after the first from column 1, and a byte order mark has neither
+// css-tree's OffsetToLocation: lines and columns count from `line` and `column`, a line after the
+// first from column 1, and a byte order mark has neither. Lines break at \n, \r\n, \r, or \f, and
+// are found in the JavaScript string, so offsets need no UTF-16 mapping; an offset's line is found
+// from the first line past the start of its 64-unit block, and an end's from its start's
 fn writeLines(w: *Writer) !void {
     try w.writeAll(
-        \\function lines(src, starts, line, column, base) {
-        \\  const count = starts.length;
-        \\  const first = src.charCodeAt(0) === 0xFEFF || src.charCodeAt(0) === 0xFFFE ? 1 : 0;
-        \\  let j = 0;
-        \\  return (offset) => {
-        \\    if (offset < first) return { offset: base + offset, line: 0, column: 0 };
-        \\    if ((j > 0 && starts[j - 1] > offset) || (j < count && starts[j] <= offset)) {
-        \\      let lo = 0, hi = count;
-        \\      while (lo < hi) {
-        \\        const mid = (lo + hi) >>> 1;
-        \\        if (starts[mid] <= offset) lo = mid + 1;
-        \\        else hi = mid;
-        \\      }
-        \\      j = lo;
+        \\function lineStarts(src) {
+        \\  let starts = new Int32Array((src.length >> 5) + 16), n = 0;
+        \\  const generic = src.indexOf("\r") !== -1 || src.indexOf("\f") !== -1;
+        \\  for (let i = generic ? 0 : src.indexOf("\n"); i !== -1 && i < src.length; i = generic ? i + 1 : src.indexOf("\n", i + 1)) {
+        \\    if (generic) {
+        \\      const c = src.charCodeAt(i);
+        \\      if (c !== 10 && c !== 12 && (c !== 13 || src.charCodeAt(i + 1) === 10)) continue;
         \\    }
+        \\    if (n + 1 >= starts.length) {
+        \\      const grown = new Int32Array(starts.length * 2);
+        \\      grown.set(starts);
+        \\      starts = grown;
+        \\    }
+        \\    starts[n++] = i + 1;
+        \\  }
+        \\  starts[n] = 0x7fffffff;
+        \\  return starts;
+        \\}
+        \\function locator(src, line, column, base, file) {
+        \\  const starts = lineStarts(src);
+        \\  const blocks = new Int32Array((src.length >> 6) + 2);
+        \\  for (let b = 0, j = 0; b < blocks.length; b++) {
+        \\    while (starts[j] <= b << 6) j++;
+        \\    blocks[b] = j;
+        \\  }
+        \\  const first = src.charCodeAt(0) === 0xFEFF || src.charCodeAt(0) === 0xFFFE ? 1 : 0;
+        \\  const point = (offset, j) => {
+        \\    if (offset < first) return { offset: base + offset, line: 0, column: 0 };
         \\    return j === 0
         \\      ? { offset: base + offset, line, column: column + offset - first }
         \\      : { offset: base + offset, line: line + j, column: offset - starts[j - 1] + 1 };
+        \\  };
+        \\  return (s, e) => {
+        \\    let j = blocks[s >> 6];
+        \\    while (starts[j] <= s) j++;
+        \\    const start = point(s, j);
+        \\    if (starts[j] <= e) {
+        \\      j = blocks[e >> 6];
+        \\      while (starts[j] <= e) j++;
+        \\    }
+        \\    return { source: file, start, end: point(e, j) };
         \\  };
         \\}
         \\
@@ -157,17 +182,9 @@ fn writeDecode(w: *Writer) !void {
         \\    return r;
         \\  }}
         \\  const positions = options.positions === true;
-        \\  const lineBase = _dBase + diagCount * {[dstride]d} + _u32[{[u16]d}] * 2;
-        \\  const commentBase = lineBase + _u32[{[lc]d}], commentCount = _u32[{[cc]d}];
+        \\  const commentBase = _dBase + diagCount * {[dstride]d} + _u32[{[u16]d}] * 2, commentCount = _u32[{[cc]d}];
         \\  const tokenBase = commentBase + commentCount * 2, tokenCount = _u32[{[tc]d}];
-        \\  let point, file;
-        \\  if (positions) {{
-        \\    const starts = new Array(_u32[{[lc]d}]);
-        \\    for (let j = 0; j < starts.length; j++) starts[j] = _p(_u32[lineBase + j]);
-        \\    point = lines(_src, starts, options.line ?? 1, options.column ?? 1, options.offset ?? 0);
-        \\    file = options.filename || "<unknown>";
-        \\  }}
-        \\  const loc = (s, e) => ({{ source: file, start: point(s), end: point(e) }});
+        \\  const loc = positions ? locator(_src, options.line ?? 1, options.column ?? 1, options.offset ?? 0, options.filename || "<unknown>") : null;
         \\
     , .{
         .src = rt.HDR_SOURCE_LEN_U32,
@@ -181,7 +198,6 @@ fn writeDecode(w: *Writer) !void {
         .size = rt.NODE_SIZE,
         .dstride = rt.DIAGNOSTIC_SIZE / 4,
         .u16 = rt.HDR_UTF16_COUNT_U32,
-        .lc = rt.HDR_LINE_COUNT_U32,
         .cc = rt.HDR_COMMENT_COUNT_U32,
         .tc = rt.HDR_TOKEN_COUNT_U32,
     });
