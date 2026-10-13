@@ -211,18 +211,14 @@ function locator(src, starts, line, column, base, file) {
     };
   };
 }
-function decode(buffer, at, source, options, withTokens) {
+// the tree from the buffer at `at`, with `loc` from `locator` or null for offsets
+function tree(buffer, at, source, loc) {
   const _u8 = new Uint8Array(buffer, at);
   const _u32 = new Int32Array(buffer, at);
   const _src = source;
   const _srcLen = _u32[3];
-  const _firstNa = _u32[6];
-  const nodeCount = _u32[0], extraCount = _u32[1], spLen = _u32[2];
-  const diagCount = _u32[4], root = _u32[5];
-  const _extraBase = (44 + nodeCount * 32) >> 2;
-  const _spOff = (_extraBase + extraCount) * 4;
-  const _dBase = (_spOff + ((spLen + 3) & ~3)) >> 2;
-  const _p = utf16(_u32, _dBase + diagCount * 5, _u32[7], _firstNa);
+  const _extraBase = (44 + _u32[0] * 32) >> 2;
+  const _spOff = (_extraBase + _u32[1]) * 4;
   // node strings in the source come as UTF-16 offsets, the pool's as bytes past the source's
   const str = (s, e) => {
     if (s === e) return "";
@@ -234,179 +230,195 @@ function decode(buffer, at, source, options, withTokens) {
     const word = str(s, e);
     return word === "important" ? true : word;
   };
-  function nodeArr(s, len, depth) {
+  const DEPTH_MAX = 128, _n = [];
+  // children precede their parent, so index order builds past DEPTH_MAX without recursion
+  function _deep(i, inner) {
+    while (_n.length <= i) _n.push(inner(_n.length, DEPTH_MAX - 1));
+    return _n[i];
+  }
+  function _offsetsArr(s, len, depth) {
     const r = new Array(len);
     const base = _extraBase + s;
-    for (let j = 0; j < len; j++) r[j] = node(_u32[base + j], depth);
+    for (let j = 0; j < len; j++) r[j] = _offsets(_u32[base + j], depth);
     return r;
   }
-  const positions = options.positions === true;
-  const commentBase = _dBase + diagCount * 5 + _u32[7] * 2;
-  const commentCount = _u32[8];
-  const lineBase = commentBase + commentCount * 2, lineCount = _u32[9];
-  const tokenBase = lineBase + lineCount, tokenCount = _u32[10];
-  const file = options.filename || "<unknown>";
-  const line = options.line ?? 1, column = options.column ?? 1;
-  let loc = null;
-  if (positions) {
-    // the line starts in UTF-16 units, copied as they are where the source is ASCII
-    let starts = new Int32Array(buffer, at + lineBase * 4, lineCount);
-    if (lineCount > 0 && starts[lineCount - 1] > _firstNa) starts = starts.map(_p);
-    loc = locator(_src, starts, line, column, options.offset ?? 0, file);
-  }
   function _offsets(i, depth) {
-    if (depth >= DEPTH_MAX) return _deep(i);
+    if (depth >= DEPTH_MAX) return _deep(i, _offsets);
     const b = (i * 32 + 44) >> 2;
     const h0 = _u32[b];
-    const flags = h0 >>> 16;
     const start = _u32[b + 6], end = _u32[b + 7];
     switch (h0 & 255) {
-    case 0: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "StyleSheet", start, end, children: nodeArr(f1, f2, depth + 1) }; }
+    case 0: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "StyleSheet", start, end, children: _offsetsArr(f1, f2, depth + 1) }; }
     case 1: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Comment", start, end, value: str(f1, f2) }; }
     case 2: { return { type: "CDO", start, end }; }
     case 3: { return { type: "CDC", start, end }; }
-    case 4: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "Atrule", start, end, name: str(f1, f2), prelude: f3 === NULL ? null : node(f3, depth + 1), block: f4 === NULL ? null : node(f4, depth + 1) }; }
-    case 5: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Rule", start, end, prelude: f1 === NULL ? null : node(f1, depth + 1), block: f2 === NULL ? null : node(f2, depth + 1) }; }
-    case 6: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Block", start, end, children: nodeArr(f1, f2, depth + 1) }; }
-    case 7: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "DeclarationList", start, end, children: nodeArr(f1, f2, depth + 1) }; }
-    case 8: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4], f5 = _u32[b + 5]; return { type: "Declaration", start, end, important: important(f1, f2), property: str(f3, f4), value: f5 === NULL ? null : node(f5, depth + 1) }; }
+    case 4: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "Atrule", start, end, name: str(f1, f2), prelude: f3 === NULL ? null : _offsets(f3, depth + 1), block: f4 === NULL ? null : _offsets(f4, depth + 1) }; }
+    case 5: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Rule", start, end, prelude: f1 === NULL ? null : _offsets(f1, depth + 1), block: f2 === NULL ? null : _offsets(f2, depth + 1) }; }
+    case 6: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Block", start, end, children: _offsetsArr(f1, f2, depth + 1) }; }
+    case 7: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "DeclarationList", start, end, children: _offsetsArr(f1, f2, depth + 1) }; }
+    case 8: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4], f5 = _u32[b + 5]; return { type: "Declaration", start, end, important: important(f1, f2), property: str(f3, f4), value: f5 === NULL ? null : _offsets(f5, depth + 1) }; }
     case 9: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Raw", start, end, value: str(f1, f2) }; }
-    case 10: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "SelectorList", start, end, children: nodeArr(f1, f2, depth + 1) }; }
-    case 11: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Selector", start, end, children: nodeArr(f1, f2, depth + 1) }; }
+    case 10: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "SelectorList", start, end, children: _offsetsArr(f1, f2, depth + 1) }; }
+    case 11: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Selector", start, end, children: _offsetsArr(f1, f2, depth + 1) }; }
     case 12: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "TypeSelector", start, end, name: str(f1, f2) }; }
     case 13: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "IdSelector", start, end, name: str(f1, f2) }; }
     case 14: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "ClassSelector", start, end, name: str(f1, f2) }; }
-    case 15: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "AttributeSelector", start, end, name: f1 === NULL ? null : node(f1, depth + 1), matcher: MATCHER[(flags >> 0) & 7], value: f2 === NULL ? null : node(f2, depth + 1), flags: f3 === NULL ? null : str(f3, f4) }; }
-    case 16: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "PseudoClassSelector", start, end, name: str(f1, f2), children: f3 === NULL ? null : nodeArr(f3, f4, depth + 1) }; }
-    case 17: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "PseudoElementSelector", start, end, name: str(f1, f2), children: f3 === NULL ? null : nodeArr(f3, f4, depth + 1) }; }
+    case 15: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "AttributeSelector", start, end, name: f1 === NULL ? null : _offsets(f1, depth + 1), matcher: MATCHER[(h0 >>> 16) & 7], value: f2 === NULL ? null : _offsets(f2, depth + 1), flags: f3 === NULL ? null : str(f3, f4) }; }
+    case 16: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "PseudoClassSelector", start, end, name: str(f1, f2), children: f3 === NULL ? null : _offsetsArr(f3, f4, depth + 1) }; }
+    case 17: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "PseudoElementSelector", start, end, name: str(f1, f2), children: f3 === NULL ? null : _offsetsArr(f3, f4, depth + 1) }; }
     case 18: { return { type: "NestingSelector", start, end }; }
     case 19: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Combinator", start, end, name: f1 >= _srcLen ? " " : str(f1, f2) }; }
-    case 20: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Nth", start, end, nth: f1 === NULL ? null : node(f1, depth + 1), selector: f2 === NULL ? null : node(f2, depth + 1) }; }
+    case 20: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Nth", start, end, nth: f1 === NULL ? null : _offsets(f1, depth + 1), selector: f2 === NULL ? null : _offsets(f2, depth + 1) }; }
     case 21: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "AnPlusB", start, end, a: f1 === NULL ? null : str(f1, f2), b: f3 === NULL ? null : str(f3, f4) }; }
     case 22: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Identifier", start, end, name: str(f1, f2) }; }
     case 23: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "String", start, end, value: str(f1, f2) }; }
     case 24: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Percentage", start, end, value: str(f1, f2) }; }
     case 25: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Operator", start, end, value: str(f1, f2) }; }
-    case 26: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Value", start, end, children: nodeArr(f1, f2, depth + 1) }; }
+    case 26: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Value", start, end, children: _offsetsArr(f1, f2, depth + 1) }; }
     case 27: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Number", start, end, value: str(f1, f2) }; }
     case 28: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "Dimension", start, end, value: str(f1, f2), unit: str(f3, f4) }; }
     case 29: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Hash", start, end, value: str(f1, f2) }; }
     case 30: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Url", start, end, value: str(f1, f2) }; }
-    case 31: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "Function", start, end, name: str(f1, f2), children: nodeArr(f3, f4, depth + 1) }; }
-    case 32: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Parentheses", start, end, children: nodeArr(f1, f2, depth + 1) }; }
-    case 33: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Brackets", start, end, children: nodeArr(f1, f2, depth + 1) }; }
+    case 31: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "Function", start, end, name: str(f1, f2), children: _offsetsArr(f3, f4, depth + 1) }; }
+    case 32: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Parentheses", start, end, children: _offsetsArr(f1, f2, depth + 1) }; }
+    case 33: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Brackets", start, end, children: _offsetsArr(f1, f2, depth + 1) }; }
     case 34: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "UnicodeRange", start, end, value: str(f1, f2) }; }
-    case 35: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Ratio", start, end, left: f1 === NULL ? null : node(f1, depth + 1), right: f2 === NULL ? null : node(f2, depth + 1) }; }
+    case 35: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Ratio", start, end, left: f1 === NULL ? null : _offsets(f1, depth + 1), right: f2 === NULL ? null : _offsets(f2, depth + 1) }; }
     case 36: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "WhiteSpace", start, end, value: str(f1, f2) }; }
-    case 37: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "AtrulePrelude", start, end, children: nodeArr(f1, f2, depth + 1) }; }
-    case 38: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "MediaQueryList", start, end, children: nodeArr(f1, f2, depth + 1) }; }
-    case 39: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3]; return { type: "MediaQuery", start, end, modifier: MEDIA_MODIFIER[(flags >> 0) & 3], mediaType: f1 === NULL ? null : str(f1, f2), condition: f3 === NULL ? null : node(f3, depth + 1) }; }
-    case 40: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Condition", start, end, kind: CONDITION_KIND[(flags >> 0) & 3], children: nodeArr(f1, f2, depth + 1) }; }
-    case 41: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3]; return { type: "Feature", start, end, kind: CONDITION_KIND[(flags >> 0) & 3], name: str(f1, f2), value: f3 === NULL ? null : node(f3, depth + 1) }; }
-    case 42: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3]; return { type: "FeatureFunction", start, end, kind: CONDITION_KIND[(flags >> 0) & 3], feature: str(f1, f2), value: f3 === NULL ? null : node(f3, depth + 1) }; }
-    case 43: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3]; return { type: "FeatureRange", start, end, kind: CONDITION_KIND[(flags >> 0) & 3], left: f1 === NULL ? null : node(f1, depth + 1), leftComparison: COMPARISON[(flags >> 2) & 7], middle: f2 === NULL ? null : node(f2, depth + 1), rightComparison: COMPARISON[(flags >> 5) & 7], right: f3 === NULL ? null : node(f3, depth + 1) }; }
-    case 44: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "GeneralEnclosed", start, end, kind: CONDITION_KIND[(flags >> 0) & 3], function: f1 === NULL ? null : str(f1, f2), children: nodeArr(f3, f4, depth + 1) }; }
-    case 45: { const f1 = _u32[b + 1]; return { type: "SupportsDeclaration", start, end, declaration: f1 === NULL ? null : node(f1, depth + 1) }; }
+    case 37: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "AtrulePrelude", start, end, children: _offsetsArr(f1, f2, depth + 1) }; }
+    case 38: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "MediaQueryList", start, end, children: _offsetsArr(f1, f2, depth + 1) }; }
+    case 39: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3]; return { type: "MediaQuery", start, end, modifier: MEDIA_MODIFIER[(h0 >>> 16) & 3], mediaType: f1 === NULL ? null : str(f1, f2), condition: f3 === NULL ? null : _offsets(f3, depth + 1) }; }
+    case 40: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Condition", start, end, kind: CONDITION_KIND[(h0 >>> 16) & 3], children: _offsetsArr(f1, f2, depth + 1) }; }
+    case 41: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3]; return { type: "Feature", start, end, kind: CONDITION_KIND[(h0 >>> 16) & 3], name: str(f1, f2), value: f3 === NULL ? null : _offsets(f3, depth + 1) }; }
+    case 42: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3]; return { type: "FeatureFunction", start, end, kind: CONDITION_KIND[(h0 >>> 16) & 3], feature: str(f1, f2), value: f3 === NULL ? null : _offsets(f3, depth + 1) }; }
+    case 43: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3]; return { type: "FeatureRange", start, end, kind: CONDITION_KIND[(h0 >>> 16) & 3], left: f1 === NULL ? null : _offsets(f1, depth + 1), leftComparison: COMPARISON[(h0 >>> 18) & 7], middle: f2 === NULL ? null : _offsets(f2, depth + 1), rightComparison: COMPARISON[(h0 >>> 21) & 7], right: f3 === NULL ? null : _offsets(f3, depth + 1) }; }
+    case 44: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "GeneralEnclosed", start, end, kind: CONDITION_KIND[(h0 >>> 16) & 3], function: f1 === NULL ? null : str(f1, f2), children: _offsetsArr(f3, f4, depth + 1) }; }
+    case 45: { const f1 = _u32[b + 1]; return { type: "SupportsDeclaration", start, end, declaration: f1 === NULL ? null : _offsets(f1, depth + 1) }; }
     case 46: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Layer", start, end, name: str(f1, f2) }; }
-    case 47: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "LayerList", start, end, children: nodeArr(f1, f2, depth + 1) }; }
-    case 48: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Scope", start, end, root: f1 === NULL ? null : node(f1, depth + 1), limit: f2 === NULL ? null : node(f2, depth + 1) }; }
+    case 47: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "LayerList", start, end, children: _offsetsArr(f1, f2, depth + 1) }; }
+    case 48: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Scope", start, end, root: f1 === NULL ? null : _offsets(f1, depth + 1), limit: f2 === NULL ? null : _offsets(f2, depth + 1) }; }
     }
   }
+  function _locationArr(s, len, depth) {
+    const r = new Array(len);
+    const base = _extraBase + s;
+    for (let j = 0; j < len; j++) r[j] = _location(_u32[base + j], depth);
+    return r;
+  }
   function _location(i, depth) {
-    if (depth >= DEPTH_MAX) return _deep(i);
+    if (depth >= DEPTH_MAX) return _deep(i, _location);
     const b = (i * 32 + 44) >> 2;
     const h0 = _u32[b];
-    const flags = h0 >>> 16;
     const start = _u32[b + 6], end = _u32[b + 7];
     switch (h0 & 255) {
-    case 0: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "StyleSheet", loc: loc(start, end), children: nodeArr(f1, f2, depth + 1) }; }
+    case 0: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "StyleSheet", loc: loc(start, end), children: _locationArr(f1, f2, depth + 1) }; }
     case 1: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Comment", loc: loc(start, end), value: str(f1, f2) }; }
     case 2: { return { type: "CDO", loc: loc(start, end) }; }
     case 3: { return { type: "CDC", loc: loc(start, end) }; }
-    case 4: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "Atrule", loc: loc(start, end), name: str(f1, f2), prelude: f3 === NULL ? null : node(f3, depth + 1), block: f4 === NULL ? null : node(f4, depth + 1) }; }
-    case 5: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Rule", loc: loc(start, end), prelude: f1 === NULL ? null : node(f1, depth + 1), block: f2 === NULL ? null : node(f2, depth + 1) }; }
-    case 6: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Block", loc: loc(start, end), children: nodeArr(f1, f2, depth + 1) }; }
-    case 7: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "DeclarationList", loc: loc(start, end), children: nodeArr(f1, f2, depth + 1) }; }
-    case 8: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4], f5 = _u32[b + 5]; return { type: "Declaration", loc: loc(start, end), important: important(f1, f2), property: str(f3, f4), value: f5 === NULL ? null : node(f5, depth + 1) }; }
+    case 4: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "Atrule", loc: loc(start, end), name: str(f1, f2), prelude: f3 === NULL ? null : _location(f3, depth + 1), block: f4 === NULL ? null : _location(f4, depth + 1) }; }
+    case 5: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Rule", loc: loc(start, end), prelude: f1 === NULL ? null : _location(f1, depth + 1), block: f2 === NULL ? null : _location(f2, depth + 1) }; }
+    case 6: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Block", loc: loc(start, end), children: _locationArr(f1, f2, depth + 1) }; }
+    case 7: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "DeclarationList", loc: loc(start, end), children: _locationArr(f1, f2, depth + 1) }; }
+    case 8: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4], f5 = _u32[b + 5]; return { type: "Declaration", loc: loc(start, end), important: important(f1, f2), property: str(f3, f4), value: f5 === NULL ? null : _location(f5, depth + 1) }; }
     case 9: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Raw", loc: loc(start, end), value: str(f1, f2) }; }
-    case 10: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "SelectorList", loc: loc(start, end), children: nodeArr(f1, f2, depth + 1) }; }
-    case 11: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Selector", loc: loc(start, end), children: nodeArr(f1, f2, depth + 1) }; }
+    case 10: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "SelectorList", loc: loc(start, end), children: _locationArr(f1, f2, depth + 1) }; }
+    case 11: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Selector", loc: loc(start, end), children: _locationArr(f1, f2, depth + 1) }; }
     case 12: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "TypeSelector", loc: loc(start, end), name: str(f1, f2) }; }
     case 13: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "IdSelector", loc: loc(start, end), name: str(f1, f2) }; }
     case 14: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "ClassSelector", loc: loc(start, end), name: str(f1, f2) }; }
-    case 15: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "AttributeSelector", loc: loc(start, end), name: f1 === NULL ? null : node(f1, depth + 1), matcher: MATCHER[(flags >> 0) & 7], value: f2 === NULL ? null : node(f2, depth + 1), flags: f3 === NULL ? null : str(f3, f4) }; }
-    case 16: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "PseudoClassSelector", loc: loc(start, end), name: str(f1, f2), children: f3 === NULL ? null : nodeArr(f3, f4, depth + 1) }; }
-    case 17: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "PseudoElementSelector", loc: loc(start, end), name: str(f1, f2), children: f3 === NULL ? null : nodeArr(f3, f4, depth + 1) }; }
+    case 15: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "AttributeSelector", loc: loc(start, end), name: f1 === NULL ? null : _location(f1, depth + 1), matcher: MATCHER[(h0 >>> 16) & 7], value: f2 === NULL ? null : _location(f2, depth + 1), flags: f3 === NULL ? null : str(f3, f4) }; }
+    case 16: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "PseudoClassSelector", loc: loc(start, end), name: str(f1, f2), children: f3 === NULL ? null : _locationArr(f3, f4, depth + 1) }; }
+    case 17: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "PseudoElementSelector", loc: loc(start, end), name: str(f1, f2), children: f3 === NULL ? null : _locationArr(f3, f4, depth + 1) }; }
     case 18: { return { type: "NestingSelector", loc: loc(start, end) }; }
     case 19: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Combinator", loc: f1 >= _srcLen ? null : loc(start, end), name: f1 >= _srcLen ? " " : str(f1, f2) }; }
-    case 20: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Nth", loc: loc(start, end), nth: f1 === NULL ? null : node(f1, depth + 1), selector: f2 === NULL ? null : node(f2, depth + 1) }; }
+    case 20: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Nth", loc: loc(start, end), nth: f1 === NULL ? null : _location(f1, depth + 1), selector: f2 === NULL ? null : _location(f2, depth + 1) }; }
     case 21: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "AnPlusB", loc: loc(start, end), a: f1 === NULL ? null : str(f1, f2), b: f3 === NULL ? null : str(f3, f4) }; }
     case 22: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Identifier", loc: loc(start, end), name: str(f1, f2) }; }
     case 23: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "String", loc: loc(start, end), value: str(f1, f2) }; }
     case 24: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Percentage", loc: loc(start, end), value: str(f1, f2) }; }
     case 25: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Operator", loc: loc(start, end), value: str(f1, f2) }; }
-    case 26: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Value", loc: loc(start, end), children: nodeArr(f1, f2, depth + 1) }; }
+    case 26: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Value", loc: loc(start, end), children: _locationArr(f1, f2, depth + 1) }; }
     case 27: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Number", loc: loc(start, end), value: str(f1, f2) }; }
     case 28: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "Dimension", loc: loc(start, end), value: str(f1, f2), unit: str(f3, f4) }; }
     case 29: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Hash", loc: loc(start, end), value: str(f1, f2) }; }
     case 30: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Url", loc: loc(start, end), value: str(f1, f2) }; }
-    case 31: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "Function", loc: loc(start, end), name: str(f1, f2), children: nodeArr(f3, f4, depth + 1) }; }
-    case 32: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Parentheses", loc: loc(start, end), children: nodeArr(f1, f2, depth + 1) }; }
-    case 33: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Brackets", loc: loc(start, end), children: nodeArr(f1, f2, depth + 1) }; }
+    case 31: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "Function", loc: loc(start, end), name: str(f1, f2), children: _locationArr(f3, f4, depth + 1) }; }
+    case 32: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Parentheses", loc: loc(start, end), children: _locationArr(f1, f2, depth + 1) }; }
+    case 33: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Brackets", loc: loc(start, end), children: _locationArr(f1, f2, depth + 1) }; }
     case 34: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "UnicodeRange", loc: loc(start, end), value: str(f1, f2) }; }
-    case 35: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Ratio", loc: loc(start, end), left: f1 === NULL ? null : node(f1, depth + 1), right: f2 === NULL ? null : node(f2, depth + 1) }; }
+    case 35: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Ratio", loc: loc(start, end), left: f1 === NULL ? null : _location(f1, depth + 1), right: f2 === NULL ? null : _location(f2, depth + 1) }; }
     case 36: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "WhiteSpace", loc: null, value: str(f1, f2) }; }
-    case 37: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "AtrulePrelude", loc: loc(start, end), children: nodeArr(f1, f2, depth + 1) }; }
-    case 38: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "MediaQueryList", loc: loc(start, end), children: nodeArr(f1, f2, depth + 1) }; }
-    case 39: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3]; return { type: "MediaQuery", loc: loc(start, end), modifier: MEDIA_MODIFIER[(flags >> 0) & 3], mediaType: f1 === NULL ? null : str(f1, f2), condition: f3 === NULL ? null : node(f3, depth + 1) }; }
-    case 40: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Condition", loc: loc(start, end), kind: CONDITION_KIND[(flags >> 0) & 3], children: nodeArr(f1, f2, depth + 1) }; }
-    case 41: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3]; return { type: "Feature", loc: loc(start, end), kind: CONDITION_KIND[(flags >> 0) & 3], name: str(f1, f2), value: f3 === NULL ? null : node(f3, depth + 1) }; }
-    case 42: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3]; return { type: "FeatureFunction", loc: loc(start, end), kind: CONDITION_KIND[(flags >> 0) & 3], feature: str(f1, f2), value: f3 === NULL ? null : node(f3, depth + 1) }; }
-    case 43: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3]; return { type: "FeatureRange", loc: loc(start, end), kind: CONDITION_KIND[(flags >> 0) & 3], left: f1 === NULL ? null : node(f1, depth + 1), leftComparison: COMPARISON[(flags >> 2) & 7], middle: f2 === NULL ? null : node(f2, depth + 1), rightComparison: COMPARISON[(flags >> 5) & 7], right: f3 === NULL ? null : node(f3, depth + 1) }; }
-    case 44: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "GeneralEnclosed", loc: loc(start, end), kind: CONDITION_KIND[(flags >> 0) & 3], function: f1 === NULL ? null : str(f1, f2), children: nodeArr(f3, f4, depth + 1) }; }
-    case 45: { const f1 = _u32[b + 1]; return { type: "SupportsDeclaration", loc: loc(start, end), declaration: f1 === NULL ? null : node(f1, depth + 1) }; }
+    case 37: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "AtrulePrelude", loc: loc(start, end), children: _locationArr(f1, f2, depth + 1) }; }
+    case 38: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "MediaQueryList", loc: loc(start, end), children: _locationArr(f1, f2, depth + 1) }; }
+    case 39: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3]; return { type: "MediaQuery", loc: loc(start, end), modifier: MEDIA_MODIFIER[(h0 >>> 16) & 3], mediaType: f1 === NULL ? null : str(f1, f2), condition: f3 === NULL ? null : _location(f3, depth + 1) }; }
+    case 40: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Condition", loc: loc(start, end), kind: CONDITION_KIND[(h0 >>> 16) & 3], children: _locationArr(f1, f2, depth + 1) }; }
+    case 41: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3]; return { type: "Feature", loc: loc(start, end), kind: CONDITION_KIND[(h0 >>> 16) & 3], name: str(f1, f2), value: f3 === NULL ? null : _location(f3, depth + 1) }; }
+    case 42: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3]; return { type: "FeatureFunction", loc: loc(start, end), kind: CONDITION_KIND[(h0 >>> 16) & 3], feature: str(f1, f2), value: f3 === NULL ? null : _location(f3, depth + 1) }; }
+    case 43: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3]; return { type: "FeatureRange", loc: loc(start, end), kind: CONDITION_KIND[(h0 >>> 16) & 3], left: f1 === NULL ? null : _location(f1, depth + 1), leftComparison: COMPARISON[(h0 >>> 18) & 7], middle: f2 === NULL ? null : _location(f2, depth + 1), rightComparison: COMPARISON[(h0 >>> 21) & 7], right: f3 === NULL ? null : _location(f3, depth + 1) }; }
+    case 44: { const f1 = _u32[b + 1], f2 = _u32[b + 2], f3 = _u32[b + 3], f4 = _u32[b + 4]; return { type: "GeneralEnclosed", loc: loc(start, end), kind: CONDITION_KIND[(h0 >>> 16) & 3], function: f1 === NULL ? null : str(f1, f2), children: _locationArr(f3, f4, depth + 1) }; }
+    case 45: { const f1 = _u32[b + 1]; return { type: "SupportsDeclaration", loc: loc(start, end), declaration: f1 === NULL ? null : _location(f1, depth + 1) }; }
     case 46: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Layer", loc: loc(start, end), name: str(f1, f2) }; }
-    case 47: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "LayerList", loc: loc(start, end), children: nodeArr(f1, f2, depth + 1) }; }
-    case 48: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Scope", loc: loc(start, end), root: f1 === NULL ? null : node(f1, depth + 1), limit: f2 === NULL ? null : node(f2, depth + 1) }; }
+    case 47: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "LayerList", loc: loc(start, end), children: _locationArr(f1, f2, depth + 1) }; }
+    case 48: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Scope", loc: loc(start, end), root: f1 === NULL ? null : _location(f1, depth + 1), limit: f2 === NULL ? null : _location(f2, depth + 1) }; }
     }
   }
-  const _inner = positions ? _location : _offsets;
-  const DEPTH_MAX = 128, _n = [];
-  function _deep(i) {
-    while (_n.length <= i) _n.push(_inner(_n.length, DEPTH_MAX - 1));
-    return _n[i];
+  return loc === null ? _offsets(_u32[5], 0) : _location(_u32[5], 0);
+}
+// everything but the tree, which `open` builds when `ast` is first read
+function decode(buffer, at, source, options, withTokens, open) {
+  const u32 = new Int32Array(buffer, at);
+  const srcLen = u32[3], firstNa = u32[6];
+  const nodeCount = u32[0], extraCount = u32[1], spLen = u32[2];
+  const diagCount = u32[4];
+  const extraBase = (44 + nodeCount * 32) >> 2;
+  const spOff = (extraBase + extraCount) * 4;
+  const dBase = (spOff + ((spLen + 3) & ~3)) >> 2;
+  const p = utf16(u32, dBase + diagCount * 5, u32[7], firstNa);
+  const positions = options.positions === true;
+  const commentBase = dBase + diagCount * 5 + u32[7] * 2;
+  const commentCount = u32[8];
+  const lineBase = commentBase + commentCount * 2, lineCount = u32[9];
+  const tokenBase = lineBase + lineCount, tokenCount = u32[10];
+  let loc = null;
+  if (positions) {
+    // the line starts in UTF-16 units, copied as they are where the source is ASCII
+    let starts = new Int32Array(buffer, at + lineBase * 4, lineCount);
+    if (lineCount > 0 && starts[lineCount - 1] > firstNa) starts = starts.map(p);
+    const line = options.line ?? 1, column = options.column ?? 1;
+    loc = locator(source, starts, line, column, options.offset ?? 0, options.filename || "<unknown>");
   }
-  const node = _inner;
   const path = options.filename ?? null;
   const diagnostics = new Array(diagCount);
+  const u8 = new Uint8Array(buffer, at);
+  const str = (s, e) => (s >= srcLen ? _td.decode(u8.subarray(spOff + s - srcLen, spOff + e - srcLen)) : source.slice(s, e));
   for (let j = 0; j < diagCount; j++) {
-    const d = _dBase + j * 5;
-    const a = _u32[d + 3], text = MESSAGES[_u32[d + 0]];
-    const b = _u32[d + 3 + 1];
+    const d = dBase + j * 5;
+    const a = u32[d + 3], text = MESSAGES[u32[d + 0]];
+    const b = u32[d + 3 + 1];
     // diagnostic offsets are bytes, so a source argument is mapped as they are
-    const argument = a === NULL ? "" : a >= _srcLen ? str(a, b) : str(_p(a), _p(b));
+    const argument = a === NULL ? "" : a >= srcLen ? str(a, b) : str(p(a), p(b));
     const message = a === NULL ? text : text.replace("{}", argument);
-    const start = _p(_u32[d + 1]), end = _p(_u32[d + 2]);
+    const start = p(u32[d + 1]), end = p(u32[d + 2]);
     diagnostics[j] = { severity: "error", message, path, start, end, labels: [], help: null };
   }
   const spans = commentCount === 0 ? null : new Int32Array(commentCount * 2);
-  for (let j = 0; j < commentCount * 2; j++) spans[j] = _p(_u32[commentBase + j]);
+  for (let j = 0; j < commentCount * 2; j++) spans[j] = p(u32[commentBase + j]);
   let tokens;
   if (withTokens) {
     tokens = new Uint32Array(tokenCount);
     for (let j = 0, b = tokenBase; j < tokenCount; j++, b += 2) {
-      tokens[j] = ((_u32[b + 1] & 255) << 24) | _p(_u32[b + 0]);
+      tokens[j] = ((u32[b + 1] & 255) << 24) | p(u32[b + 0]);
     }
   }
   let comments;
-  return {
-    ast: node(root, 0),
+  const result = {
+    ast: undefined,
     get comments() {
       if (comments !== undefined) return comments;
       comments = new Array(commentCount);
       for (let j = 0; j < commentCount; j++) {
         const s = spans[2 * j], e = spans[2 * j + 1];
-        const value = _src.startsWith("*/", e - 2) ? _src.slice(s + 2, e - 2) : _src.slice(s + 2, e);
+        const value = source.startsWith("*/", e - 2) ? source.slice(s + 2, e - 2) : source.slice(s + 2, e);
         comments[j] = positions ? { type: "Comment", loc: loc(s, e), value } : { type: "Comment", start: s, end: e, value };
       }
       return comments;
@@ -414,6 +426,28 @@ function decode(buffer, at, source, options, withTokens) {
     tokens,
     diagnostics,
   };
+  TREES.set(result, () => open((buffer, at) => tree(buffer, at, source, loc)));
+  return Object.defineProperty(result, "ast", AST);
+}
+// each result's tree, built when `ast` is first read
+const TREES = new WeakMap();
+// one getter for every result, as V8 keeps pretenuring the tree's nodes and deoptimizing
+// the node functions when each result has its own
+const AST = {
+  get() {
+    const build = TREES.get(this);
+    return build === undefined ? undefined : own(this, build());
+  },
+  set(value) {
+    own(this, value);
+  },
+  enumerable: true,
+  configurable: true,
+};
+function own(result, ast) {
+  TREES.delete(result);
+  Object.defineProperty(result, "ast", { value: ast, writable: true, enumerable: true, configurable: true });
+  return ast;
 }
 function decodeTokens(buffer, at, source) {
   const _u32 = new Uint32Array(buffer, at);

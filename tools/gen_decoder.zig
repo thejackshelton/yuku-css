@@ -178,19 +178,17 @@ fn writeLines(w: *Writer) !void {
 }
 
 fn writeDecode(w: *Writer) !void {
+    // the node functions are closures over one buffer, which V8 runs faster than functions over
+    // module state, whose allocation sites keep deoptimizing them
     try w.print(
-        \\function decode(buffer, at, source, options, withTokens) {{
+        \\// the tree from the buffer at `at`, with `loc` from `locator` or null for offsets
+        \\function tree(buffer, at, source, loc) {{
         \\  const _u8 = new Uint8Array(buffer, at);
         \\  const _u32 = new Int32Array(buffer, at);
         \\  const _src = source;
         \\  const _srcLen = _u32[{[src]d}];
-        \\  const _firstNa = _u32[{[fna]d}];
-        \\  const nodeCount = _u32[{[nc]d}], extraCount = _u32[{[ec]d}], spLen = _u32[{[sp]d}];
-        \\  const diagCount = _u32[{[dc]d}], root = _u32[{[root]d}];
-        \\  const _extraBase = ({[hdr]d} + nodeCount * {[size]d}) >> 2;
-        \\  const _spOff = (_extraBase + extraCount) * 4;
-        \\  const _dBase = (_spOff + ((spLen + 3) & ~3)) >> 2;
-        \\  const _p = utf16(_u32, _dBase + diagCount * {[dstride]d}, _u32[{[u16]d}], _firstNa);
+        \\  const _extraBase = ({[hdr]d} + _u32[{[nc]d}] * {[size]d}) >> 2;
+        \\  const _spOff = (_extraBase + _u32[{[ec]d}]) * 4;
         \\  // node strings in the source come as UTF-16 offsets, the pool's as bytes past the source's
         \\  const str = (s, e) => {{
         \\    if (s === e) return "";
@@ -202,26 +200,113 @@ fn writeDecode(w: *Writer) !void {
         \\    const word = str(s, e);
         \\    return word === "important" ? true : word;
         \\  }};
-        \\  function nodeArr(s, len, depth) {{
-        \\    const r = new Array(len);
-        \\    const base = _extraBase + s;
-        \\    for (let j = 0; j < len; j++) r[j] = node(_u32[base + j], depth);
-        \\    return r;
+        \\  const DEPTH_MAX = 128, _n = [];
+        \\  // children precede their parent, so index order builds past DEPTH_MAX without recursion
+        \\  function _deep(i, inner) {{
+        \\    while (_n.length <= i) _n.push(inner(_n.length, DEPTH_MAX - 1));
+        \\    return _n[i];
         \\  }}
+        \\
+    , .{
+        .src = rt.HDR_SOURCE_LEN_U32,
+        .hdr = rt.HEADER_SIZE,
+        .nc = rt.HDR_NODE_COUNT_U32,
+        .size = rt.NODE_SIZE,
+        .ec = rt.HDR_EXTRA_COUNT_U32,
+    });
+    try writeNodeFunction(w, .offsets);
+    try writeNodeFunction(w, .location);
+    try w.print(
+        \\  return loc === null ? _offsets(_u32[{[root]d}], 0) : _location(_u32[{[root]d}], 0);
+        \\}}
+        \\
+    , .{ .root = rt.HDR_ROOT_U32 });
+    try w.print(
+        \\// everything but the tree, which `open` builds when `ast` is first read
+        \\function decode(buffer, at, source, options, withTokens, open) {{
+        \\  const u32 = new Int32Array(buffer, at);
+        \\  const srcLen = u32[{[src]d}], firstNa = u32[{[fna]d}];
+        \\  const nodeCount = u32[{[nc]d}], extraCount = u32[{[ec]d}], spLen = u32[{[sp]d}];
+        \\  const diagCount = u32[{[dc]d}];
+        \\  const extraBase = ({[hdr]d} + nodeCount * {[size]d}) >> 2;
+        \\  const spOff = (extraBase + extraCount) * 4;
+        \\  const dBase = (spOff + ((spLen + 3) & ~3)) >> 2;
+        \\  const p = utf16(u32, dBase + diagCount * {[dstride]d}, u32[{[u16]d}], firstNa);
         \\  const positions = options.positions === true;
-        \\  const commentBase = _dBase + diagCount * {[dstride]d} + _u32[{[u16]d}] * 2;
-        \\  const commentCount = _u32[{[cc]d}];
-        \\  const lineBase = commentBase + commentCount * 2, lineCount = _u32[{[lc]d}];
-        \\  const tokenBase = lineBase + lineCount, tokenCount = _u32[{[tc]d}];
-        \\  const file = options.filename || "<unknown>";
-        \\  const line = options.line ?? 1, column = options.column ?? 1;
+        \\  const commentBase = dBase + diagCount * {[dstride]d} + u32[{[u16]d}] * 2;
+        \\  const commentCount = u32[{[cc]d}];
+        \\  const lineBase = commentBase + commentCount * 2, lineCount = u32[{[lc]d}];
+        \\  const tokenBase = lineBase + lineCount, tokenCount = u32[{[tc]d}];
         \\  let loc = null;
         \\  if (positions) {{
         \\    // the line starts in UTF-16 units, copied as they are where the source is ASCII
         \\    let starts = new Int32Array(buffer, at + lineBase * 4, lineCount);
-        \\    if (lineCount > 0 && starts[lineCount - 1] > _firstNa) starts = starts.map(_p);
-        \\    loc = locator(_src, starts, line, column, options.offset ?? 0, file);
+        \\    if (lineCount > 0 && starts[lineCount - 1] > firstNa) starts = starts.map(p);
+        \\    const line = options.line ?? 1, column = options.column ?? 1;
+        \\    loc = locator(source, starts, line, column, options.offset ?? 0, options.filename || "<unknown>");
         \\  }}
+        \\  const path = options.filename ?? null;
+        \\  const diagnostics = new Array(diagCount);
+        \\  const u8 = new Uint8Array(buffer, at);
+        \\  const str = (s, e) => (s >= srcLen ? _td.decode(u8.subarray(spOff + s - srcLen, spOff + e - srcLen)) : source.slice(s, e));
+        \\  for (let j = 0; j < diagCount; j++) {{
+        \\    const d = dBase + j * {[dstride]d};
+        \\    const a = u32[d + {[a]d}], text = MESSAGES[u32[d + {[m]d}]];
+        \\    const b = u32[d + {[a]d} + 1];
+        \\    // diagnostic offsets are bytes, so a source argument is mapped as they are
+        \\    const argument = a === NULL ? "" : a >= srcLen ? str(a, b) : str(p(a), p(b));
+        \\    const message = a === NULL ? text : text.replace("{{}}", argument);
+        \\    const start = p(u32[d + {[s]d}]), end = p(u32[d + {[e]d}]);
+        \\    diagnostics[j] = {{ severity: "error", message, path, start, end, labels: [], help: null }};
+        \\  }}
+        \\  const spans = commentCount === 0 ? null : new Int32Array(commentCount * 2);
+        \\  for (let j = 0; j < commentCount * 2; j++) spans[j] = p(u32[commentBase + j]);
+        \\  let tokens;
+        \\  if (withTokens) {{
+        \\    tokens = new Uint32Array(tokenCount);
+        \\    for (let j = 0, b = tokenBase; j < tokenCount; j++, b += {[tstride]d}) {{
+        \\      tokens[j] = ((u32[b + {[ttag]d}] & 255) << 24) | p(u32[b + {[tend]d}]);
+        \\    }}
+        \\  }}
+        \\  let comments;
+        \\  const result = {{
+        \\    ast: undefined,
+        \\    get comments() {{
+        \\      if (comments !== undefined) return comments;
+        \\      comments = new Array(commentCount);
+        \\      for (let j = 0; j < commentCount; j++) {{
+        \\        const s = spans[2 * j], e = spans[2 * j + 1];
+        \\        const value = source.startsWith("*/", e - 2) ? source.slice(s + 2, e - 2) : source.slice(s + 2, e);
+        \\        comments[j] = positions ? {{ type: "Comment", loc: loc(s, e), value }} : {{ type: "Comment", start: s, end: e, value }};
+        \\      }}
+        \\      return comments;
+        \\    }},
+        \\    tokens,
+        \\    diagnostics,
+        \\  }};
+        \\  TREES.set(result, () => open((buffer, at) => tree(buffer, at, source, loc)));
+        \\  return Object.defineProperty(result, "ast", AST);
+        \\}}
+        \\// each result's tree, built when `ast` is first read
+        \\const TREES = new WeakMap();
+        \\// one getter for every result, as V8 keeps pretenuring the tree's nodes and deoptimizing
+        \\// the node functions when each result has its own
+        \\const AST = {{
+        \\  get() {{
+        \\    const build = TREES.get(this);
+        \\    return build === undefined ? undefined : own(this, build());
+        \\  }},
+        \\  set(value) {{
+        \\    own(this, value);
+        \\  }},
+        \\  enumerable: true,
+        \\  configurable: true,
+        \\}};
+        \\function own(result, ast) {{
+        \\  TREES.delete(result);
+        \\  Object.defineProperty(result, "ast", {{ value: ast, writable: true, enumerable: true, configurable: true }});
+        \\  return ast;
+        \\}}
         \\
     , .{
         .src = rt.HDR_SOURCE_LEN_U32,
@@ -230,7 +315,6 @@ fn writeDecode(w: *Writer) !void {
         .ec = rt.HDR_EXTRA_COUNT_U32,
         .sp = rt.HDR_STRING_POOL_LEN_U32,
         .dc = rt.HDR_DIAGNOSTIC_COUNT_U32,
-        .root = rt.HDR_ROOT_U32,
         .hdr = rt.HEADER_SIZE,
         .size = rt.NODE_SIZE,
         .dstride = rt.DIAGNOSTIC_SIZE / 4,
@@ -238,59 +322,6 @@ fn writeDecode(w: *Writer) !void {
         .cc = rt.HDR_COMMENT_COUNT_U32,
         .lc = rt.HDR_LINE_COUNT_U32,
         .tc = rt.HDR_TOKEN_COUNT_U32,
-    });
-    try writeNodeFunction(w, .offsets);
-    try writeNodeFunction(w, .location);
-    // children precede their parent, so index order builds past DEPTH_MAX without recursion
-    try w.print(
-        \\  const _inner = positions ? _location : _offsets;
-        \\  const DEPTH_MAX = 128, _n = [];
-        \\  function _deep(i) {{
-        \\    while (_n.length <= i) _n.push(_inner(_n.length, DEPTH_MAX - 1));
-        \\    return _n[i];
-        \\  }}
-        \\  const node = _inner;
-        \\  const path = options.filename ?? null;
-        \\  const diagnostics = new Array(diagCount);
-        \\  for (let j = 0; j < diagCount; j++) {{
-        \\    const d = _dBase + j * {[stride]d};
-        \\    const a = _u32[d + {[a]d}], text = MESSAGES[_u32[d + {[m]d}]];
-        \\    const b = _u32[d + {[a]d} + 1];
-        \\    // diagnostic offsets are bytes, so a source argument is mapped as they are
-        \\    const argument = a === NULL ? "" : a >= _srcLen ? str(a, b) : str(_p(a), _p(b));
-        \\    const message = a === NULL ? text : text.replace("{{}}", argument);
-        \\    const start = _p(_u32[d + {[s]d}]), end = _p(_u32[d + {[e]d}]);
-        \\    diagnostics[j] = {{ severity: "error", message, path, start, end, labels: [], help: null }};
-        \\  }}
-        \\  const spans = commentCount === 0 ? null : new Int32Array(commentCount * 2);
-        \\  for (let j = 0; j < commentCount * 2; j++) spans[j] = _p(_u32[commentBase + j]);
-        \\  let tokens;
-        \\  if (withTokens) {{
-        \\    tokens = new Uint32Array(tokenCount);
-        \\    for (let j = 0, b = tokenBase; j < tokenCount; j++, b += {[tstride]d}) {{
-        \\      tokens[j] = ((_u32[b + {[ttag]d}] & 255) << 24) | _p(_u32[b + {[tend]d}]);
-        \\    }}
-        \\  }}
-        \\  let comments;
-        \\  return {{
-        \\    ast: node(root, 0),
-        \\    get comments() {{
-        \\      if (comments !== undefined) return comments;
-        \\      comments = new Array(commentCount);
-        \\      for (let j = 0; j < commentCount; j++) {{
-        \\        const s = spans[2 * j], e = spans[2 * j + 1];
-        \\        const value = _src.startsWith("*/", e - 2) ? _src.slice(s + 2, e - 2) : _src.slice(s + 2, e);
-        \\        comments[j] = positions ? {{ type: "Comment", loc: loc(s, e), value }} : {{ type: "Comment", start: s, end: e, value }};
-        \\      }}
-        \\      return comments;
-        \\    }},
-        \\    tokens,
-        \\    diagnostics,
-        \\  }};
-        \\}}
-        \\
-    , .{
-        .stride = rt.DIAGNOSTIC_SIZE / 4,
         .m = rt.DIAGNOSTIC_MESSAGE_U32,
         .s = rt.DIAGNOSTIC_START_U32,
         .e = rt.DIAGNOSTIC_END_U32,
@@ -303,14 +334,20 @@ fn writeDecode(w: *Writer) !void {
 
 const Mode = enum { offsets, location };
 
+// each mode has its own list builder, so every call between node functions has one target
 fn writeNodeFunction(w: *Writer, comptime mode: Mode) !void {
     comptime std.debug.assert(rt.NODE_FLAGS_OFFSET == 2);
     try w.print(
+        \\  function _{[name]s}Arr(s, len, depth) {{
+        \\    const r = new Array(len);
+        \\    const base = _extraBase + s;
+        \\    for (let j = 0; j < len; j++) r[j] = _{[name]s}(_u32[base + j], depth);
+        \\    return r;
+        \\  }}
         \\  function _{[name]s}(i, depth) {{
-        \\    if (depth >= DEPTH_MAX) return _deep(i);
+        \\    if (depth >= DEPTH_MAX) return _deep(i, _{[name]s});
         \\    const b = (i * {[size]d} + {[hdr]d}) >> 2;
         \\    const h0 = _u32[b];
-        \\    const flags = h0 >>> 16;
         \\    const start = _u32[b + {[ss]d}], end = _u32[b + {[se]d}];
         \\    switch (h0 & 255) {{
         \\
@@ -334,6 +371,7 @@ fn writeNodeFunction(w: *Writer, comptime mode: Mode) !void {
 fn writeCase(w: *Writer, comptime mode: Mode, comptime tag: usize, comptime name: []const u8, comptime T: type) !void {
     @setEvalBranchQuota(100_000);
     const info = @typeInfo(T).@"struct";
+    const self = "_" ++ @tagName(mode);
     try w.print("    case {d}: {{", .{tag});
     const slots = comptime rt.totalU32Slots(T);
     if (slots > 0) {
@@ -360,10 +398,10 @@ fn writeCase(w: *Writer, comptime mode: Mode, comptime tag: usize, comptime name
         const s = comptime rt.u32SlotForField(T, i) + 1;
         const nullable = comptime isNullable(name, field);
         if (Field == ast.NodeIndex) {
-            try w.print("f{d} === NULL ? null : node(f{d}, depth + 1)", .{ s, s });
+            try w.print("f{d} === NULL ? null : {s}(f{d}, depth + 1)", .{ s, self, s });
         } else if (Field == ast.IndexRange) {
             if (nullable) try w.print("f{d} === NULL ? null : ", .{s});
-            try w.print("nodeArr(f{d}, f{d}, depth + 1)", .{ s, s + 1 });
+            try w.print("{s}Arr(f{d}, f{d}, depth + 1)", .{ self, s, s + 1 });
         } else if (Field == ast.String) {
             if (comptime std.mem.eql(u8, name, "declaration") and std.mem.eql(u8, field, "important")) {
                 try w.print("important(f{d}, f{d})", .{ s, s + 1 });
@@ -375,9 +413,9 @@ fn writeCase(w: *Writer, comptime mode: Mode, comptime tag: usize, comptime name
                 try w.print("str(f{d}, f{d})", .{ s, s + 1 });
             }
         } else if (@typeInfo(Field) == .@"enum" and @hasDecl(Field, "strings")) {
-            const bit = comptime rt.flagBitForField(T, i);
+            const bit = comptime rt.flagBitForField(T, i) + 16;
             const mask = comptime (1 << rt.enumBitWidth(Field)) - 1;
-            try w.print("{s}[(flags >> {d}) & {d}]", .{ comptime enumTable(Field), bit, mask });
+            try w.print("{s}[(h0 >>> {d}) & {d}]", .{ comptime enumTable(Field), bit, mask });
         } else {
             @compileError("no decoder for " ++ @typeName(Field));
         }
