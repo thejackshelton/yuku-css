@@ -183,7 +183,8 @@ function decode(buffer, at, source, options) {
     const b = (i * 32 + 32) >> 2;
     const h0 = _u32[b];
     const flags = h0 >>> 16;
-    const start = _p(_u32[b + 6]), end = _p(_u32[b + 7]);
+    let start = _u32[b + 6], end = _u32[b + 7];
+    if (end > _firstNa) { start = _p(start); end = _p(end); }
     switch (h0 & 255) {
     case 0: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "StyleSheet", start, end, children: nodeArr(f1, f2, depth + 1) }; }
     case 1: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Comment", start, end, value: str(f1, f2) }; }
@@ -217,7 +218,8 @@ function decode(buffer, at, source, options) {
     const b = (i * 32 + 32) >> 2;
     const h0 = _u32[b];
     const flags = h0 >>> 16;
-    const start = _p(_u32[b + 6]), end = _p(_u32[b + 7]);
+    let start = _u32[b + 6], end = _u32[b + 7];
+    if (end > _firstNa) { start = _p(start); end = _p(end); }
     switch (h0 & 255) {
     case 0: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "StyleSheet", loc: loc(start, end), children: nodeArr(f1, f2, depth + 1) }; }
     case 1: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Comment", loc: loc(start, end), value: str(f1, f2) }; }

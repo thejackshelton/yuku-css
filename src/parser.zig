@@ -188,8 +188,10 @@ const Parser = struct {
         while (p.tag == .whitespace or p.tag == .comment) p.next();
     }
 
-    fn skipUntilBalanced(p: *Parser, start_token: u32, comptime stop: Stop) void {
+    /// Returns whether it passed a `{}` block on the way.
+    fn skipUntilBalanced(p: *Parser, start_token: u32, comptime stop: Stop) bool {
         var cursor = start_token;
+        var block = false;
         while (cursor < p.count) : (cursor += 1) {
             const balance_end = p.balance[cursor];
             if (balance_end < start_token) break;
@@ -204,9 +206,14 @@ const Parser = struct {
                     break;
                 },
             }
-            if (p.tokens[cursor].tag.isBlockOpener()) cursor = balance_end;
+            const tag = p.tokens[cursor].tag;
+            if (tag.isBlockOpener()) {
+                block = block or tag == .left_curly_bracket;
+                cursor = balance_end;
+            }
         }
         p.skipTo(cursor);
+        return block;
     }
 
     fn eat(p: *Parser, comptime tag: Tag) ParseError!void {
@@ -254,6 +261,25 @@ const Parser = struct {
         try p.tree.diagnostics.append(p.tree.allocator(), diagnostic);
     }
 
+    const Checkpoint = struct { index: u32, eof: bool, nodes: usize, extras: usize, scratch: usize };
+
+    fn checkpoint(p: *const Parser) Checkpoint {
+        return .{
+            .index = p.index,
+            .eof = p.eof,
+            .nodes = p.tree.nodes.len,
+            .extras = p.tree.extras.items.len,
+            .scratch = p.scratch.items.len,
+        };
+    }
+
+    fn rewind(p: *Parser, to: Checkpoint) void {
+        p.tree.nodes.shrinkRetainingCapacity(to.nodes);
+        p.tree.extras.shrinkRetainingCapacity(to.extras);
+        p.scratch.shrinkRetainingCapacity(to.scratch);
+        p.skipTo(to.index);
+    }
+
     /// Runs `consumer`; when it fails, rewinds and keeps the input as `Raw` up to `stop`.
     fn withFallback(
         p: *Parser,
@@ -262,18 +288,12 @@ const Parser = struct {
         comptime stop: Stop,
         comptime exclude_whitespace: bool,
     ) Error!NodeIndex {
-        const start_index = p.index;
-        const nodes_len = p.tree.nodes.len;
-        const extras_len = p.tree.extras.items.len;
-        const scratch_len = p.scratch.items.len;
+        const start = p.checkpoint();
         return @call(.auto, consumer, .{p} ++ args) catch |err| switch (err) {
             error.OutOfMemory => |e| return e,
             error.Syntax => {
                 const failure = p.failure;
-                p.tree.nodes.shrinkRetainingCapacity(nodes_len);
-                p.tree.extras.shrinkRetainingCapacity(extras_len);
-                p.scratch.shrinkRetainingCapacity(scratch_len);
-                p.skipTo(start_index);
+                p.rewind(start);
                 const node = try p.raw(stop, exclude_whitespace);
                 try p.report(failure);
                 return node;
@@ -354,9 +374,13 @@ const Parser = struct {
         return p.add(data, start, p.start);
     }
 
-    fn raw(p: *Parser, comptime stop: Stop, comptime exclude_whitespace: bool) Error!NodeIndex {
+    fn raw(p: *Parser, comptime stop: Stop, exclude_whitespace: bool) Error!NodeIndex {
         const start = p.start;
-        p.skipUntilBalanced(p.index, stop);
+        _ = p.skipUntilBalanced(p.index, stop);
+        return p.rawFrom(start, exclude_whitespace);
+    }
+
+    fn rawFrom(p: *Parser, start: u32, exclude_whitespace: bool) Error!NodeIndex {
         var end = p.start;
         if (exclude_whitespace and p.start > start and p.index > 0 and p.lookupType(-1) == .whitespace) {
             end = if (p.index > 1) p.tokenStart(p.index - 1) else p.first_offset;
@@ -447,7 +471,7 @@ const Parser = struct {
                     continue;
                 },
                 .at_keyword => try p.withFallback(atrule, .{is_style}, .balance_end, true),
-                else => if (!is_style or p.isDelim('&') or p.nestedRuleAhead())
+                else => if (!is_style or p.isDelim('&'))
                     try p.withFallback(rule, .{}, .balance_end, true)
                 else
                     try p.declarationStatement(),
@@ -461,6 +485,31 @@ const Parser = struct {
 
     // css-tree reads every statement of a style block that does not start with `&` as a declaration;
     // CSS Syntax reads a nested rule when its `{}` block comes before any `;`, unless it is a custom property
+    fn declarationStatement(p: *Parser) Error!NodeIndex {
+        if (p.tag == .semicolon) return p.raw(.semicolon_included, true);
+        const start = p.checkpoint();
+        var node = p.declaration() catch |err| switch (err) {
+            error.OutOfMemory => |e| return e,
+            error.Syntax => blk: {
+                const failure = p.failure;
+                p.rewind(start);
+                if (p.nestedRuleAhead()) break :blk NodeIndex.null;
+                const node = try p.raw(.semicolon_included, true);
+                try p.report(failure);
+                break :blk node;
+            },
+        };
+        if (node == .null) {
+            p.rewind(start);
+            // css-tree reads a rule here without trying a declaration, so `eof` keeps no trace of the attempt
+            p.eof = start.eof;
+            node = try p.withFallback(rule, .{}, .balance_end, true);
+        } else if (p.tag == .semicolon) {
+            p.next();
+        }
+        return node;
+    }
+
     fn nestedRuleAhead(p: *const Parser) bool {
         const first = p.index;
         var i = first;
@@ -481,13 +530,7 @@ const Parser = struct {
         return i < p.count and p.tokens[i].tag == .colon;
     }
 
-    fn declarationStatement(p: *Parser) Error!NodeIndex {
-        if (p.tag == .semicolon) return p.raw(.semicolon_included, true);
-        const node = try p.withFallback(declaration, .{}, .semicolon_included, true);
-        if (p.tag == .semicolon) p.next();
-        return node;
-    }
-
+    /// Null when the value holds a `{}` block, which makes the statement a nested rule.
     fn declaration(p: *Parser) ParseError!NodeIndex {
         const start = p.start;
         const start_token = p.index;
@@ -496,7 +539,9 @@ const Parser = struct {
         p.skipSC();
         try p.eat(.colon);
         if (!custom) p.skipSC();
-        const value = if (custom) try p.raw(.exclamation_mark_or_semicolon, false) else try p.raw(.exclamation_mark_or_semicolon, true);
+        const value_start = p.start;
+        if (p.skipUntilBalanced(p.index, .exclamation_mark_or_semicolon) and !custom) return .null;
+        const value = try p.rawFrom(value_start, !custom);
         var important: String = .none;
         if (p.isDelim('!')) {
             p.next();

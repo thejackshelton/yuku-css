@@ -220,7 +220,8 @@ fn writeNodeFunction(w: *Writer, comptime mode: Mode) !void {
         \\    const b = (i * {[size]d} + {[hdr]d}) >> 2;
         \\    const h0 = _u32[b];
         \\    const flags = h0 >>> 16;
-        \\    const start = _p(_u32[b + {[ss]d}]), end = _p(_u32[b + {[se]d}]);
+        \\    let start = _u32[b + {[ss]d}], end = _u32[b + {[se]d}];
+        \\    if (end > _firstNa) {{ start = _p(start); end = _p(end); }}
         \\    switch (h0 & 255) {{
         \\
     , .{
