@@ -279,15 +279,14 @@ pub const Lexer = struct {
     pub fn nameEnd(l: *const Lexer, from: u32) u32 {
         const src = l.src;
         var i = from;
-        while (i < src.len) {
-            const c = src[i];
-            if (is(c, name)) {
-                i += 1;
-            } else if (c == '\\' and validEscape(c, l.at(i + 1))) {
+        while (true) {
+            // four name bytes a step, as names average eight bytes
+            while (i + 4 <= src.len and char[src[i]] & char[src[i + 1]] & char[src[i + 2]] & char[src[i + 3]] & name != 0) i += 4;
+            while (i < src.len and is(src[i], name)) i += 1;
+            if (i < src.len and src[i] == '\\' and validEscape('\\', l.at(i + 1))) {
                 i = l.escapeEnd(i);
-            } else break;
+            } else return i;
         }
-        return i;
     }
 
     /// `from` is the backslash.
