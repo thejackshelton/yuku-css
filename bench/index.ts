@@ -5,7 +5,9 @@ import { Bench } from "tinybench";
 interface Parser {
   name: string;
   color: string;
-  load(): Promise<(source: string) => unknown>;
+  load(): Promise<(source: any) => unknown>;
+  // turns each file into what the timed function takes, untimed
+  prepare?(source: string): Promise<unknown>;
 }
 
 const RUNS = 3;
@@ -73,9 +75,54 @@ const TOKENIZERS: Parser[] = [
   },
 ];
 
-// `node bench/index.ts tokenize` times tokenizing instead, and leaves the chart alone
-const task = process.argv[2] === "tokenize" ? "tokenize" : "parse";
-const suite = task === "tokenize" ? TOKENIZERS : PARSERS;
+// css-tree's tree of each file, values parsed, which both generators print
+async function cssTree(source: string): Promise<unknown> {
+  const { parse } = await import("css-tree");
+  return parse(source, { positions: true });
+}
+
+const GENERATORS: Parser[] = [
+  {
+    name: "yuku-css",
+    color: "#FF6B35",
+    prepare: cssTree,
+    async load() {
+      const { generate } = await import("yuku-css/codegen");
+      return (ast) => generate(ast);
+    },
+  },
+  {
+    name: "css-tree",
+    color: "#3A86FF",
+    prepare: cssTree,
+    async load() {
+      const { generate } = await import("css-tree");
+      return (ast) => generate(ast);
+    },
+  },
+  {
+    name: "yuku-css map",
+    color: "#FFA07A",
+    prepare: cssTree,
+    async load() {
+      const { generate } = await import("yuku-css/codegen");
+      return (ast) => generate(ast, { sourceMap: true }).map.toString();
+    },
+  },
+  {
+    name: "css-tree map",
+    color: "#8338EC",
+    prepare: cssTree,
+    async load() {
+      const { generate } = await import("css-tree");
+      return (ast) => (generate(ast, { sourceMap: true }) as unknown as { map: object }).map.toString();
+    },
+  },
+];
+
+// `node bench/index.ts tokenize` or `generate` times tokenizing or printing instead, and leaves the chart alone
+const task = process.argv[2] === "tokenize" || process.argv[2] === "generate" ? process.argv[2] : "parse";
+const suite = task === "tokenize" ? TOKENIZERS : task === "generate" ? GENERATORS : PARSERS;
 const child = suite.find((parser) => parser.name === process.argv[3]);
 if (child === undefined) main();
 else process.stdout.write(String(await time(child)));
@@ -86,7 +133,7 @@ function main(): void {
     return { ...parser, microseconds: median(runs) };
   });
   console.table(
-    results.map(({ name, microseconds }) => ({ [task === "parse" ? "parser" : "tokenizer"]: name, "per file": format(microseconds) })),
+    results.map(({ name, microseconds }) => ({ [task === "parse" ? "parser" : task === "tokenize" ? "tokenizer" : "generator"]: name, "per file": format(microseconds) })),
   );
   if (task === "parse") writeFileSync(new URL("chart.svg", import.meta.url), chart(results));
 }
@@ -101,7 +148,8 @@ function spawn(parser: Parser): number {
 }
 
 async function time(parser: Parser): Promise<number> {
-  const files = readdirSync(CORPUS).map((name) => readFileSync(new URL(name, CORPUS), "utf8"));
+  const sources = readdirSync(CORPUS).map((name) => readFileSync(new URL(name, CORPUS), "utf8"));
+  const files = parser.prepare ? await Promise.all(sources.map(parser.prepare)) : sources;
   const parse = await parser.load();
   const bench = new Bench({ time: 5000, warmupTime: 1000 });
   bench.add(parser.name, () => {

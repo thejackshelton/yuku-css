@@ -10,7 +10,18 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    ".": "./dist/index.js",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./ast": {
+      "types": "./dist/ast.d.ts",
+      "default": "./dist/ast.js"
+    },
+    "./codegen": {
+      "types": "./dist/codegen.d.ts",
+      "default": "./dist/codegen.js"
+    },
     "./package.json": "./package.json"
   },
   "imports": {
@@ -24,10 +35,11 @@
   ],
   "scripts": {
     "build": "zig build && tsdown",
-    "test": "bun run build && bun test",
+    "test": "bun run build && bun run sync && bun test",
     "typecheck": "tsc",
     "bench": "bun run build && node bench/index.ts",
     "corpus": "bun test/corpus.ts",
+    "sync": "bun tools/sync.ts",
     "prepublishOnly": "bun run build"
   },
   "devDependencies": {

@@ -4,3 +4,4 @@
 - Where css-tree accepts what the CSS specs reject, yuku-css follows the specs; every such case is listed in `test/divergences.ts`.
 - The lexer validates against `@webref/css` (W3C spec extracts), not mdn-data; where the two disagree with css-tree's fixtures, the case is listed as a divergence.
 - The benchmark compares against css-tree, PostCSS, and Lightning CSS (native and wasm), always on equal work.
+- `yuku-css/codegen` and `yuku-css/ast` are TypeScript over the decoded tree, as Yuku's are, and keep css-tree's function names. They take any css-tree tree, with arrays or `List`s, and `generate` matches css-tree's output and source maps byte for byte, so they are tested on trees css-tree parses.

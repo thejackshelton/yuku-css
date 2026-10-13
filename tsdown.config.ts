@@ -3,6 +3,8 @@ import { defineConfig } from "tsdown";
 export default defineConfig({
   entry: {
     index: "src/index.ts",
+    ast: "src/ast/index.ts",
+    codegen: "src/codegen/index.ts",
     "module/inline": "src/module/inline.ts",
     "module/workerd": "src/module/workerd.ts",
   },
@@ -15,5 +17,5 @@ export default defineConfig({
   // `#module` picks the WebAssembly at runtime, inline or, for workerd, the `.wasm` file
   deps: { neverBundle: [/^#/] },
   // bundlers for workerd load an import as WebAssembly only when its path ends in `.wasm`
-  outputOptions: { paths: { "#wasm": "../yuku-css.wasm" } },
+  outputOptions: { chunkFileNames: "shared/[name].js", paths: { "#wasm": "../yuku-css.wasm" } },
 });

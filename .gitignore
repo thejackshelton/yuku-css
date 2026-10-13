@@ -4,3 +4,4 @@ dist/
 zig-out/
 zig-pkg/
 .worktrees/
+test/csstree/
