@@ -168,9 +168,29 @@ describe("at-rules", () => {
     for (const source of sources) clean(source);
   });
 
+  test("a custom media query is an extension name, then a media query list or a boolean", () => {
+    const at = (source: string) => clean(source).ast.children[0] as Atrule;
+    expect(at("@custom-media --narrow (min-width: 40em);").prelude).toMatchObject({
+      children: [
+        { type: "Identifier", name: "--narrow" },
+        { type: "MediaQueryList", children: [{ type: "MediaQuery", condition: { type: "Condition", kind: "media" } }] },
+      ],
+    });
+    expect(at("@custom-media --on true;").prelude).toMatchObject({
+      children: [
+        { type: "Identifier", name: "--on" },
+        { type: "Identifier", name: "true" },
+      ],
+    });
+    expect(errors("@custom-media narrow (a);")).toEqual([["Extension name is expected", 14]]);
+  });
+
   test("a prelude of the atrulePrelude context reads the grammar of `atrule`", () => {
     const prelude = (atrule?: string) => parse("screen and (x)", { context: "atrulePrelude", atrule }).ast;
     expect(prelude("MEDIA")).toMatchObject({ children: [{ type: "MediaQueryList" }] });
+    expect(parse("--a screen and (x)", { context: "atrulePrelude", atrule: "custom-media" }).ast).toMatchObject({
+      children: [{ type: "Identifier" }, { type: "MediaQueryList" }],
+    });
     expect(prelude()).toMatchObject({ children: [{ type: "Identifier" }, { type: "Identifier" }, { type: "Parentheses" }] });
     expect(prelude("unknown")).toMatchObject({ children: [{ type: "Identifier" }, { type: "Identifier" }, { type: "Parentheses" }] });
   });

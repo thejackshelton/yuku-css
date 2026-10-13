@@ -638,6 +638,19 @@ function TypeSelector(this: Parser): unknown {
   return { type: "TypeSelector", loc: this.getLocation(start, this.tokenStart), name: this.source.substring(start, this.tokenStart) };
 }
 
+// mediaqueries-5's `@custom-media`: an extension name, then a media query list or `true` or `false`
+function customMediaPrelude(this: Parser): unknown {
+  const children = this.createList();
+  if (this.tokenType !== Ident || !this.source.startsWith("--", this.tokenStart)) this.error("Extension name is expected");
+  children.push(this.Identifier());
+  this.skipSC();
+  const word = this.source.slice(this.tokenStart, this.tokenEnd).toLowerCase();
+  const ends = [Semicolon, LeftCurlyBracket, EOF].includes(this.lookupTypeNonSC(1));
+  if (this.tokenType === Ident && (word === "true" || word === "false") && ends) children.push(this.Identifier());
+  else children.push(this.MediaQueryList());
+  return children;
+}
+
 export const reference: csstree.Syntax = csstree.fork({
   node: {
     Block: { parse: Block },
@@ -665,6 +678,7 @@ export const reference: csstree.Syntax = csstree.fork({
   },
   atrule: {
     import: { parse: { prelude: importPrelude, block: null } },
+    "custom-media": { parse: { prelude: customMediaPrelude } },
     // css-tree's `@layer`, whose block nested in a style rule holds declarations too
     layer: {
       parse: {

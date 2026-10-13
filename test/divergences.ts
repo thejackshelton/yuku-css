@@ -108,6 +108,13 @@ export const divergences: Divergence[] = [
     ],
   },
   {
+    rule:
+      "`@custom-media`'s prelude is an extension name `Identifier`, then a `MediaQueryList` or the `Identifier` `true` or " +
+      "`false`, as `@container`'s name sits beside its condition; css-tree reads a sequence of component values",
+    spec: "mediaqueries-5 §3.1 custom media queries",
+    fixtures: [],
+  },
+  {
     rule: "The function named in `Unknown feature` is lowercased in ASCII only, where css-tree uses JavaScript's Unicode `toLowerCase`",
     spec: "none: the name is lowercased where it is reported, without a Unicode case table",
     fixtures: [],

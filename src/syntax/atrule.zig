@@ -10,6 +10,7 @@ const values = @import("value.zig");
 const media_query = @import("media_query.zig");
 const conditions = @import("condition.zig");
 const container = @import("atrule/container.zig");
+const custom_media = @import("atrule/custom_media.zig");
 const import_rule = @import("atrule/import.zig");
 const layer = @import("atrule/layer.zig");
 const scope = @import("atrule/scope.zig");
@@ -25,6 +26,7 @@ const Tag = token.Tag;
 pub const Atrule = enum(u4) {
     unknown,
     container,
+    @"custom-media",
     import,
     layer,
     media,
@@ -58,6 +60,7 @@ pub fn prelude(p: *Parser, name: Atrule) ParseError!NodeIndex {
     const children = switch (name) {
         .unknown => try values.sequence(p, .atrule_prelude),
         .container => try container.prelude(p),
+        .@"custom-media" => try custom_media.prelude(p),
         .import => try import_rule.prelude(p),
         .layer => try single(p, try layer.list(p)),
         .media => try single(p, try media_query.list(p)),
@@ -199,6 +202,7 @@ test "reads the prelude of each at-rule" {
         .{ "@scope (.a) to (.b) {}", ast.Tag.scope },
         .{ "@page :first {}", ast.Tag.selector_list },
         .{ "@keyframes k {}", ast.Tag.identifier },
+        .{ "@custom-media --a (b);", ast.Tag.identifier },
     };
     inline for (cases) |case| {
         var tree = try parser.parse(std.testing.allocator, case[0], .{});
@@ -217,6 +221,7 @@ test "keeps a prelude that does not parse as raw" {
         .{ "@layer a . b;", ast.Message.semicolon_or_block_expected },
         .{ "@import 1;", ast.Message.string_or_url_expected },
         .{ "@supports 1 {}", ast.Message.condition_expected },
+        .{ "@custom-media a (b);", ast.Message.extension_name_expected },
     };
     inline for (cases) |case| {
         var tree = try parser.parse(std.testing.allocator, case[0], .{});

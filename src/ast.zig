@@ -230,6 +230,7 @@ pub const Message = enum(u8) {
     comparison_expected,
     string_or_url_expected,
     url_function_expected,
+    extension_name_expected,
     /// Takes the function name as its argument.
     unknown_feature,
     // where the grammars of conditions read an error that css-tree does not
@@ -314,6 +315,7 @@ pub const Message = enum(u8) {
             .comparison_expected => "Expected \"<\", \">\", \"=\" or \")\"",
             .string_or_url_expected => "String or url() is expected",
             .url_function_expected => "Function name must be `url`",
+            .extension_name_expected => "Extension name is expected",
             .unknown_feature => "Unknown feature {}()",
             .parenthesized_condition_expected => "Condition in parentheses is expected",
             .and_or_expected => "Identifier \"and\" or \"or\" is expected",

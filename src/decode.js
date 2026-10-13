@@ -7,13 +7,14 @@ const CONDITION_KIND = ["media", "supports", "container"];
 const COMPARISON = [null, "<", "<=", ">", ">=", "="];
 const atrules = Object.freeze({
   "container": 1,
-  "import": 2,
-  "layer": 3,
-  "media": 4,
-  "nest": 5,
-  "page": 6,
-  "scope": 7,
-  "supports": 8,
+  "custom-media": 2,
+  "import": 3,
+  "layer": 4,
+  "media": 5,
+  "nest": 6,
+  "page": 7,
+  "scope": 8,
+  "supports": 9,
 });
 const MESSAGES = [
   "Unexpected input",
@@ -86,6 +87,7 @@ const MESSAGES = [
   "Expected \"<\", \">\", \"=\" or \")\"",
   "String or url() is expected",
   "Function name must be `url`",
+  "Extension name is expected",
   "Unknown feature {}()",
   "Condition in parentheses is expected",
   "Identifier \"and\" or \"or\" is expected",
