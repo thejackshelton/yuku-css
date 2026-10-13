@@ -9,6 +9,8 @@
 //   diagnostics   diagnostic_count * DIAGNOSTIC_SIZE
 //   utf16         utf16_count * 2 u32, see `Utf16`
 //   lines         line_count u32, the byte offset where each line after the first starts
+//   comments      comment_count * 2 u32, where each comment starts and ends
+//   tokens        token_count * TOKEN_SIZE, each `Token` as is, when asked for
 //
 // node fields
 //
@@ -30,6 +32,7 @@
 const std = @import("std");
 const ast = @import("ast.zig");
 const token = @import("token.zig");
+const lexer = @import("lexer.zig");
 
 // field order defines the wire layout
 const Header = extern struct {
@@ -43,6 +46,8 @@ const Header = extern struct {
     first_non_ascii: u32,
     utf16_count: u32,
     line_count: u32,
+    comment_count: u32,
+    token_count: u32,
 };
 
 const PackedNode = extern struct {
@@ -84,6 +89,8 @@ pub const HDR_ROOT_U32: u32 = @offsetOf(Header, "root") / 4;
 pub const HDR_FIRST_NON_ASCII_U32: u32 = @offsetOf(Header, "first_non_ascii") / 4;
 pub const HDR_UTF16_COUNT_U32: u32 = @offsetOf(Header, "utf16_count") / 4;
 pub const HDR_LINE_COUNT_U32: u32 = @offsetOf(Header, "line_count") / 4;
+pub const HDR_COMMENT_COUNT_U32: u32 = @offsetOf(Header, "comment_count") / 4;
+pub const HDR_TOKEN_COUNT_U32: u32 = @offsetOf(Header, "token_count") / 4;
 
 pub const TOKENS_COUNT_U32: u32 = @offsetOf(TokensHeader, "token_count") / 4;
 pub const TOKENS_SOURCE_LEN_U32: u32 = @offsetOf(TokensHeader, "source_len") / 4;
@@ -161,8 +168,10 @@ pub fn totalFlagBits(comptime T: type) u8 {
     return flagBitForField(T, @typeInfo(T).@"struct".field_types.len);
 }
 
-pub fn bufferSize(tree: *const ast.Tree, utf16: Utf16, lines: Lines) usize {
+pub fn bufferSize(tree: *const ast.Tree, utf16: Utf16, lines: Lines, tokens: bool) usize {
     return HEADER_SIZE +
+        tree.comment_count * 8 +
+        (if (tokens) tree.tokens.len * TOKEN_SIZE else 0) +
         tree.nodes.len * NODE_SIZE +
         tree.extras.items.len * 4 +
         std.mem.alignForward(usize, tree.strings.extra.items.len, 4) +
@@ -171,8 +180,8 @@ pub fn bufferSize(tree: *const ast.Tree, utf16: Utf16, lines: Lines) usize {
         lines.count * 4;
 }
 
-pub fn serializeInto(tree: *const ast.Tree, utf16: Utf16, lines: Lines, buf: []u8) usize {
-    std.debug.assert(buf.len >= bufferSize(tree, utf16, lines));
+pub fn serializeInto(tree: *const ast.Tree, utf16: Utf16, lines: Lines, tokens: bool, buf: []u8) usize {
+    std.debug.assert(buf.len >= bufferSize(tree, utf16, lines, tokens));
     std.debug.assert(@intFromPtr(buf.ptr) % 4 == 0);
     std.debug.assert(@backingInt(tree.root) + 1 == tree.nodes.len);
 
@@ -187,6 +196,8 @@ pub fn serializeInto(tree: *const ast.Tree, utf16: Utf16, lines: Lines, buf: []u
         .first_non_ascii = utf16.first,
         .utf16_count = utf16.count,
         .line_count = lines.count,
+        .comment_count = tree.comment_count,
+        .token_count = if (tokens) @intCast(tree.tokens.len) else 0,
     };
     var pos: usize = 0;
     writeBytes(buf, &pos, std.mem.asBytes(&header));
@@ -212,8 +223,26 @@ pub fn serializeInto(tree: *const ast.Tree, utf16: Utf16, lines: Lines, buf: []u
 
     pos += utf16.write(tree.source, buf[pos..]);
     pos += lines.write(tree.source, buf[pos..]);
-    std.debug.assert(pos == bufferSize(tree, utf16, lines));
+    if (tree.comment_count > 0) pos += writeComments(tree, buf[pos..]);
+    if (tokens) writeBytes(buf, &pos, std.mem.sliceAsBytes(tree.tokens));
+    std.debug.assert(pos == bufferSize(tree, utf16, lines, tokens));
     return pos;
+}
+
+fn writeComments(tree: *const ast.Tree, buf: []u8) usize {
+    const out: [*]u32 = @ptrCast(@alignCast(buf.ptr));
+    var n: usize = 0;
+    var start = lexer.bomLen(tree.source);
+    for (tree.tokens) |t| {
+        if (t.tag == .comment) {
+            out[n] = start;
+            out[n + 1] = t.end;
+            n += 2;
+        }
+        start = t.end;
+    }
+    std.debug.assert(n == tree.comment_count * 2);
+    return n * 4;
 }
 
 pub fn tokensBufferSize(tokens: []const token.Token, utf16: Utf16) usize {
@@ -396,9 +425,9 @@ test "serializes" {
     defer tree.deinit();
     const utf16: Utf16 = .init(source);
     try std.testing.expectEqual(Utf16{ .first = 1, .count = 2 }, utf16);
-    const buf = try std.testing.allocator.alignedAlloc(u8, .@"4", bufferSize(&tree, utf16, .none));
+    const buf = try std.testing.allocator.alignedAlloc(u8, .@"4", bufferSize(&tree, utf16, .none, false));
     defer std.testing.allocator.free(buf);
-    try std.testing.expectEqual(buf.len, serializeInto(&tree, utf16, .none, buf));
+    try std.testing.expectEqual(buf.len, serializeInto(&tree, utf16, .none, false, buf));
     const breakpoints: []const u32 = @ptrCast(@alignCast(buf[buf.len - 16 ..]));
     try std.testing.expectEqualSlices(u32, &.{ 3, 1, source.len - 2, 3 }, breakpoints);
     try std.testing.expectEqual(8, firstNonAscii("abcdefghé", 0));

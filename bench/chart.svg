@@ -4,18 +4,18 @@
     .ratio { font-size: 12px; fill: #fff }
   </style>
   <text x="100" y="11" text-anchor="end">yuku-css</text>
-  <rect x="110" y="0" width="95" height="22" rx="4" fill="#FF6B35"/>
-  <text x="213" y="11">14.3 µs</text>
+  <rect x="110" y="0" width="100" height="22" rx="4" fill="#FF6B35"/>
+  <text x="218" y="11">14.9 µs</text>
   <text x="100" y="41" text-anchor="end">yuku-css loc</text>
-  <rect x="110" y="30" width="150" height="22" rx="4" fill="#FFA07A"/>
-  <text x="268" y="41">22.6 µs</text>
-  <text class="ratio" x="252" y="41" text-anchor="end">1.58×</text>
+  <rect x="110" y="30" width="158" height="22" rx="4" fill="#FFA07A"/>
+  <text x="276" y="41">23.6 µs</text>
+  <text class="ratio" x="260" y="41" text-anchor="end">1.58×</text>
   <text x="100" y="71" text-anchor="end">css-tree</text>
   <rect x="110" y="60" width="450" height="22" rx="4" fill="#3A86FF"/>
-  <text x="568" y="71">67.8 µs</text>
-  <text class="ratio" x="552" y="71" text-anchor="end">4.74×</text>
+  <text x="568" y="71">67.1 µs</text>
+  <text class="ratio" x="552" y="71" text-anchor="end">4.49×</text>
   <text x="100" y="101" text-anchor="end">postcss</text>
-  <rect x="110" y="90" width="217" height="22" rx="4" fill="#8338EC"/>
-  <text x="335" y="101">32.7 µs</text>
-  <text class="ratio" x="319" y="101" text-anchor="end">2.28×</text>
+  <rect x="110" y="90" width="224" height="22" rx="4" fill="#8338EC"/>
+  <text x="342" y="101">33.4 µs</text>
+  <text class="ratio" x="326" y="101" text-anchor="end">2.24×</text>
 </svg>
