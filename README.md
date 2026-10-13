@@ -105,6 +105,8 @@ Median time per file over 3 runs, each in a fresh Node.js 24 process on an Apple
 | yuku-css, with a source map | 23.7 µs |
 | css-tree, with a source map | 53.5 µs |
 
+[docs/benchmark.md](docs/benchmark.md) goes further: real-world and synthetic CSS by size, Bun and Chromium, css-tree's defaults, Lightning CSS, cold start, memory, and bundle size. Run it with `bun run bench:full`.
+
 ## Development
 
 Needs [Zig](https://ziglang.org) 0.17 and [Bun](https://bun.sh).

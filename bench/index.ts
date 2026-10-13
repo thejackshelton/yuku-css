@@ -1,204 +1,103 @@
+// The README benchmark: `node bench/index.ts` times parsing test/corpus and redraws the chart,
+// `node bench/index.ts tokenize` or `generate` times tokenizing or printing and leaves it alone.
 import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { Bench } from "tinybench";
+import { writeFileSync } from "node:fs";
+import { LIBRARIES, type Mode } from "./adapters.ts";
+import { chart } from "./chart.ts";
+import { load } from "./corpus.ts";
+import { quantile, type Timing } from "./sample.ts";
+import type { Task } from "./worker.ts";
 
-interface Parser {
+interface Row {
   name: string;
   color: string;
-  load(): Promise<(source: any) => unknown>;
-  // turns each file into what the timed function takes, untimed
-  prepare?(source: string): Promise<unknown>;
+  task(files: string[]): Task;
 }
 
-const RUNS = 3;
-const CORPUS = new URL("../test/corpus/", import.meta.url);
+const RUNS = Number(process.env.RUNS ?? 3);
+const BUDGET = Number(process.env.BUDGET ?? 30);
+const WORKER = new URL("worker.ts", import.meta.url).pathname;
+const RAW: Mode = { values: "raw", positions: true };
+const OFFSETS: Mode = { values: "raw", positions: false };
+const PARSED: Mode = { values: "parsed", positions: true };
 
-const PARSERS: Parser[] = [
-  {
-    name: "yuku-css",
-    color: "#FF6B35",
-    async load() {
-      const { parse } = await import("yuku-css");
-      return (source) => parse(source).ast;
-    },
-  },
-  {
-    name: "yuku-css loc",
-    color: "#FFA07A",
-    async load() {
-      const { parse } = await import("yuku-css");
-      // with lines and columns, as css-tree gives them below
-      return (source) => parse(source, { positions: true }).ast;
-    },
-  },
-  {
-    name: "css-tree",
-    color: "#3A86FF",
-    async load() {
-      const { parse } = await import("css-tree");
-      // selectors parsed, values and at-rule preludes kept raw, as yuku-css does
-      const options = { positions: true, parseValue: false, parseAtrulePrelude: false, parseCustomProperty: false };
-      return (source) => parse(source, options);
-    },
-  },
-  {
-    name: "postcss",
-    color: "#8338EC",
-    async load() {
-      const { parse } = await import("postcss");
-      // selectors stay strings: postcss parses them only with postcss-selector-parser
-      return (source) => parse(source);
-    },
-  },
-];
+const parse = (name: string, library: string, mode: Mode, color: string): Row => ({
+  name,
+  color,
+  task: (files) => ({ kind: "time", library, mode, files, budget: BUDGET }),
+});
+const tokenize = (library: string, color: string): Row => ({
+  name: library,
+  color,
+  task: (files) => ({ kind: "tokenize", library, files, budget: BUDGET }),
+});
+const generate = (name: string, library: string, sourceMap: boolean, color: string): Row => ({
+  name,
+  color,
+  task: (files) => ({ kind: "generate", library, sourceMap, files, budget: BUDGET }),
+});
 
-const TOKENIZERS: Parser[] = [
-  {
-    name: "yuku-css",
-    color: "#FF6B35",
-    async load() {
-      const { tokenize } = await import("yuku-css");
-      return (source) => tokenize(source);
-    },
-  },
-  {
-    name: "css-tree",
-    color: "#3A86FF",
-    async load() {
-      const { tokenize } = await import("css-tree");
-      return (source) => {
-        let count = 0;
-        tokenize(source, () => count++);
-        return count;
-      };
-    },
-  },
-];
+const SUITES = {
+  // css-tree keeps values and at-rule preludes raw, as yuku-css does, and gives positions
+  parse: [
+    parse("yuku-css", "yuku-css", OFFSETS, "#FF6B35"),
+    parse("yuku-css loc", "yuku-css", RAW, "#FFA07A"),
+    parse("css-tree", "css-tree", RAW, "#3A86FF"),
+    parse("postcss", "postcss", RAW, "#8338EC"),
+  ],
+  tokenize: [tokenize("yuku-css", "#FF6B35"), tokenize("css-tree", "#3A86FF")],
+  // both print css-tree's tree of each file, values parsed
+  generate: [
+    generate("yuku-css", "yuku-css", false, "#FF6B35"),
+    generate("css-tree", "css-tree", false, "#3A86FF"),
+    generate("yuku-css map", "yuku-css", true, "#FFA07A"),
+    generate("css-tree map", "css-tree", true, "#8338EC"),
+  ],
+};
 
-// css-tree's tree of each file, values parsed, which both generators print
-async function cssTree(source: string): Promise<unknown> {
-  const { parse } = await import("css-tree");
-  return parse(source, { positions: true });
-}
-
-const GENERATORS: Parser[] = [
-  {
-    name: "yuku-css",
-    color: "#FF6B35",
-    prepare: cssTree,
-    async load() {
-      const { generate } = await import("yuku-css/codegen");
-      return (ast) => generate(ast);
-    },
-  },
-  {
-    name: "css-tree",
-    color: "#3A86FF",
-    prepare: cssTree,
-    async load() {
-      const { generate } = await import("css-tree");
-      return (ast) => generate(ast);
-    },
-  },
-  {
-    name: "yuku-css map",
-    color: "#FFA07A",
-    prepare: cssTree,
-    async load() {
-      const { generate } = await import("yuku-css/codegen");
-      return (ast) => generate(ast, { sourceMap: true }).map.toString();
-    },
-  },
-  {
-    name: "css-tree map",
-    color: "#8338EC",
-    prepare: cssTree,
-    async load() {
-      const { generate } = await import("css-tree");
-      return (ast) => (generate(ast, { sourceMap: true }) as unknown as { map: object }).map.toString();
-    },
-  },
-];
-
-// `node bench/index.ts tokenize` or `generate` times tokenizing or printing instead, and leaves the chart alone
 const task = process.argv[2] === "tokenize" || process.argv[2] === "generate" ? process.argv[2] : "parse";
-const suite = task === "tokenize" ? TOKENIZERS : task === "generate" ? GENERATORS : PARSERS;
-const child = suite.find((parser) => parser.name === process.argv[3]);
-if (child === undefined) main();
-else process.stdout.write(String(await time(child)));
+const files = await clean(task === "generate" ? [RAW, OFFSETS, PARSED] : [RAW, OFFSETS]);
+const rows = SUITES[task];
 
-function main(): void {
-  const results = suite.map((parser) => {
-    const runs = Array.from({ length: RUNS }, () => spawn(parser));
-    return { ...parser, microseconds: median(runs) };
-  });
-  console.table(
-    results.map(({ name, microseconds }) => ({ [task === "parse" ? "parser" : task === "tokenize" ? "tokenizer" : "generator"]: name, "per file": format(microseconds) })),
-  );
-  if (task === "parse") writeFileSync(new URL("chart.svg", import.meta.url), chart(results));
+// runs take turns, so drift spreads over every row
+const runs = rows.map((): Timing[][] => []);
+for (let run = 0; run < RUNS; run++) rows.forEach((row, index) => runs[index]!.push(spawn(row.task(files))));
+
+const results = rows.map((row, index) => {
+  const medians = files.map((_, file) => quantile(runs[index]!.map((timings) => timings[file]!.median), 0.5));
+  return { ...row, microseconds: (medians.reduce((sum, median) => sum + median, 0) * 1000) / files.length };
+});
+console.table(results.map(({ name, microseconds }) => ({ [task]: name, "per file": format(microseconds) })));
+console.log(`${files.length} files`);
+if (task === "parse") {
+  const bars = results.map(({ name, color, microseconds }) => ({ label: name, color, value: microseconds, text: format(microseconds) }));
+  writeFileSync(new URL("chart.svg", import.meta.url), chart([{ bars }], { labelWidth: 110 }));
 }
 
-function spawn(parser: Parser): number {
-  const { status, stdout } = spawnSync(process.execPath, [import.meta.filename, task, parser.name], {
+// the corpus files that every library parses without an error, in every mode the suite uses
+async function clean(modes: Mode[]): Promise<string[]> {
+  const checks = LIBRARIES.filter(({ name }) => name === "yuku-css" || name === "css-tree" || name === "postcss");
+  const kept: string[] = [];
+  for (const file of load(new Set(["markless"]))) {
+    let passed = true;
+    for (const library of checks)
+      for (const mode of modes)
+        if (passed && (await library.supports(mode)) && (await library.check(file.source, mode)) !== undefined) passed = false;
+    if (passed) kept.push(`${file.group}/${file.name}`);
+  }
+  return kept;
+}
+
+function spawn(task: Task): Timing[] {
+  const { status, stdout } = spawnSync(process.execPath, [WORKER, JSON.stringify(task)], {
     encoding: "utf8",
+    maxBuffer: 1 << 26,
     stdio: ["ignore", "pipe", "inherit"],
   });
-  if (status !== 0) throw new Error(`${parser.name} exited with ${status}`);
-  return Number(stdout);
-}
-
-async function time(parser: Parser): Promise<number> {
-  const sources = readdirSync(CORPUS).map((name) => readFileSync(new URL(name, CORPUS), "utf8"));
-  const files = parser.prepare ? await Promise.all(sources.map(parser.prepare)) : sources;
-  const parse = await parser.load();
-  const bench = new Bench({ time: 5000, warmupTime: 1000 });
-  bench.add(parser.name, () => {
-    for (const source of files) parse(source);
-  });
-  await bench.run();
-  const { result } = bench.tasks[0]!;
-  if (result.state !== "completed") throw new Error(`${parser.name} did not complete`);
-  return (result.latency.p50 * 1000) / files.length;
-}
-
-function median(values: number[]): number {
-  const sorted = values.toSorted((a, b) => a - b);
-  const middle = sorted.length >> 1;
-  return sorted.length % 2 ? sorted[middle]! : (sorted[middle - 1]! + sorted[middle]!) / 2;
+  if (status !== 0) throw new Error(`${task.kind} exited with ${status}`);
+  return JSON.parse(stdout);
 }
 
 function format(microseconds: number): string {
   return `${microseconds.toFixed(1)} µs`;
-}
-
-function chart(results: (Parser & { microseconds: number })[]): string {
-  const width = 640;
-  const barX = 110;
-  const fastest = Math.min(...results.map((result) => result.microseconds));
-  const slowest = Math.max(...results.map((result) => result.microseconds));
-  const rows = results.map(({ name, color, microseconds }, index) => {
-    const y = index * 30;
-    const middle = y + 11;
-    const barEnd = barX + Math.round((microseconds / slowest) * (width - barX - 80));
-    const row = [
-      `<text x="${barX - 10}" y="${middle}" text-anchor="end">${name}</text>`,
-      `<rect x="${barX}" y="${y}" width="${barEnd - barX}" height="22" rx="4" fill="${color}"/>`,
-      `<text x="${barEnd + 8}" y="${middle}">${format(microseconds)}</text>`,
-    ];
-    if (microseconds !== fastest) {
-      const ratio = `${(microseconds / fastest).toFixed(2)}×`;
-      row.push(`<text class="ratio" x="${barEnd - 8}" y="${middle}" text-anchor="end">${ratio}</text>`);
-    }
-    return row.join("\n  ");
-  });
-
-  const height = results.length * 30 - 8;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <style>
-    text { font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif; fill: #848d97; dominant-baseline: central; font-variant-numeric: tabular-nums }
-    .ratio { font-size: 12px; fill: #fff }
-  </style>
-  ${rows.join("\n  ")}
-</svg>
-`;
 }
