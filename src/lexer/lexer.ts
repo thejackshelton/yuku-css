@@ -149,7 +149,8 @@ export interface SyntaxReferenceError extends SyntaxError {
 
 export function syntaxReferenceError(type: string, referenceName?: string): SyntaxReferenceError {
   const error = customError("SyntaxReferenceError", type + (referenceName ? " `" + referenceName + "`" : ""), false);
-  return Object.assign(error, { reference: referenceName });
+  (error as SyntaxReferenceError).reference = referenceName;
+  return error as SyntaxReferenceError;
 }
 
 // the trees the matcher's definitions are, decoded once each and shared, so a match tree's
@@ -293,30 +294,35 @@ function syntaxMatchError(
   mismatchOffset: number,
   mismatchLength: number,
   atEnd: boolean,
+  at?: Position,
+  until?: Position,
 ): SyntaxMatchError {
-  const error = customError("SyntaxMatchError", message, false);
-  const origin = { offset: 0, line: 1, column: 1 };
+  const error = customError("SyntaxMatchError", message, false) as SyntaxMatchError;
   let start: Position;
   let end: Position;
-  if (atEnd) {
-    start = buildLoc(origin, css);
+  if (at !== undefined) {
+    start = at;
+    end = until!;
+  } else if (atEnd) {
+    start = buildLoc({ offset: 0, line: 1, column: 1 }, css);
     end = buildLoc(start);
   } else {
-    start = buildLoc(origin, css.slice(0, mismatchOffset));
+    start = buildLoc({ offset: 0, line: 1, column: 1 }, css.slice(0, mismatchOffset));
     end = buildLoc(start, css.substr(mismatchOffset, mismatchLength));
   }
-  return Object.assign(error, {
-    rawMessage: message,
-    syntax: generated,
-    css,
-    mismatchOffset,
-    mismatchLength,
-    message:
-      message + "\n" + "  syntax: " + generated + "\n" + "   value: " + (css || "<empty string>") + "\n" +
-      "  --------" + new Array(mismatchOffset + 1).join("-") + "^",
-    ...start,
-    loc: { source: "<unknown>", start, end },
-  });
+  error.rawMessage = message;
+  error.syntax = generated;
+  error.css = css;
+  error.mismatchOffset = mismatchOffset;
+  error.mismatchLength = mismatchLength;
+  error.message =
+    message + "\n  syntax: " + generated + "\n   value: " + (css || "<empty string>") + "\n  --------" +
+    "-".repeat(mismatchOffset) + "^";
+  error.offset = start.offset;
+  error.line = start.line;
+  error.column = start.column;
+  error.loc = { source: "<unknown>", start, end };
+  return error;
 }
 
 // what a tree prints as tokens, each with the node that printed it, as css-tree's prepare-tokens
@@ -524,36 +530,22 @@ class Sheet {
   declare readonly lexer: Lexer;
   declare readonly source: string;
   declare readonly words: Uint32Array;
-  declare private readonly ascii: boolean;
-  declare private utf16: Uint32Array | undefined;
-  declare private lines: number[] | undefined;
 
-  constructor(lexer: Lexer, source: string, words: Uint32Array, ascii: boolean) {
+  declare private lines: number[] | undefined;
+  /** Match trees by where their entries start, as declarations written alike share their entries. */
+  declare readonly trees: Map<number, MatchNode>;
+
+  constructor(lexer: Lexer, source: string, words: Uint32Array) {
     this.lexer = lexer;
     this.source = source;
     this.words = words;
-    this.ascii = ascii;
-    this.utf16 = undefined;
     this.lines = undefined;
+    this.trees = new Map();
   }
 
-  /** The UTF-16 offset of byte `offset`. */
+  /** The UTF-16 offset the WebAssembly gives, which it has turned from bytes already. */
   at(offset: number): number {
-    if (this.ascii) return offset;
-    if (this.utf16 === undefined) {
-      const source = this.source;
-      const table = new Uint32Array(utf8Length(source) + 1);
-      for (let i = 0, byte = 0; i < source.length; i++) {
-        const c = source.charCodeAt(i);
-        const len = c < 0x80 ? 1 : c < 0x800 ? 2 : c >= 0xd800 && c < 0xdc00 && i + 1 < source.length ? 4 : 3;
-        for (let k = 0; k < len; k++) table[byte + k] = i;
-        byte += len;
-        if (len === 4) i++;
-        table[byte] = i + 1;
-      }
-      this.utf16 = table;
-    }
-    return this.utf16[offset]!;
+    return offset;
   }
 
   /** css-tree's position of UTF-16 offset `offset`: lines break at \n, \r\n, \r and \f. */
@@ -561,9 +553,14 @@ class Sheet {
     if (this.lines === undefined) {
       const lines = [0];
       const source = this.source;
-      for (let i = 0; i < source.length; i++) {
-        const c = source.charCodeAt(i);
-        if (c === 10 || c === 12 || (c === 13 && source.charCodeAt(i + 1) !== 10)) lines.push(i + 1);
+      if (source.indexOf("\r") === -1 && source.indexOf("\f") === -1) {
+        // the native search runs far faster than a loop over each character
+        for (let at = source.indexOf("\n"); at !== -1; at = source.indexOf("\n", at + 1)) lines.push(at + 1);
+      } else {
+        for (let i = 0; i < source.length; i++) {
+          const c = source.charCodeAt(i);
+          if (c === 10 || c === 12 || (c === 13 && source.charCodeAt(i + 1) !== 10)) lines.push(i + 1);
+        }
       }
       this.lines = lines;
     }
@@ -639,7 +636,20 @@ class Declaration implements DeclarationMatch {
   }
 
   get matched(): MatchNode | null {
-    if (this.tree === undefined) this.tree = this.word(RECORD.status) === 0 ? this.buildTree() : null;
+    if (this.tree === undefined) {
+      if (this.word(RECORD.status) !== 0) this.tree = null;
+      else {
+        // a declaration written as an earlier one shares its tree, which holds no nodes of its own
+        const trees = this.sheet.trees;
+        const key = this.word(RECORD.entryCount) === 0 ? -1 : this.word(RECORD.entries);
+        let tree = trees.get(key);
+        if (tree === undefined) {
+          tree = this.buildTree();
+          if (key !== -1) trees.set(key, tree);
+        }
+        this.tree = tree;
+      }
+    }
     return this.tree;
   }
 
@@ -704,17 +714,18 @@ class Declaration implements DeclarationMatch {
     const atEnd = this.word(RECORD.longestStart) === NONE;
     const mismatchStart = atEnd ? valueStart : sheet.at(this.word(RECORD.longestStart));
     const mismatchEnd = atEnd ? valueStart : sheet.at(this.word(RECORD.longestEnd));
-    const error = syntaxMatchError(
+    const start = sheet.position(atEnd ? this.end : mismatchStart);
+    const end = atEnd ? start : sheet.position(mismatchEnd);
+    return syntaxMatchError(
       STATUS[status]!,
       sheet.lexer.generatedOf(this.descriptor()),
       css,
       mismatchStart - valueStart,
       mismatchEnd - mismatchStart,
       atEnd,
+      start,
+      end,
     );
-    const start = sheet.position(atEnd ? this.end : mismatchStart);
-    const end = atEnd ? start : sheet.position(mismatchEnd);
-    return Object.assign(error, { ...start, loc: { source: "<unknown>", start, end } });
   }
 
   toJSON(): { property: string; start: number; end: number; matched: MatchNode | null; iterations: number | undefined; error: MatchResult["error"] } {
@@ -964,7 +975,7 @@ export class Lexer {
     const count = header[0]!;
     const size = header[1]!;
     const words = new Uint32Array(e.memory.buffer, at, header[2]!).slice();
-    const sheet = new Sheet(this, source, words, len === source.length);
+    const sheet = new Sheet(this, source, words);
     const result: DeclarationMatch[] = new Array(count);
     for (let i = 0; i < count; i++) result[i] = new Declaration(sheet, 3 + i * size);
     return result;

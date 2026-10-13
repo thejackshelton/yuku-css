@@ -67,25 +67,28 @@ const COMBINATORS = [" ", "&&", "||", "|"] as const;
 // one a match result carries has no frames, since capturing them costs more than the match
 export function customError(name: string, message: string, frames = true): SyntaxError {
   const error = Object.create(SyntaxError.prototype) as SyntaxError;
-  const stack = frames ? new Error() : null;
+  if (!frames) {
+    error.name = name;
+    error.message = message;
+    error.stack = `${name}: ${message}\n`;
+    return error;
+  }
+  const stack = new Error();
   return Object.assign(error, {
     name,
     message,
     get stack() {
-      return stack === null ? `${name}: ${message}\n` : (stack.stack || "").replace(/^(.+\n){1,3}/, `${name}: ${message}\n`);
+      return (stack.stack || "").replace(/^(.+\n){1,3}/, `${name}: ${message}\n`);
     },
   });
 }
 
 /** An `Error` with no stack frames, which a match result carries. */
 export function plainError(message: string): Error {
-  const limit = Error.stackTraceLimit;
-  Error.stackTraceLimit = 0;
-  try {
-    return new Error(message);
-  } finally {
-    Error.stackTraceLimit = limit;
-  }
+  const error = Object.create(Error.prototype) as Error;
+  error.message = message;
+  error.stack = `Error: ${message}\n`;
+  return error;
 }
 
 export function definitionSyntaxError(message: string, input: string, offset: number): DefinitionSyntaxError {

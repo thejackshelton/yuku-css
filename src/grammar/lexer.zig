@@ -113,6 +113,10 @@ pub const Lexer = struct {
     units: generic.Units = .{},
     /// The graph of the CSS-wide keywords.
     css_wide: u32 = none,
+    /// The definition node of each CSS-wide keyword, when they are all keywords, so a value that
+    /// does not start with one skips their graph, which could not match it.
+    css_wide_keywords: std.ArrayList(u32) = .empty,
+    css_wide_plain: bool = false,
     descriptors: std.ArrayList(Descriptor) = .empty,
     types: std.StringHashMapUnmanaged(u32) = .empty,
     properties: std.StringHashMapUnmanaged(u32) = .empty,
@@ -160,6 +164,7 @@ pub const Lexer = struct {
 
     pub fn deinit(l: *Lexer) void {
         l.descriptors.deinit(l.gpa);
+        l.css_wide_keywords.deinit(l.gpa);
         l.types.deinit(l.gpa);
         l.properties.deinit(l.gpa);
         var it = l.atrules.valueIterator();
@@ -177,6 +182,37 @@ pub const Lexer = struct {
         var b = l.builder();
         l.css_wide = try b.descriptorGraph(root, none);
         assert(l.graph.node(l.css_wide).kind == .match_graph);
+        l.css_wide_keywords.clearRetainingCapacity();
+        l.css_wide_plain = true;
+        const end = l.defs.skip(root);
+        var at = root;
+        // plain: a group of keywords, one of which must match
+        const top = l.defs.node(root);
+        if (top.len > 1 and top.combinator() != .one) l.css_wide_plain = false;
+        at += 1;
+        while (at < end) : (at += 1) {
+            if (l.defs.node(at).tag != .keyword) l.css_wide_plain = false;
+            try l.css_wide_keywords.append(l.gpa, at);
+        }
+        assert(l.css_wide_keywords.items.len <= end - root);
+    }
+
+    /// Whether the CSS-wide keywords' graph could match a value whose first token is `first`.
+    pub fn mayBeCssWide(l: *const Lexer, tokens: *const generic.Tokens) bool {
+        if (!l.css_wide_plain) return true;
+        var i: u32 = 0;
+        while (i < tokens.len()) : (i += 1) {
+            const tag = tokens.tag(i);
+            if (tag != .whitespace and tag != .comment) break;
+        }
+        if (i == tokens.len() or tokens.tag(i) != .ident) return false;
+        const text = tokens.text(i);
+        // a keyword drops IE's `\0` and `\9` hacks, so such a token may still match
+        if (std.mem.indexOfScalar(u8, text, '\\') != null) return true;
+        for (l.css_wide_keywords.items) |keyword| {
+            if (std.ascii.eqlIgnoreCase(text, l.defs.text(keyword))) return true;
+        }
+        return false;
     }
 
     pub fn setUnits(l: *Lexer, group: usize, units: []const []const u8) !void {

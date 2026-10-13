@@ -228,21 +228,19 @@ const header_words = 10;
 fn matchWords(l: *Lexer, descriptor: u32, css_wide: bool, view: generic.Tokens) !void {
     assert(descriptor < l.descriptors.items.len);
     assert(view.first <= view.source.len);
-    var result: match_.Result = undefined;
-    var wide = false;
+    var result: match_.Result = .{ .status = .has_var, .iterations = 0, .longest = 0, .top = none };
+    var has_var = false;
     for (0..view.len()) |i| {
         const index: u32 = @intCast(i);
-        if (view.tag(index) == .function and std.ascii.eqlIgnoreCase(view.text(index), "var(")) {
-            result = .{ .status = .has_var, .iterations = 0, .longest = 0, .top = none };
-            break;
-        }
-    } else if (css_wide) {
+        if (view.tag(index) != .function) continue;
+        if (std.ascii.eqlIgnoreCase(view.text(index), "var(")) has_var = true;
+    }
+    var wide = false;
+    if (!has_var and css_wide and l.mayBeCssWide(&view)) {
         result = try matcher.run(l, view, l.css_wide);
         wide = result.status == .match;
     }
-    if (!wide and result.status != .has_var) {
-        result = try matcher.run(l, view, try l.graphOf(descriptor, false));
-    }
+    if (!has_var and !wide) result = try matcher.run(l, view, try l.graphOf(descriptor, false));
 
     var count: u32 = 0;
     var at = result.top;
@@ -284,8 +282,7 @@ fn matchWords(l: *Lexer, descriptor: u32, css_wide: bool, view: generic.Tokens) 
     assert(at == 0 or count == 0);
 }
 
-var entries: std.ArrayList(u32) = .empty;
-var lowered: std.ArrayList(u8) = .empty;
+var sheet: validate_.Scratch = .{};
 
 /// Parses the first `len` bytes of the input buffer as a style sheet and matches every declaration,
 /// as `validate.zig` lays the result out, valid until the next call. 0 when out of memory.
@@ -293,9 +290,9 @@ export fn validate(id: u32, len: u32) u32 {
     assert(len <= input.capacity);
     const source = input.items.ptr[0..len];
     const l = lexerAt(id);
-    validate_.validate(gpa, l, &matcher, source, &output, &entries, &lowered) catch return 0;
-    assert(output.items.len >= validate_.header_words);
-    return @intFromPtr(output.items.ptr);
+    validate_.validate(gpa, l, &matcher, source, &sheet) catch return 0;
+    assert(sheet.out.items.len >= validate_.header_words);
+    return @intFromPtr(sheet.out.items.ptr);
 }
 
 /// Every definition the lexer holds, behind a u32 length: the count, then for each its kind,

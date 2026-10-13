@@ -1,6 +1,6 @@
-//! Matches every declaration of a style sheet in one pass, as Yuku's `analyze` runs over the tree
-//! it parsed: the sheet is parsed once, each value matched over the tokens the parser read, and every
-//! result written to one buffer the host reads.
+//! Matches every declaration of a style sheet in one pass, as Yuku's `analyze` runs over the
+//! tree it parsed: the sheet is parsed once, each value matched over the tokens the parser read,
+//! and every result written to one buffer the host reads.
 
 const std = @import("std");
 const css = @import("css");
@@ -106,16 +106,32 @@ fn tokensOf(all: []const css.token.Token, span: css.ast.Span) []const css.token.
 
 /// Parses `source` and matches each declaration's value against its property, appending a record
 /// per declaration and then the entries of every match to `out`.
+/// What `validate` writes and works in, kept between calls so they reuse their memory.
+pub const Scratch = struct {
+    /// The result.
+    out: std.ArrayList(u32) = .empty,
+    entries: std.ArrayList(u32) = .empty,
+    lowered: std.ArrayList(u8) = .empty,
+    /// Each declaration's text, to the record of its first.
+    seen: std.StringHashMapUnmanaged(u32) = .empty,
+    /// Where non-ASCII characters end, and the bytes they have beyond their UTF-16 units so far.
+    breaks: std.ArrayList([2]u32) = .empty,
+};
+
 pub fn validate(
     gpa: Allocator,
     l: *Lexer,
     matcher: *match_.Matcher,
     source: []const u8,
-    out: *std.ArrayList(u32),
-    entries: *std.ArrayList(u32),
-    lowered: *std.ArrayList(u8),
+    scratch: *Scratch,
 ) !void {
+    const out = &scratch.out;
+    const entries = &scratch.entries;
+    const lowered = &scratch.lowered;
+    const seen = &scratch.seen;
+    const breaks = &scratch.breaks;
     assert(source.len < std.math.maxInt(u32));
+    seen.clearRetainingCapacity();
     var tree = try css.parse(gpa, source, .{ .parse_rule_prelude = false, .parse_value = false });
     defer tree.deinit();
     const tags = tree.nodes.items(.data);
@@ -130,6 +146,26 @@ pub fn validate(
         const declaration = data.declaration;
         const raw = source[declaration.property.start..declaration.property.end];
         const value = tree.span(declaration.value);
+        // a declaration written as one before matches as it did, so it reuses that result
+        const written_end = @max(value.end, declaration.property.end);
+        const written = source[declaration.property.start..written_end];
+        const known = try seen.getOrPut(gpa, written);
+        if (known.found_existing) {
+            const first = out.items[known.value_ptr.*..][0..record_words];
+            var copy = first.*;
+            const shift = value.start -% first[@backingInt(Record.value_start)];
+            copy[@backingInt(Record.property_start)] = declaration.property.start;
+            copy[@backingInt(Record.property_end)] = declaration.property.end;
+            copy[@backingInt(Record.value_start)] = value.start;
+            copy[@backingInt(Record.value_end)] = value.end;
+            if (copy[@backingInt(Record.longest_start)] != none) {
+                copy[@backingInt(Record.longest_start)] +%= shift;
+                copy[@backingInt(Record.longest_end)] +%= shift;
+            }
+            out.appendSliceAssumeCapacity(&copy);
+            continue;
+        }
+        known.value_ptr.* = @intCast(out.items.len);
         try lowered.resize(gpa, raw.len);
         const name = propertyName(raw, lowered.items);
         var record: [record_words]u32 = @splat(none);
@@ -164,6 +200,7 @@ pub fn validate(
     try out.appendSlice(gpa, entries.items);
     assert(out.items.len == base + entries.items.len);
     out.items[2] = @intCast(out.items.len);
+    try toUtf16(gpa, source, out.items, base, count, breaks);
 }
 
 fn matchInto(
@@ -184,8 +221,10 @@ fn matchInto(
         result = .{ .status = .has_var, .iterations = 0, .longest = 0, .top = none };
         break;
     } else {
-        result = try matcher.run(l, view, l.css_wide);
-        wide = result.status == .match;
+        if (l.mayBeCssWide(&view)) {
+            result = try matcher.run(l, view, l.css_wide);
+            wide = result.status == .match;
+        }
         if (!wide) result = try matcher.run(l, view, try l.graphOf(descriptor, false));
     }
     record[@backingInt(Record.status)] = @backingInt(result.status);
@@ -229,4 +268,78 @@ test propertyName {
     const hack = propertyName("*Zoom", &buffer);
     try std.testing.expectEqualStrings("zoom", hack.name);
     try std.testing.expect(propertyName("--x", &buffer).custom);
+}
+
+fn charLen(byte: u8) u32 {
+    return if (byte < 0xE0) 2 else if (byte < 0xF0) 3 else 4;
+}
+
+/// Turns every byte offset of the result into a UTF-16 offset, which a JavaScript string indexes
+/// by: past each non-ASCII character, an offset loses the bytes it has beyond its code units.
+fn toUtf16(
+    gpa: Allocator,
+    source: []const u8,
+    words: []u32,
+    entries: usize,
+    count: u32,
+    breaks: *std.ArrayList([2]u32),
+) !void {
+    assert(entries <= words.len);
+    assert(header_words + count * record_words <= entries);
+    breaks.clearRetainingCapacity();
+    var extra: u32 = 0;
+    var i: u32 = 0;
+    while (i < source.len) {
+        if (source[i] < 0x80) {
+            i = asciiEnd(source, i + 1);
+            continue;
+        }
+        const len = @min(charLen(source[i]), @as(u32, @intCast(source.len)) - i);
+        extra += len - @as(u32, if (len == 4) 2 else 1);
+        i += len;
+        try breaks.append(gpa, .{ i, extra });
+    }
+    if (breaks.items.len == 0) return;
+    const fields = [_]Record{
+        .property_start, .property_end, .value_start, .value_end, .longest_start, .longest_end,
+    };
+    for (0..count) |d| {
+        const record = words[header_words + d * record_words ..][0..record_words];
+        for (fields) |field| {
+            const at = &record[@backingInt(field)];
+            if (at.* != none) at.* = convert(breaks.items, at.*);
+        }
+    }
+    var at = entries;
+    while (at + 4 <= words.len) : (at += 4) {
+        words[at + 2] = convert(breaks.items, words[at + 2]);
+        words[at + 3] = convert(breaks.items, words[at + 3]);
+    }
+}
+
+// the offset less the extra bytes of every character that ends at or before it
+fn convert(breaks: []const [2]u32, offset: u32) u32 {
+    assert(breaks.len > 0);
+    var low: usize = 0;
+    var high: usize = breaks.len;
+    while (low < high) {
+        const mid = low + (high - low) / 2;
+        if (breaks[mid][0] <= offset) low = mid + 1 else high = mid;
+    }
+    const extra = if (low == 0) 0 else breaks[low - 1][1];
+    assert(extra <= offset);
+    return offset - extra;
+}
+
+// the first non-ASCII byte from `from`, eight bytes a turn
+fn asciiEnd(source: []const u8, from: u32) u32 {
+    assert(from <= source.len);
+    var i = from;
+    while (i + 8 <= source.len) : (i += 8) {
+        const word = std.mem.readInt(u64, source[i..][0..8], .little);
+        if (word & 0x8080808080808080 != 0) break;
+    }
+    while (i < source.len and source[i] < 0x80) i += 1;
+    assert(i <= source.len);
+    return i;
 }
