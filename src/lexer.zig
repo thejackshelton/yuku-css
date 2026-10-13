@@ -177,9 +177,21 @@ pub const Lexer = struct {
         return .delim;
     }
 
-    pub fn identLike(l: *Lexer) Tag {
+    /// An ident, the common case, inline, and anything else out of line.
+    pub inline fn identLike(l: *Lexer) Tag {
         const start = l.pos;
-        l.pos = l.nameEnd(start);
+        const src = l.src;
+        var i = start;
+        while (i < src.len and is(src[i], name)) i += 1;
+        if (i < src.len and (src[i] == '(' or src[i] == '\\')) return l.identLikeRest(start, i);
+        l.pos = i;
+        return .ident;
+    }
+
+    fn identLikeRest(l: *Lexer, start: u32, from: u32) Tag {
+        std.debug.assert(start < from or l.src[from] == '\\');
+        std.debug.assert(from < l.src.len);
+        l.pos = l.nameEnd(from);
         if (l.at(l.pos) != '(') return .ident;
         if (l.pos - start == 3 and std.ascii.eqlIgnoreCase(l.src[start..l.pos], "url")) {
             const value = l.whitespaceEnd(l.pos + 1);
