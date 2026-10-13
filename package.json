@@ -22,12 +22,20 @@
       "types": "./dist/codegen.d.ts",
       "default": "./dist/codegen.js"
     },
+    "./lexer": {
+      "types": "./dist/lexer.d.ts",
+      "default": "./dist/lexer.js"
+    },
     "./package.json": "./package.json"
   },
   "imports": {
     "#module": {
       "workerd": "./dist/module/workerd.js",
       "default": "./dist/module/inline.js"
+    },
+    "#lexer-module": {
+      "workerd": "./dist/lexer/module/workerd.js",
+      "default": "./dist/lexer/module/inline.js"
     }
   },
   "files": [
@@ -45,6 +53,7 @@
   "devDependencies": {
     "@types/bun": "1.4.3",
     "@types/css-tree": "3.2.0",
+    "@webref/css": "8.7.5",
     "css-tree": "3.2.1",
     "postcss": "8.5.30",
     "tinybench": "6.2.2",

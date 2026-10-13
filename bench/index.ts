@@ -11,7 +11,8 @@ interface Parser {
 }
 
 const RUNS = 3;
-const CORPUS = new URL("../test/corpus/", import.meta.url);
+// `CORPUS=<dir>` times another directory of style sheets
+const CORPUS = process.env.CORPUS ? new URL(`file://${process.env.CORPUS.replace(/\/?$/, "/")}`) : new URL("../test/corpus/", import.meta.url);
 
 const PARSERS: Parser[] = [
   {
@@ -120,9 +121,145 @@ const GENERATORS: Parser[] = [
   },
 ];
 
-// `node bench/index.ts tokenize` or `generate` times tokenizing or printing instead, and leaves the chart alone
-const task = process.argv[2] === "tokenize" || process.argv[2] === "generate" ? process.argv[2] : "parse";
-const suite = task === "tokenize" ? TOKENIZERS : task === "generate" ? GENERATORS : PARSERS;
+// every declaration of a file as property and css-tree's tree of the value, which both lexers match
+// node for node
+async function declarationTrees(source: string): Promise<[string, unknown][]> {
+  const { parse, walk } = await import("css-tree");
+  const found: [string, unknown][] = [];
+  walk(parse(source), { visit: "Declaration", enter: (node) => found.push([node.property, node.value]) });
+  return found;
+}
+
+// every declaration of a file, as property and value text, which every lexer matches as a string
+async function declarations(source: string): Promise<[string, string][]> {
+  const { parse, walk } = await import("css-tree");
+  const found: [string, string][] = [];
+  const ast = parse(source, { parseValue: false, parseAtrulePrelude: false });
+  walk(ast, { visit: "Declaration", enter: (node) => found.push([node.property, (node.value as { value: string }).value.trim()]) });
+  return found;
+}
+
+const MATCHERS: Parser[] = [
+  {
+    name: "yuku-css",
+    color: "#FF6B35",
+    prepare: declarations,
+    async load() {
+      const { lexer } = await import("yuku-css/lexer");
+      // reading `matched` and `error` builds the tree and error css-tree builds
+      return (list: [string, string][]) => {
+        for (const [property, value] of list) {
+          const result = lexer.matchProperty(property, value);
+          void result.matched;
+          void result.error;
+        }
+      };
+    },
+  },
+  {
+    name: "yuku-css unread",
+    color: "#FFA07A",
+    prepare: declarations,
+    async load() {
+      const { lexer } = await import("yuku-css/lexer");
+      // neither read, so neither built, as a caller that keeps only valid values does not
+      return (list: [string, string][]) => {
+        for (const [property, value] of list) lexer.matchProperty(property, value);
+      };
+    },
+  },
+  {
+    name: "css-tree webref",
+    color: "#8338EC",
+    prepare: declarations,
+    async load() {
+      // css-tree's matcher over the same grammar
+      const oraclePath = "../test/grammar/webref.ts";
+      const { oracle } = (await import(oraclePath)) as typeof import("../test/grammar/webref");
+      return (list: [string, string][]) => {
+        for (const [property, value] of list) oracle.matchProperty(property, value);
+      };
+    },
+  },
+  {
+    name: "yuku-css tree",
+    color: "#FFBE0B",
+    prepare: declarationTrees,
+    async load() {
+      const { lexer } = await import("yuku-css/lexer");
+      return (list: [string, string][]) => {
+        for (const [property, value] of list) {
+          const result = lexer.matchProperty(property, value);
+          void result.matched;
+          void result.error;
+        }
+      };
+    },
+  },
+  {
+    name: "css-tree tree",
+    color: "#06D6A0",
+    prepare: declarationTrees,
+    async load() {
+      const { lexer } = await import("css-tree");
+      return (list: [string, string][]) => {
+        for (const [property, value] of list) lexer.matchProperty(property, value);
+      };
+    },
+  },
+  {
+    name: "css-tree",
+    color: "#3A86FF",
+    prepare: declarations,
+    async load() {
+      const { lexer } = await import("css-tree");
+      return (list: [string, string][]) => {
+        for (const [property, value] of list) lexer.matchProperty(property, value);
+      };
+    },
+  },
+];
+
+// validating a style sheet: every declaration matched, its tree and error read
+const VALIDATORS: Parser[] = [
+  {
+    name: "yuku-css",
+    color: "#FF6B35",
+    async load() {
+      const { lexer } = await import("yuku-css/lexer");
+      return (source: string) => {
+        for (const declaration of lexer.matchStylesheet(source)) {
+          void declaration.matched;
+          void declaration.error;
+        }
+      };
+    },
+  },
+  {
+    name: "yuku-css unread",
+    color: "#FFA07A",
+    async load() {
+      const { lexer } = await import("yuku-css/lexer");
+      return (source: string) => lexer.matchStylesheet(source);
+    },
+  },
+  {
+    name: "css-tree",
+    color: "#3A86FF",
+    async load() {
+      const { lexer, parse, walk } = await import("css-tree");
+      // css-tree's way: parse with values, then match each declaration's tree
+      return (source: string) => {
+        walk(parse(source), { visit: "Declaration", enter: (node) => void lexer.matchDeclaration(node) });
+      };
+    },
+  },
+];
+
+// `node bench/index.ts tokenize`, `generate`, `match` or `validate` times tokenizing, printing,
+// matching every declaration or validating each file instead, and leaves the chart alone
+const task = ["tokenize", "generate", "match", "validate"].includes(process.argv[2]!) ? process.argv[2]! : "parse";
+const suite = { tokenize: TOKENIZERS, generate: GENERATORS, match: MATCHERS, validate: VALIDATORS }[task] ?? PARSERS;
 const child = suite.find((parser) => parser.name === process.argv[3]);
 if (child === undefined) main();
 else process.stdout.write(String(await time(child)));
@@ -133,7 +270,7 @@ function main(): void {
     return { ...parser, microseconds: median(runs) };
   });
   console.table(
-    results.map(({ name, microseconds }) => ({ [task === "parse" ? "parser" : task === "tokenize" ? "tokenizer" : "generator"]: name, "per file": format(microseconds) })),
+    results.map(({ name, microseconds }) => ({ [{ parse: "parser", tokenize: "tokenizer", generate: "generator" }[task] ?? "lexer"]: name, "per file": format(microseconds) })),
   );
   if (task === "parse") writeFileSync(new URL("chart.svg", import.meta.url), chart(results));
 }

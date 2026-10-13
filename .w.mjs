@@ -1,0 +1,10 @@
+import { readdirSync, readFileSync } from "node:fs";
+const dir = "test/corpus/";
+const files = readdirSync(dir).map(f => readFileSync(dir + f, "utf8"));
+const e = new WebAssembly.Instance(new WebAssembly.Module(readFileSync("zig-out/bin/yuku-css-lexer.wasm"))).exports;
+const id = e.createLexer(1, 1);
+const enc2 = files.map(s => new TextEncoder().encode(s));
+const run = () => { for (const b of enc2) { const p = e.inputBuffer(b.length + 1); new Uint8Array(e.memory.buffer, p, b.length).set(b); e.validate(id, b.length); } };
+for (let i = 0; i < 5; i++) run();
+const t = []; for (let r = 0; r < 21; r++) { const s = performance.now(); run(); t.push(performance.now() - s); } t.sort((a,b)=>a-b);
+console.log("wasm validate", (t[10] * 1000 / files.length).toFixed(1), "µs/file");

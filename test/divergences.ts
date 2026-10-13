@@ -97,17 +97,89 @@ export const divergences: Divergence[] = [
     spec: "none, a bound on recursion",
     fixtures: [],
   },
+  {
+    rule:
+      "The lexer's grammar is @webref/css, where rgb() reads through <legacy-rgb-syntax> and <modern-rgb-syntax>, " +
+      "so a trace into rgb() names one more type than css-tree's mdn-data grammar gives",
+    spec: "css-color-4 §5.1 the rgb() and rgba() functions",
+    fixtures: ["lexer-match-result.js > lexer match result > getTrace()"],
+  },
+  {
+    rule:
+      "The lexer's grammar is @webref/css, where `font` and `font-family` list <font-family-name>, " +
+      "which css-tree's mdn-data grammar calls <family-name>",
+    spec: "css-fonts-4 §2.1 font family: the font-family property",
+    fixtures: [
+      "lexer-search-fragments.js > lexer search fragments > findValueFragments() > should find multiple entries",
+      "lexer-search-fragments.js > lexer search fragments > findDeclarationValueFragments() > should find multiple entries",
+    ],
+  },
+  {
+    rule:
+      "A lexer reads every definition it is given when it is made, so `createLexer` throws on bad definition syntax; " +
+      "css-tree throws when the definition is first matched",
+    spec: "none: an error at the call that brought the bad syntax in",
+    fixtures: [],
+  },
+  {
+    rule:
+      "Definition syntax nests at most 64 groups deep, and a multiplier's minimum is at most 65535 and its maximum fits " +
+      "32 bits, where css-tree has no bound; deeper or larger is a `Nesting is too deep` or `Number is too large` error",
+    spec: "none: the parser's recursion and the packed tree are bounded",
+    fixtures: [],
+  },
+  {
+    rule:
+      "Keyword and enum matching lowercase only ASCII letters of the value, where css-tree's enum lowercases with " +
+      "JavaScript's Unicode `toLowerCase`, so a non-ASCII letter that lowercases to ASCII, as U+212A to `k`, matches no keyword",
+    spec: "css-values-4 §4.2 keywords match ASCII case-insensitively",
+    fixtures: [],
+  },
+  {
+    rule:
+      "Range checks read a number exactly up to 19 significant digits with an exponent within 22, and beyond within an " +
+      "ulp or two of JavaScript's `Number`, so only a value at the very bound of a range could read otherwise",
+    spec: "none: a small decimal reader in place of a full float parser",
+    fixtures: [],
+  },
+  {
+    rule:
+      "`fork` extends the grammar only, so its config has no `node` definitions to add or check; the structure " +
+      "`checkStructure` checks is css-tree's, with yuku-css's numeric `start` and `end` in place of `loc` and arrays as lists",
+    spec: "none: the parser's node types are fixed, as css-tree's tree",
+    fixtures: [
+      "lexer-check-structure.js > Lexer#checkStructure() > structure in AST node definition > should fail when no structure field in node definition",
+      "lexer-check-structure.js > Lexer#checkStructure() > structure in AST node definition > should fail on bad value in structure",
+    ],
+  },
+  {
+    rule: "A lone `+` at the end of a value matched as <an-plus-b> does not match, where css-tree throws a TypeError",
+    spec: "css-syntax-3 §6 the An+B microsyntax",
+    fixtures: [],
+  },
 ];
 
 const GENERATOR = "pending: no generator yet";
-const LEXER = "pending: no lexer yet";
 
 // fixtures of what yuku-css does not build yet: a fixture id, a fixture file, or a directory ending in `/`
 export const pending: Record<string, string> = {
-  "definition-syntax/": LEXER,
-  "definition-syntax-match/": LEXER,
   "sourceMaps/": GENERATOR,
 };
+
+/**
+ * Where the grammar, from `@webref/css`, and css-tree's, from mdn-data, disagree on a corpus
+ * declaration: the property and whether yuku-css matches it.
+ */
+export const grammarDivergences: { property: string; reason: string }[] = [
+  {
+    property: "position-visibility does not match",
+    reason: "css-anchor-position-1 renamed `anchors-visible` to `anchor-visible`; mdn-data keeps the old name",
+  },
+  {
+    property: "-webkit-touch-callout does not match",
+    reason: "no spec defines `-webkit-touch-callout`, so webref has no such property; mdn-data lists it",
+  },
+];
 
 const reasons = new Map<string, string>();
 for (const { rule, spec, fixtures } of divergences) for (const id of fixtures) reasons.set(id, `${rule} (${spec})`);
