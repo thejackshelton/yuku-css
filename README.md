@@ -123,6 +123,15 @@ Median time per file over 3 runs, each in a fresh Node.js 24 process on an Apple
 | yuku-css, with a source map | 23.7 µs |
 | css-tree, with a source map | 53.5 µs |
 
+`node bench/index.ts match` matches every declaration of each file, 51 on average, with `matchProperty`. `yuku-css` reads each result's `matched` and `error`, so it builds the tree and error css-tree builds; `yuku-css unread` reads neither, as a caller that only keeps valid values; `css-tree webref` is css-tree over yuku-css's grammar:
+
+| lexer | per file |
+|---|---|
+| yuku-css | 84.0 µs |
+| yuku-css unread | 29.0 µs |
+| css-tree webref | 127.8 µs |
+| css-tree | 132.3 µs |
+
 ## Development
 
 Needs [Zig](https://ziglang.org) 0.17 and [Bun](https://bun.sh).
