@@ -65,7 +65,7 @@ let exports: Exports | undefined;
 export function parse(source: string, options: ParseOptions & { positions: true }): ParseResult<Positions>;
 export function parse(source: string, options?: ParseOptions): ParseResult<Offsets>;
 export function parse(source: string, options: ParseOptions = {}): ParseResult<Position> {
-  const flags = options.parseRulePrelude === false ? 0 : 1;
+  const flags = (options.parseRulePrelude === false ? 0 : 1) | (options.positions === true ? 2 : 0);
   return run(source, (pointer, len) => exports!.parse(pointer, len, flags), (at) => decode(memoryOf(), at, source, options));
 }
 

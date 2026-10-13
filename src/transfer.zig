@@ -8,6 +8,7 @@
 //   strings       string_pool_len bytes of UTF-8, zero-padded to a 4-byte boundary
 //   diagnostics   diagnostic_count * DIAGNOSTIC_SIZE
 //   utf16         utf16_count * 2 u32, see `Utf16`
+//   lines         line_count u32, the byte offset where each line after the first starts
 //
 // node fields
 //
@@ -41,6 +42,7 @@ const Header = extern struct {
     // positions below this need no UTF-16 conversion
     first_non_ascii: u32,
     utf16_count: u32,
+    line_count: u32,
 };
 
 const PackedNode = extern struct {
@@ -81,6 +83,7 @@ pub const HDR_DIAGNOSTIC_COUNT_U32: u32 = @offsetOf(Header, "diagnostic_count") 
 pub const HDR_ROOT_U32: u32 = @offsetOf(Header, "root") / 4;
 pub const HDR_FIRST_NON_ASCII_U32: u32 = @offsetOf(Header, "first_non_ascii") / 4;
 pub const HDR_UTF16_COUNT_U32: u32 = @offsetOf(Header, "utf16_count") / 4;
+pub const HDR_LINE_COUNT_U32: u32 = @offsetOf(Header, "line_count") / 4;
 
 pub const TOKENS_COUNT_U32: u32 = @offsetOf(TokensHeader, "token_count") / 4;
 pub const TOKENS_SOURCE_LEN_U32: u32 = @offsetOf(TokensHeader, "source_len") / 4;
@@ -158,17 +161,18 @@ pub fn totalFlagBits(comptime T: type) u8 {
     return flagBitForField(T, @typeInfo(T).@"struct".field_types.len);
 }
 
-pub fn bufferSize(tree: *const ast.Tree, utf16: Utf16) usize {
+pub fn bufferSize(tree: *const ast.Tree, utf16: Utf16, lines: Lines) usize {
     return HEADER_SIZE +
         tree.nodes.len * NODE_SIZE +
         tree.extras.items.len * 4 +
         std.mem.alignForward(usize, tree.strings.extra.items.len, 4) +
         tree.diagnostics.items.len * DIAGNOSTIC_SIZE +
-        utf16.count * 8;
+        utf16.count * 8 +
+        lines.count * 4;
 }
 
-pub fn serializeInto(tree: *const ast.Tree, utf16: Utf16, buf: []u8) usize {
-    std.debug.assert(buf.len >= bufferSize(tree, utf16));
+pub fn serializeInto(tree: *const ast.Tree, utf16: Utf16, lines: Lines, buf: []u8) usize {
+    std.debug.assert(buf.len >= bufferSize(tree, utf16, lines));
     std.debug.assert(@intFromPtr(buf.ptr) % 4 == 0);
     std.debug.assert(@backingInt(tree.root) + 1 == tree.nodes.len);
 
@@ -182,6 +186,7 @@ pub fn serializeInto(tree: *const ast.Tree, utf16: Utf16, buf: []u8) usize {
         .root = @backingInt(tree.root),
         .first_non_ascii = utf16.first,
         .utf16_count = utf16.count,
+        .line_count = lines.count,
     };
     var pos: usize = 0;
     writeBytes(buf, &pos, std.mem.asBytes(&header));
@@ -206,7 +211,8 @@ pub fn serializeInto(tree: *const ast.Tree, utf16: Utf16, buf: []u8) usize {
     pos += tree.diagnostics.items.len * DIAGNOSTIC_SIZE;
 
     pos += utf16.write(tree.source, buf[pos..]);
-    std.debug.assert(pos == bufferSize(tree, utf16));
+    pos += lines.write(tree.source, buf[pos..]);
+    std.debug.assert(pos == bufferSize(tree, utf16, lines));
     return pos;
 }
 
@@ -267,6 +273,62 @@ pub const Utf16 = struct {
         return n * 4;
     }
 };
+
+/// Where each line after the first starts, for css-tree's `loc`: past `\n`, `\r\n`, `\r`, or `\f`.
+pub const Lines = struct {
+    count: u32,
+
+    pub const none: Lines = .{ .count = 0 };
+
+    pub fn init(source: []const u8) Lines {
+        var count: u32 = 0;
+        var i = nextBreak(source, 0);
+        while (i < source.len) : (i = nextBreak(source, i)) {
+            i += breakLen(source, i);
+            count += 1;
+        }
+        return .{ .count = count };
+    }
+
+    fn write(lines: Lines, source: []const u8, buf: []u8) usize {
+        if (lines.count == 0) return 0;
+        const out: [*]u32 = @ptrCast(@alignCast(buf.ptr));
+        var n: usize = 0;
+        var i = nextBreak(source, 0);
+        while (i < source.len) : (i = nextBreak(source, i)) {
+            i += breakLen(source, i);
+            out[n] = i;
+            n += 1;
+        }
+        std.debug.assert(n == lines.count);
+        return n * 4;
+    }
+};
+
+fn breakLen(source: []const u8, i: u32) u32 {
+    return if (source[i] == '\r' and i + 1 < source.len and source[i + 1] == '\n') 2 else 1;
+}
+
+// eight bytes at a time: a word holds a byte `b` when `w ^ b` has a zero byte
+fn nextBreak(source: []const u8, from: u32) u32 {
+    const ones: u64 = 0x0101010101010101;
+    const high: u64 = 0x8080808080808080;
+    var i: usize = from;
+    while (i + 8 <= source.len) : (i += 8) {
+        const w = std.mem.readInt(u64, source[i..][0..8], .little);
+        var found: u64 = 0;
+        inline for ("\n\r\x0C") |b| {
+            const x = w ^ (ones * b);
+            found |= (x -% ones) & ~x & high;
+        }
+        if (found != 0) break;
+    }
+    while (i < source.len) : (i += 1) switch (source[i]) {
+        '\n', '\r', 0x0C => break,
+        else => {},
+    };
+    return @intCast(i);
+}
 
 fn charLen(lead: u8) u32 {
     return if (lead < 0xE0) 2 else if (lead < 0xF0) 3 else 4;
@@ -334,10 +396,19 @@ test "serializes" {
     defer tree.deinit();
     const utf16: Utf16 = .init(source);
     try std.testing.expectEqual(Utf16{ .first = 1, .count = 2 }, utf16);
-    const buf = try std.testing.allocator.alignedAlloc(u8, .@"4", bufferSize(&tree, utf16));
+    const buf = try std.testing.allocator.alignedAlloc(u8, .@"4", bufferSize(&tree, utf16, .none));
     defer std.testing.allocator.free(buf);
-    try std.testing.expectEqual(buf.len, serializeInto(&tree, utf16, buf));
+    try std.testing.expectEqual(buf.len, serializeInto(&tree, utf16, .none, buf));
     const breakpoints: []const u32 = @ptrCast(@alignCast(buf[buf.len - 16 ..]));
     try std.testing.expectEqualSlices(u32, &.{ 3, 1, source.len - 2, 3 }, breakpoints);
     try std.testing.expectEqual(8, firstNonAscii("abcdefghé", 0));
+}
+
+test "finds where lines start" {
+    const source = "a\nb\r\nc\rd\x0Ce lorem ipsum dolor\n";
+    const lines: Lines = .init(source);
+    try std.testing.expectEqual(5, lines.count);
+    var buf: [20]u8 align(4) = undefined;
+    try std.testing.expectEqual(20, lines.write(source, &buf));
+    try std.testing.expectEqualSlices(u32, &.{ 2, 5, 7, 9, source.len }, @as(*const [5]u32, @ptrCast(&buf)));
 }

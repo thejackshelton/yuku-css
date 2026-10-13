@@ -46,7 +46,7 @@ fn generate(w: *Writer) Writer.Error!void {
     );
     try writeTables(w);
     try writeUtf16(w);
-    try writeBuildLines(w);
+    try writeLines(w);
     try writeDecode(w);
     try writeDecodeTokens(w);
     try w.writeAll("export { decode, decodeTokens, tokenNames, tokenTypes };\n");
@@ -97,30 +97,29 @@ fn writeUtf16(w: *Writer) !void {
     );
 }
 
-// css-tree's OffsetToLocation
-fn writeBuildLines(w: *Writer) !void {
+// css-tree's OffsetToLocation, from the line starts Zig writes: lines and columns count from
+// `line` and `column`, a line after the first from column 1, and a byte order mark has neither
+fn writeLines(w: *Writer) !void {
     try w.writeAll(
-        \\function buildLines(src, line, column) {
-        \\  const len = src.length;
-        \\  const lines = new Uint32Array(len + 1), columns = new Uint32Array(len + 1);
-        \\  const first = src.charCodeAt(0);
-        \\  for (let i = first === 0xFEFF || first === 0xFFFE ? 1 : 0; i < len; i++) {
-        \\    const c = src.charCodeAt(i);
-        \\    lines[i] = line;
-        \\    columns[i] = column++;
-        \\    if (c === 10 || c === 13 || c === 12) {
-        \\      if (c === 13 && i + 1 < len && src.charCodeAt(i + 1) === 10) {
-        \\        i++;
-        \\        lines[i] = line;
-        \\        columns[i] = column;
+        \\function lines(src, starts, line, column, base) {
+        \\  const count = starts.length;
+        \\  const first = src.charCodeAt(0) === 0xFEFF || src.charCodeAt(0) === 0xFFFE ? 1 : 0;
+        \\  let j = 0;
+        \\  return (offset) => {
+        \\    if (offset < first) return { offset: base + offset, line: 0, column: 0 };
+        \\    if ((j > 0 && starts[j - 1] > offset) || (j < count && starts[j] <= offset)) {
+        \\      let lo = 0, hi = count;
+        \\      while (lo < hi) {
+        \\        const mid = (lo + hi) >>> 1;
+        \\        if (starts[mid] <= offset) lo = mid + 1;
+        \\        else hi = mid;
         \\      }
-        \\      line++;
-        \\      column = 1;
+        \\      j = lo;
         \\    }
-        \\  }
-        \\  lines[len] = line;
-        \\  columns[len] = column;
-        \\  return [lines, columns];
+        \\    return j === 0
+        \\      ? { offset: base + offset, line, column: column + offset - first }
+        \\      : { offset: base + offset, line: line + j, column: offset - starts[j - 1] + 1 };
+        \\  };
         \\}
         \\
     );
@@ -158,17 +157,15 @@ fn writeDecode(w: *Writer) !void {
         \\    return r;
         \\  }}
         \\  const positions = options.positions === true;
-        \\  let _lines, _columns, _file, _base;
+        \\  let point, file;
         \\  if (positions) {{
-        \\    [_lines, _columns] = buildLines(_src, options.line ?? 1, options.column ?? 1);
-        \\    _file = options.filename || "<unknown>";
-        \\    _base = options.offset ?? 0;
+        \\    const lineBase = _dBase + diagCount * {[dstride]d} + _u32[{[u16]d}] * 2;
+        \\    const starts = new Array(_u32[{[lc]d}]);
+        \\    for (let j = 0; j < starts.length; j++) starts[j] = _p(_u32[lineBase + j]);
+        \\    point = lines(_src, starts, options.line ?? 1, options.column ?? 1, options.offset ?? 0);
+        \\    file = options.filename || "<unknown>";
         \\  }}
-        \\  const loc = (s, e) => ({{
-        \\    source: _file,
-        \\    start: {{ offset: _base + s, line: _lines[s], column: _columns[s] }},
-        \\    end: {{ offset: _base + e, line: _lines[e], column: _columns[e] }},
-        \\  }});
+        \\  const loc = (s, e) => ({{ source: file, start: point(s), end: point(e) }});
         \\
     , .{
         .src = rt.HDR_SOURCE_LEN_U32,
@@ -182,6 +179,7 @@ fn writeDecode(w: *Writer) !void {
         .size = rt.NODE_SIZE,
         .dstride = rt.DIAGNOSTIC_SIZE / 4,
         .u16 = rt.HDR_UTF16_COUNT_U32,
+        .lc = rt.HDR_LINE_COUNT_U32,
     });
     try writeNodeFunction(w, .offsets);
     try writeNodeFunction(w, .location);

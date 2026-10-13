@@ -115,27 +115,25 @@ function utf16(u32, base, count, firstNa) {
     return j === 0 ? v : v - u32[base + 2 * j - 1];
   };
 }
-function buildLines(src, line, column) {
-  const len = src.length;
-  const lines = new Uint32Array(len + 1), columns = new Uint32Array(len + 1);
-  const first = src.charCodeAt(0);
-  for (let i = first === 0xFEFF || first === 0xFFFE ? 1 : 0; i < len; i++) {
-    const c = src.charCodeAt(i);
-    lines[i] = line;
-    columns[i] = column++;
-    if (c === 10 || c === 13 || c === 12) {
-      if (c === 13 && i + 1 < len && src.charCodeAt(i + 1) === 10) {
-        i++;
-        lines[i] = line;
-        columns[i] = column;
+function lines(src, starts, line, column, base) {
+  const count = starts.length;
+  const first = src.charCodeAt(0) === 0xFEFF || src.charCodeAt(0) === 0xFFFE ? 1 : 0;
+  let j = 0;
+  return (offset) => {
+    if (offset < first) return { offset: base + offset, line: 0, column: 0 };
+    if ((j > 0 && starts[j - 1] > offset) || (j < count && starts[j] <= offset)) {
+      let lo = 0, hi = count;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (starts[mid] <= offset) lo = mid + 1;
+        else hi = mid;
       }
-      line++;
-      column = 1;
+      j = lo;
     }
-  }
-  lines[len] = line;
-  columns[len] = column;
-  return [lines, columns];
+    return j === 0
+      ? { offset: base + offset, line, column: column + offset - first }
+      : { offset: base + offset, line: line + j, column: offset - starts[j - 1] + 1 };
+  };
 }
 function decode(buffer, at, source, options) {
   const _u8 = new Uint8Array(buffer, at);
@@ -145,7 +143,7 @@ function decode(buffer, at, source, options) {
   const _firstNa = _u32[6];
   const nodeCount = _u32[0], extraCount = _u32[1], spLen = _u32[2];
   const diagCount = _u32[4], root = _u32[5];
-  const _extraBase = (32 + nodeCount * 32) >> 2;
+  const _extraBase = (36 + nodeCount * 32) >> 2;
   const _spOff = (_extraBase + extraCount) * 4;
   const _dBase = (_spOff + ((spLen + 3) & ~3)) >> 2;
   const _p = utf16(_u32, _dBase + diagCount * 3, _u32[7], _firstNa);
@@ -167,20 +165,18 @@ function decode(buffer, at, source, options) {
     return r;
   }
   const positions = options.positions === true;
-  let _lines, _columns, _file, _base;
+  let point, file;
   if (positions) {
-    [_lines, _columns] = buildLines(_src, options.line ?? 1, options.column ?? 1);
-    _file = options.filename || "<unknown>";
-    _base = options.offset ?? 0;
+    const lineBase = _dBase + diagCount * 3 + _u32[7] * 2;
+    const starts = new Array(_u32[8]);
+    for (let j = 0; j < starts.length; j++) starts[j] = _p(_u32[lineBase + j]);
+    point = lines(_src, starts, options.line ?? 1, options.column ?? 1, options.offset ?? 0);
+    file = options.filename || "<unknown>";
   }
-  const loc = (s, e) => ({
-    source: _file,
-    start: { offset: _base + s, line: _lines[s], column: _columns[s] },
-    end: { offset: _base + e, line: _lines[e], column: _columns[e] },
-  });
+  const loc = (s, e) => ({ source: file, start: point(s), end: point(e) });
   function _offsets(i, depth) {
     if (depth >= DEPTH_MAX) return _deep(i);
-    const b = (i * 32 + 32) >> 2;
+    const b = (i * 32 + 36) >> 2;
     const h0 = _u32[b];
     const flags = h0 >>> 16;
     let start = _u32[b + 6], end = _u32[b + 7];
@@ -215,7 +211,7 @@ function decode(buffer, at, source, options) {
   }
   function _location(i, depth) {
     if (depth >= DEPTH_MAX) return _deep(i);
-    const b = (i * 32 + 32) >> 2;
+    const b = (i * 32 + 36) >> 2;
     const h0 = _u32[b];
     const flags = h0 >>> 16;
     let start = _u32[b + 6], end = _u32[b + 7];
