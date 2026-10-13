@@ -46,6 +46,7 @@ export fn parseSyntax(ptr: [*]const u8, len: u32) u32 {
 }
 
 fn parseSyntaxBuffer(source: []const u8) ![]u8 {
+    assert(source.len < std.math.maxInt(u32));
     var nodes: std.ArrayList(syntax.Node) = .empty;
     defer nodes.deinit(gpa);
     var why: syntax.Failure = undefined;
@@ -192,6 +193,7 @@ export fn match(id: u32, descriptor: u32, css_wide: u32, len: u32) u32 {
 const header_words = 10;
 
 fn matchWords(l: *Lexer, descriptor: u32, css_wide: bool, source: []const u8) !void {
+    assert(descriptor < l.descriptors.items.len);
     tokens.clearRetainingCapacity();
     try css.tokenize(gpa, &tokens, source);
     const view: generic.Tokens = .{
@@ -272,6 +274,8 @@ const Listing = struct {
         atrule: []const u8,
         descriptor: u32,
     ) !void {
+        assert(name.len < std.math.maxInt(u32));
+        assert(atrule.len < std.math.maxInt(u32));
         try self.entries.appendSlice(
             gpa,
             &.{ @backingInt(kind), descriptor, @intCast(name.len), @intCast(atrule.len) },
@@ -282,6 +286,7 @@ const Listing = struct {
 };
 
 fn namesBuffer(l: *Lexer) ![]u8 {
+    assert(l.descriptors.items.len > 0);
     var listing: Listing = .{};
     defer listing.entries.deinit(gpa);
     defer listing.text.deinit(gpa);
@@ -294,6 +299,7 @@ fn namesBuffer(l: *Lexer) ![]u8 {
         std.mem.sliceAsBytes(listing.entries.items),
     );
     @memcpy(out[8 + 4 * listing.entries.items.len ..], listing.text.items);
+    assert(listing.entries.items.len % 4 == 0);
     return out;
 }
 

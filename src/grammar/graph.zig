@@ -114,6 +114,7 @@ pub const Builder = struct {
     resolver: Resolver,
 
     fn add(b: *Builder, n: Node) !u32 {
+        assert(b.graph.nodes.items.len >= 3);
         const index: u32 = @intCast(b.graph.nodes.items.len);
         assert(index < none);
         try b.graph.nodes.append(b.gpa, n);
@@ -127,6 +128,8 @@ pub const Builder = struct {
 
     /// css-tree's `createCondition`, with its reductions.
     fn condition(b: *Builder, match_: u32, then_: u32, else_: u32) !u32 {
+        assert(match_ < b.graph.nodes.items.len);
+        assert(then_ < b.graph.nodes.items.len and else_ < b.graph.nodes.items.len);
         if (then_ == match and else_ == mismatch) return match_;
         if (match_ == match and then_ == match and else_ == match) return match_;
         var m = match_;
@@ -148,6 +151,7 @@ pub const Builder = struct {
     /// css-tree's `matchRef`: a property whose definition is one comma-separated multiplier
     /// matches a single item where another definition references it.
     pub fn propertyReference(b: *Builder, root: u32, descriptor: u32) !u32 {
+        assert(root < b.defs.count());
         const group = b.defs.node(root);
         assert(group.tag == .group);
         if (group.flags & syntax.flag.explicit != 0 or group.len != 1) return none;
@@ -238,6 +242,8 @@ pub const Builder = struct {
     }
 
     fn enumCompatible(b: *const Builder, index: u32) bool {
+        assert(index < b.graph.nodes.items.len);
+        assert(index > disallow_empty);
         const n = b.graph.node(index);
         return switch (n.kind) {
             .keyword, .at_keyword, .function => true,
@@ -248,6 +254,8 @@ pub const Builder = struct {
 
     /// The key an enum files a term under, as pieces: a prefix, a name, a suffix.
     pub fn enumKey(defs: *const Defs, n: Node) [3][]const u8 {
+        assert(n.b != none);
+        assert(n.kind != .type or defs.text(n.b).len > 2);
         const name = defs.text(n.b);
         return switch (n.kind) {
             .keyword => .{ "", name, "" },
@@ -259,6 +267,8 @@ pub const Builder = struct {
     }
 
     fn sameKey(defs: *const Defs, a: Node, b: Node) bool {
+        assert(a.b != none);
+        assert(b.b != none);
         const x = enumKey(defs, a);
         const y = enumKey(defs, b);
         const lx = x[0].len + x[1].len + x[2].len;
@@ -271,12 +281,16 @@ pub const Builder = struct {
     }
 
     pub fn keyByte(key: [3][]const u8, i: usize) u8 {
+        assert(i < key[0].len + key[1].len + key[2].len);
+        assert(key[0].len <= 1 and key[2].len <= 1);
         if (i < key[0].len) return key[0][i];
         if (i < key[0].len + key[1].len) return key[1][i - key[0].len];
         return key[2][i - key[0].len - key[1].len];
     }
 
     pub fn hashKey(key: [3][]const u8) u32 {
+        assert(key[0].len <= 1 and key[2].len <= 1);
+        assert(key[0].len + key[1].len + key[2].len > 0);
         var h: u32 = 2166136261;
         for (key) |piece| for (piece) |c| {
             h = (h ^ std.ascii.toLower(c)) *% 16777619;
@@ -314,6 +328,8 @@ pub const Builder = struct {
         terms: []const u32,
         at_least_one: bool,
     ) !u32 {
+        assert(terms.len <= std.math.maxInt(u16));
+        for (terms) |term| assert(term < b.graph.nodes.items.len);
         switch (combinator) {
             .juxtapose => {
                 var result: u32 = match;
@@ -398,6 +414,8 @@ pub const Builder = struct {
 
     /// css-tree's `buildMultiplierMatchGraph`.
     fn multiplier(b: *Builder, index: u32, depth: u32) !u32 {
+        assert(b.defs.node(index).tag == .multiplier);
+        assert(depth <= depth_max);
         const def = b.defs.node(index);
         const min: u32 = def.len;
         const max = def.data;
@@ -439,6 +457,8 @@ pub const Builder = struct {
     /// css-tree's `<boolean-expr[ test ]>`: its expansion, with the test and the groups put in
     /// for the placeholders.
     fn boolean(b: *Builder, index: u32, depth: u32) !u32 {
+        assert(b.defs.node(index).tag == .boolean);
+        assert(depth <= depth_max);
         const term = try b.build(index + 1, depth + 1);
         const root = try b.defs.booleanExpansion(b.gpa);
         const expression = try b.build(root, depth + 1);
@@ -471,6 +491,7 @@ pub const Builder = struct {
         visited: *std.AutoHashMapUnmanaged(u32, void),
         depth: u32,
     ) !u32 {
+        assert(index < b.graph.nodes.items.len);
         assert(depth <= b.graph.nodes.items.len);
         if ((try visited.getOrPut(b.gpa, index)).found_existing) return index;
         const n = b.graph.node(index);

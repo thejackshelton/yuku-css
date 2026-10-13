@@ -13,6 +13,7 @@ fn isDelim(t: *const Tokens, i: u32, c: u8) bool {
 // hex digits from `offset`, up to six; a dash after some digits ends the first number, and then
 // css-tree claims six, so no question mark may follow
 fn hexSequence(value: []const u8, offset: u32, allow_dash: bool) u32 {
+    assert(offset <= value.len);
     var len: u32 = 0;
     var at = offset;
     while (at < value.len) : (at += 1) {
@@ -27,6 +28,8 @@ fn hexSequence(value: []const u8, offset: u32, allow_dash: bool) u32 {
 }
 
 fn withQuestionMarks(t: *const Tokens, base: u32, consumed_: u32, length_: u32) u32 {
+    assert(consumed_ <= 6);
+    assert(base + length_ <= t.len());
     if (consumed_ == 0) return 0;
     var consumed = consumed_;
     var length = length_;
@@ -40,6 +43,14 @@ fn withQuestionMarks(t: *const Tokens, base: u32, consumed_: u32, length_: u32) 
 
 /// How many tokens from `at` a `<urange>` takes, 0 for none.
 pub fn match(t: *const Tokens, at: u32) u32 {
+    assert(at <= t.len());
+    const count = matchAt(t, at);
+    assert(count == 0 or at + count <= t.len());
+    return count;
+}
+
+fn matchAt(t: *const Tokens, at: u32) u32 {
+    assert(at <= t.len());
     if (at >= t.len() or t.tag(at) != .ident or t.text(at)[0] | 0x20 != 'u') return 0;
     var length: u32 = 1;
     if (at + length >= t.len()) return 0;
@@ -69,5 +80,6 @@ pub fn match(t: *const Tokens, at: u32) u32 {
     if (tag == .dimension) {
         return withQuestionMarks(t, at, hexSequence(t.text(at + length), 1, true), length + 1);
     }
+    assert(tag != .number and tag != .dimension);
     return 0;
 }

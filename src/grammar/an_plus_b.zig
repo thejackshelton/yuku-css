@@ -24,18 +24,19 @@ fn isN(s: []const u8, i: usize) bool {
 
 // past whitespace and comments from `offset`
 fn skipSpace(t: *const Tokens, base: u32, offset: u32) u32 {
+    assert(base + offset <= t.len());
     var at = offset;
-    while (valid(
-        t,
-        base + at,
-    ) and (t.tag(base + at) == .whitespace or t.tag(base + at) == .comment)) {
-        at += 1;
+    while (valid(t, base + at)) : (at += 1) {
+        const tag = t.tag(base + at);
+        if (tag != .whitespace and tag != .comment) break;
     }
-    assert(base + at <= t.len());
+    assert(at >= offset and base + at <= t.len());
     return at;
 }
 
 fn checkInteger(t: *const Tokens, i: u32, value_offset: u32, disallow_sign: bool, offset: u32) u32 {
+    assert(i >= offset);
+    assert(offset <= t.len());
     if (!valid(t, i)) return 0;
     const value = t.text(i);
     var at = value_offset;
@@ -47,11 +48,14 @@ fn checkInteger(t: *const Tokens, i: u32, value_offset: u32, disallow_sign: bool
     while (at < value.len) : (at += 1) {
         if (!std.ascii.isDigit(value[at])) return 0;
     }
+    assert(at >= value_offset);
     return offset + 1;
 }
 
 // `<signed-integer>` or `['+' | '-'] <signless-integer>` after `offset_` tokens, if any
 fn consumeB(t: *const Tokens, base: u32, offset_: u32) u32 {
+    assert(offset_ >= 1);
+    assert(base + offset_ <= t.len());
     var signed = false;
     var offset = skipSpace(t, base, offset_);
     if (!valid(t, base + offset)) return offset_;
@@ -70,6 +74,14 @@ fn consumeB(t: *const Tokens, base: u32, offset_: u32) u32 {
 
 /// How many tokens from `at` an An+B takes, 0 for none.
 pub fn match(t: *const Tokens, at: u32) u32 {
+    assert(at <= t.len());
+    const count = matchAt(t, at);
+    assert(count == 0 or at + count <= t.len());
+    return count;
+}
+
+fn matchAt(t: *const Tokens, at: u32) u32 {
+    assert(at <= t.len());
     if (!valid(t, at)) return 0;
     const tag = t.tag(at);
     const value = t.text(at);
@@ -121,5 +133,6 @@ pub fn match(t: *const Tokens, at: u32) u32 {
         }
         return checkInteger(t, at, i + 2, true, 0);
     }
+    assert(tag != .number);
     return 0;
 }

@@ -36,6 +36,7 @@ pub const Combinator = enum(u2) {
     one,
 
     pub fn text(combinator: Combinator) []const u8 {
+        assert(@backingInt(combinator) < 4);
         return switch (combinator) {
             .juxtapose => " ",
             .all => "&&",
@@ -192,11 +193,14 @@ pub const Parser = struct {
 
     fn fail(p: *Parser, message: Message) Error {
         @branchHint(.cold);
+        assert(p.pos <= p.source.len);
         p.failure = .{ .message = message, .offset = p.pos };
+        assert(message != .expect_char);
         return error.Syntax;
     }
 
     fn eat(p: *Parser, c: u8) Error!void {
+        assert(p.pos <= p.source.len);
         assert(c != 0);
         if (p.char() != c) {
             p.failure = .{ .message = .expect_char, .char = c, .offset = p.pos };
@@ -206,6 +210,7 @@ pub const Parser = struct {
     }
 
     fn wsEnd(p: *const Parser, from: u32) u32 {
+        assert(from <= p.source.len);
         var at = from;
         while (at < p.source.len and isSpace(p.source[at])) at += 1;
         assert(at <= p.source.len);
@@ -222,12 +227,14 @@ pub const Parser = struct {
 
     // one character, as css-tree's `peek` takes one; here a whole UTF-8 sequence
     fn charLen(p: *const Parser) u32 {
+        assert(p.source.len < std.math.maxInt(u32));
         assert(p.pos < p.source.len);
         const len = std.unicode.utf8ByteSequenceLength(p.source[p.pos]) catch 1;
         return @min(len, @as(u32, @intCast(p.source.len)) - p.pos);
     }
 
     fn word(p: *Parser) Error!u32 {
+        assert(p.pos <= p.source.len);
         const start = p.pos;
         while (p.pos < p.source.len and name_char[p.source[p.pos]]) p.pos += 1;
         if (p.pos == start) return p.fail(.expect_keyword);
@@ -237,6 +244,7 @@ pub const Parser = struct {
     }
 
     fn number(p: *Parser) Error!u32 {
+        assert(p.pos <= p.source.len);
         const start = p.pos;
         while (p.pos < p.source.len and std.ascii.isDigit(p.source[p.pos])) p.pos += 1;
         if (p.pos == start) return p.fail(.expect_number);
@@ -245,6 +253,7 @@ pub const Parser = struct {
     }
 
     fn add(p: *Parser, draft: Draft) Error!u32 {
+        assert(p.drafts.items.len < std.math.maxInt(u32));
         assert(draft.kids_start + draft.kids_len <= p.kids.items.len);
         const index: u32 = @intCast(p.drafts.items.len);
         try p.drafts.append(p.gpa, draft);
@@ -252,6 +261,7 @@ pub const Parser = struct {
     }
 
     fn addWithKids(p: *Parser, node: Node, kids: []const u32) Error!u32 {
+        for (kids) |kid| assert(kid < p.drafts.items.len);
         assert(kids.len <= std.math.maxInt(u16));
         const start: u32 = @intCast(p.kids.items.len);
         try p.kids.appendSlice(p.gpa, kids);
@@ -265,12 +275,15 @@ pub const Parser = struct {
     }
 
     fn named(tag: Tag, start: u32, end: u32) Node {
+        assert(tag != .group and tag != .multiplier);
+        assert(start <= end);
         var node = span(start, end);
         node.tag = tag;
         return node;
     }
 
     fn rangeLimit(p: *Parser) Error!u32 {
+        assert(p.pos <= p.source.len);
         if (p.char() == '-' and std.mem.startsWith(u8, p.source[p.pos + 1 ..], infinity)) {
             p.pos += 1 + infinity.len;
             return p.add(.{ .node = named(.range, p.pos, p.pos) });
@@ -279,11 +292,13 @@ pub const Parser = struct {
         if (p.char() == '-') p.pos += 1;
         _ = try p.number();
         if (p.pos < p.source.len and name_char[p.source[p.pos]]) _ = try p.word();
+        assert(p.pos > start);
         return p.add(.{ .node = named(.range, start, p.pos) });
     }
 
     // `[min,max]` after a type name
     fn typeRange(p: *Parser) Error![2]u32 {
+        assert(p.pos <= p.source.len);
         try p.eat('[');
         const min = try p.rangeLimit();
         p.skipWs();
@@ -306,6 +321,7 @@ pub const Parser = struct {
     }
 
     fn multiplierRange(p: *Parser) Error![2]u32 {
+        assert(p.pos <= p.source.len);
         try p.eat('{');
         p.skipWs();
         const min = try p.integer(try p.number());
@@ -326,6 +342,7 @@ pub const Parser = struct {
     }
 
     fn integer(p: *Parser, start: u32) Error!u32 {
+        assert(p.pos <= p.source.len);
         assert(start < p.pos);
         return std.fmt.parseInt(u32, p.source[start..p.pos], 10) catch {
             p.pos = start;

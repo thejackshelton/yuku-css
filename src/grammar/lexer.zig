@@ -47,6 +47,7 @@ const Table = struct {
     }
 
     fn find(t: Table, key: []const u8) ?u32 {
+        assert(t.names.len == t.roots.len);
         var low: u32 = 0;
         var high: u32 = @intCast(t.names.len);
         // a binary search halves the range each turn
@@ -81,6 +82,7 @@ const Builtin = struct {
 
     // an at-rule's descriptors, a slice of `descriptors`
     fn descriptorsOf(atrule: u32) Descriptors {
+        assert(data.descriptor_names.len == data.descriptor_roots.len);
         assert(atrule < data.atrule_descriptors.len);
         const word = data.atrule_descriptors[atrule];
         return .{ .start = word >> 8, .table = descriptors.slice(word >> 8, word & 0xFF) };
@@ -120,6 +122,7 @@ pub const Lexer = struct {
     owned: std.heap.ArenaAllocator,
 
     pub fn init(gpa: Allocator, defs: *Defs, builtin: bool, generic_types: bool) !Lexer {
+        assert(defs.count() >= defs_.builtin_nodes.len);
         var l: Lexer = .{
             .gpa = gpa,
             .defs = defs,
@@ -168,6 +171,7 @@ pub const Lexer = struct {
     }
 
     pub fn setCssWide(l: *Lexer, source: []const u8) !void {
+        assert(source.len > 0);
         var failure: syntax.Failure = undefined;
         const root = try l.defs.add(l.gpa, source, &failure);
         var b = l.builder();
@@ -185,6 +189,8 @@ pub const Lexer = struct {
     }
 
     fn builder(l: *Lexer) graph_.Builder {
+        assert(l.graph.nodes.items.len >= 3);
+        assert(l.descriptors.items.len >= generic.count);
         return .{
             .gpa = l.gpa,
             .graph = &l.graph,
@@ -204,6 +210,8 @@ pub const Lexer = struct {
     }
 
     pub fn findType(l: *const Lexer, name: []const u8) u32 {
+        assert(name.len <= std.math.maxInt(u16));
+        assert(l.descriptors.items.len >= generic.count);
         if (l.generic) if (generic.find(name)) |g| return @backingInt(g);
         if (l.types.get(name)) |id| return id;
         if (!l.builtin) return none;
@@ -212,6 +220,8 @@ pub const Lexer = struct {
     }
 
     pub fn findProperty(l: *const Lexer, name: []const u8) u32 {
+        assert(name.len <= std.math.maxInt(u16));
+        assert(!l.builtin or l.descriptors.items.len >= Builtin.count);
         if (l.properties.get(name)) |id| return id;
         if (!l.builtin) return none;
         const i = Builtin.properties.find(name) orelse return none;
@@ -220,6 +230,8 @@ pub const Lexer = struct {
 
     /// The at-rule's prelude descriptor, `no_prelude` when it takes none, `none` when unknown.
     pub fn findAtrule(l: *const Lexer, name: []const u8) u32 {
+        assert(name.len <= std.math.maxInt(u16));
+        assert(!l.builtin or l.descriptors.items.len >= Builtin.count);
         if (l.atrules.get(name)) |known| {
             return if (known.prelude == none) no_prelude else known.prelude;
         }
@@ -240,6 +252,8 @@ pub const Lexer = struct {
         atrule_name: []const u8,
         name: []const u8,
     ) DescriptorLookup {
+        assert(atrule_name.len <= std.math.maxInt(u16));
+        assert(!l.builtin or l.descriptors.items.len >= Builtin.count);
         if (l.atrules.getPtr(atrule_name)) |atrule| {
             if (atrule.descriptors.count() == 0) return .no_descriptors;
             const id = atrule.descriptors.get(name) orelse return .unknown;
@@ -284,11 +298,13 @@ pub const Lexer = struct {
 
     /// Declares an at-rule, with no prelude until one is defined.
     pub fn declare(l: *Lexer, name: []const u8) !*Atrule {
+        assert(name.len <= std.math.maxInt(u16));
         const entry = try l.atrules.getOrPut(l.gpa, name);
         if (!entry.found_existing) {
             entry.key_ptr.* = try l.owned.allocator().dupe(u8, name);
             entry.value_ptr.* = .{};
         }
+        assert(std.mem.eql(u8, entry.key_ptr.*, name));
         return entry.value_ptr;
     }
 
@@ -323,6 +339,8 @@ pub const Lexer = struct {
     /// Calls `visit(kind, name, atrule, descriptor)` for every definition the dictionaries hold:
     /// types, properties, then at-rules with their descriptors.
     pub fn each(l: *const Lexer, context: anytype, visit: anytype) !void {
+        assert(l.descriptors.items.len >= generic.count);
+        assert(!l.builtin or l.descriptors.items.len >= Builtin.count);
         if (l.generic) for (0..generic.count) |g| {
             try visit(context, Kind.type, generic.names[g], "", @as(u32, @intCast(g)));
         };

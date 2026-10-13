@@ -128,6 +128,7 @@ pub const Matcher = struct {
     }
 
     fn moveToNextToken(m: *Matcher) void {
+        assert(m.token == none or m.token < m.tokens.len());
         m.token +%= 1;
         while (m.token < m.tokens.len()) : (m.token += 1) {
             const tag = m.tokens.tag(m.token);
@@ -137,12 +138,15 @@ pub const Matcher = struct {
     }
 
     fn pushMatch(m: *Matcher, c: MatchCell) !void {
+        assert(c.entry != .stub);
         assert(c.prev < m.matches.items.len);
         m.match_top = @intCast(m.matches.items.len);
         try m.matches.append(m.gpa, c);
     }
 
     fn pushThen(m: *Matcher, state: u32) !void {
+        assert(state != graph_.match);
+        assert(m.then_top == none or m.then_top < m.thens.items.len);
         const index: u32 = @intCast(m.thens.items.len);
         try m.thens.append(
             m.gpa,
@@ -152,6 +156,8 @@ pub const Matcher = struct {
     }
 
     fn snapshot(m: *Matcher, state: u32, prev: u32) !u32 {
+        assert(prev == none or prev < m.elses.items.len);
+        assert(m.token <= m.tokens.len());
         const index: u32 = @intCast(m.elses.items.len);
         try m.elses.append(m.gpa, .{
             .state = state,
@@ -169,6 +175,7 @@ pub const Matcher = struct {
     }
 
     fn addTokenToMatch(m: *Matcher, syntax_node: u32) !void {
+        assert(syntax_node == none or syntax_node < m.lexer.defs.count());
         assert(m.token < m.tokens.len());
         try m.pushMatch(
             .{ .entry = .token, .syntax = syntax_node, .token = m.token, .prev = m.match_top },
@@ -179,6 +186,8 @@ pub const Matcher = struct {
     }
 
     fn openSyntax(m: *Matcher, syntax_node: u32) !void {
+        assert(syntax_node < m.lexer.defs.count());
+        assert(m.match_top < m.matches.items.len);
         const def = m.lexer.defs.node(syntax_node);
         var opts: u32 = if (m.syntax_top != none) m.syntaxes.items[m.syntax_top].opts else none;
         if (def.tag == .type and def.flags & syntax.flag.range != 0) opts = syntax_node + 1;
@@ -195,6 +204,7 @@ pub const Matcher = struct {
     }
 
     fn closeSyntax(m: *Matcher) !void {
+        assert(m.match_top < m.matches.items.len);
         assert(m.syntax_top != none);
         const top = m.cell(m.match_top);
         if (top.entry == .open) {
@@ -214,6 +224,8 @@ pub const Matcher = struct {
     }
 
     fn isCommaContextStart(m: *const Matcher, token: u32) bool {
+        assert(token == none or token < m.tokens.len());
+        assert(m.tokens.len() <= m.tokens.source.len);
         if (token == none) return true;
         return switch (m.tokens.tag(token)) {
             .comma, .function, .left_parenthesis, .left_square_bracket, .left_curly_bracket => true,
@@ -224,6 +236,8 @@ pub const Matcher = struct {
     }
 
     fn isCommaContextEnd(m: *const Matcher, token: u32) bool {
+        assert(token <= m.tokens.len());
+        assert(m.tokens.len() <= m.tokens.source.len);
         if (token >= m.tokens.len()) return true;
         return switch (m.tokens.tag(token)) {
             .right_parenthesis, .right_square_bracket, .right_curly_bracket => true,
@@ -234,16 +248,20 @@ pub const Matcher = struct {
 
     // a keyword's name without IE's `\0` and `\9` hacks
     fn withoutHack(value: []const u8) []const u8 {
+        assert(value.len <= std.math.maxInt(u32));
         var i: usize = 0;
         while (std.mem.indexOfScalarPos(u8, value, i, '\\')) |at| : (i = at + 1) {
             const next = if (at + 1 < value.len) value[at + 1] else 0;
             if (next == '0' or next == '9') return value[0..at];
         }
+        assert(i <= value.len);
         return value;
     }
 
     // css-tree's `areStringsEqualCaseInsensitive`: only the tested string is lowercased
     fn equalTested(tested: []const u8, reference: []const u8) bool {
+        assert(reference.len <= std.math.maxInt(u32));
+        assert(tested.len <= std.math.maxInt(u32));
         if (tested.len != reference.len) return false;
         for (tested, reference) |t, r| {
             const lower = if (t >= 'A' and t <= 'Z') t | 0x20 else t;
@@ -255,6 +273,8 @@ pub const Matcher = struct {
     // the same, against a reference built from pieces and lowercased, as css-tree lowercases
     // keyword and function names when it builds the graph
     fn equalKey(tested: []const u8, key: [3][]const u8) bool {
+        assert(key[0].len <= 1 and key[2].len <= 1);
+        assert(key[1].len > 0);
         const len = key[0].len + key[1].len + key[2].len;
         if (tested.len != len) return false;
         for (tested, 0..) |t, i| {
@@ -265,9 +285,11 @@ pub const Matcher = struct {
     }
 
     fn range(m: *const Matcher) ?generic.Range {
+        assert(m.syntax_top == none or m.syntax_top < m.syntaxes.items.len);
         if (m.syntax_top == none) return null;
         const opts = m.syntaxes.items[m.syntax_top].opts;
         if (opts == none) return null;
+        assert(m.lexer.defs.node(opts).tag == .range);
         return .{
             .min = bound(m.lexer.defs.text(opts)),
             .max = bound(m.lexer.defs.text(opts + 1)),
@@ -275,16 +297,19 @@ pub const Matcher = struct {
     }
 
     fn bound(text: []const u8) generic.Bound {
+        assert(text.len <= std.math.maxInt(u16));
         if (text.len == 0) return .infinite;
         const negative = text[0] == '-';
         var end: usize = @intFromBool(negative);
         while (end < text.len and std.ascii.isDigit(text[end])) end += 1;
         if (end < text.len) return .unit;
+        assert(end > @intFromBool(negative));
         const value = generic.decimal(text[@intFromBool(negative)..end]);
         return .{ .number = if (negative) -value else value };
     }
 
     fn onceState(m: *Matcher, once: Once) !u32 {
+        assert(once.node < m.lexer.graph.nodes.items.len);
         const index: u32 = @intCast(m.onces.items.len);
         assert(index < dynamic);
         try m.onces.append(m.gpa, once);
@@ -293,6 +318,8 @@ pub const Matcher = struct {
 
     /// Runs `tokens` through the graph at `root`, which is a `match_graph`.
     pub fn run(m: *Matcher, lexer: *Lexer, tokens: Tokens, root: u32) !Result {
+        assert(root < lexer.graph.nodes.items.len);
+        assert(lexer.graph.node(root).kind == .match_graph);
         m.lexer = lexer;
         m.tokens = tokens;
         m.matches.clearRetainingCapacity();
@@ -518,6 +545,8 @@ pub const Matcher = struct {
     }
 
     fn enumTerm(m: *const Matcher, node: graph_.Node) u32 {
+        assert(node.kind == .@"enum");
+        assert(node.small < 32);
         if (m.token >= m.tokens.len()) return graph_.mismatch;
         const name = withoutHack(m.tokenText(m.token));
         const key: [3][]const u8 = .{ "", name, "" };
@@ -534,6 +563,7 @@ pub const Matcher = struct {
     }
 
     fn stepOnce(m: *Matcher) !void {
+        assert(m.state & dynamic != 0);
         const once = m.onces.items[m.state & ~dynamic];
         if (once.add) {
             m.state = try m.onceState(

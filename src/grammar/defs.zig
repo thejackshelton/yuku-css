@@ -19,6 +19,7 @@ pub const builtin_text: []const u8 = data.text;
 
 /// A compiled node: tag, flags, len and data in 4, 4, 8 and 16 bits.
 pub fn unpack(word: u32) Node {
+    assert(word & 0xF <= @backingInt(syntax.Tag.range_end));
     const tag: syntax.Tag = @fromBackingInt(@intCast(word & 0xF));
     assert(@backingInt(tag) <= @backingInt(syntax.Tag.range_end));
     return .{
@@ -43,6 +44,7 @@ pub const Defs = struct {
 
     pub fn node(d: *const Defs, index: u32) Node {
         assert(index < d.count());
+        assert(d.count() < std.math.maxInt(u32));
         if (index < builtin_nodes.len) return unpack(builtin_nodes[index]);
         return d.nodes.items[index - builtin_nodes.len];
     }
@@ -51,11 +53,15 @@ pub const Defs = struct {
     pub fn text(d: *const Defs, index: u32) []const u8 {
         const n = d.node(index);
         assert(n.tag != .group and n.tag != .multiplier and n.tag != .boolean and n.tag != .comma);
-        return if (index < builtin_nodes.len) n.text(builtin_text) else n.text(d.chars.items);
+        const source = if (index < builtin_nodes.len) builtin_text else d.chars.items;
+        const result = n.text(source);
+        assert(result.len == n.len);
+        return result;
     }
 
     /// The node after `index` and its subtree.
     pub fn skip(d: *const Defs, index: u32) u32 {
+        assert(index < d.count());
         var at = index;
         // a chain of multipliers ends at its term, inside the tree
         while (d.node(at).tag == .multiplier or d.node(at).tag == .boolean) at += 1;

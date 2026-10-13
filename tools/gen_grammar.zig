@@ -64,6 +64,8 @@ fn string(value: ?Value) ?[]const u8 {
 }
 
 fn array(object: Value, name: []const u8) []const Value {
+    assert(object == .object);
+    assert(name.len > 0);
     const value = field(object, name) orelse fatal("missing `{s}`", .{name});
     if (value != .array) fatal("`{s}` is not an array", .{name});
     return value.array.items;
@@ -72,6 +74,7 @@ fn array(object: Value, name: []const u8) []const Value {
 // webref's types and functions, minus the generic types the lexer matches in code; a name defined
 // for several scopes accepts each of its definitions
 fn assemble(gpa: Allocator, webref: Value, data: *Data) !void {
+    assert(webref == .object);
     for ([_][]const u8{ "types", "functions" }) |category| {
         for (array(webref, category)) |feature| {
             const name = string(field(feature, "name")) orelse fatal("a feature has no name", .{});
@@ -110,6 +113,8 @@ fn assemble(gpa: Allocator, webref: Value, data: *Data) !void {
 
 // css-tree's patch: null deletes, a syntax starting with `|` adds alternatives, any other replaces
 fn patchDict(gpa: Allocator, dict: *Dict, patches: ?Value) !void {
+    assert(patches == null or patches.? == .object);
+    assert(dict.count() < std.math.maxInt(u32));
     const object = patches orelse return;
     var it = object.object.iterator();
     while (it.next()) |entry| {
@@ -136,6 +141,8 @@ fn patchDict(gpa: Allocator, dict: *Dict, patches: ?Value) !void {
 }
 
 fn applyPatch(gpa: Allocator, patch: Value, data: *Data) !void {
+    assert(patch == .object);
+    assert(data.types.count() > 0);
     try patchDict(gpa, &data.types, field(patch, "types"));
     try patchDict(gpa, &data.properties, field(patch, "properties"));
     const atrules = field(patch, "atrules") orelse return;
@@ -154,6 +161,8 @@ fn applyPatch(gpa: Allocator, patch: Value, data: *Data) !void {
 }
 
 fn parseOrFail(gpa: Allocator, text: []const u8, nodes: *std.ArrayList(syntax.Node)) !void {
+    assert(text.len > 0);
+    assert(nodes.items.len < std.math.maxInt(u32));
     var failure: syntax.Failure = undefined;
     syntax.parse(gpa, text, 0, nodes, &failure) catch |err| switch (err) {
         error.Syntax => fatal(
@@ -166,6 +175,8 @@ fn parseOrFail(gpa: Allocator, text: []const u8, nodes: *std.ArrayList(syntax.No
 
 // the terms of a sequence, or the node alone
 fn sequence(gpa: Allocator, nodes: []const syntax.Node, index: u32) ![]u32 {
+    assert(index < nodes.len);
+    assert(nodes.len > 0);
     var terms: std.ArrayList(u32) = .empty;
     const node = nodes[index];
     const plain = node.tag == .group and node.flags & syntax.flag.explicit == 0;

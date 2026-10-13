@@ -78,6 +78,9 @@ pub const names: [count][]const u8 = .{
 
 pub const count = @typeInfo(Generic).@"enum".field_names.len;
 
+// the generic types that are token types come first
+const generic_token_count = @backingInt(Generic.string);
+
 const by_name: std.StaticStringMap(Generic) = blk: {
     var entries: [count]struct { []const u8, Generic } = undefined;
     for (&entries, 0..) |*entry, i| entry.* = .{ names[i], @fromBackingInt(@intCast(i)) };
@@ -147,6 +150,7 @@ pub const Units = struct {
     groups: [unit_groups.len][]const []const u8 = default_units,
 
     fn has(u: *const Units, group: usize, unit: []const u8) bool {
+        assert(unit.len <= std.math.maxInt(u32));
         assert(group < unit_groups.len);
         for (u.groups[group]) |known| {
             if (std.ascii.eqlIgnoreCase(known, unit)) return true;
@@ -209,6 +213,8 @@ fn isHex(c: u8) bool {
 }
 
 fn eqlAny(value: []const u8, comptime list: []const []const u8) bool {
+    comptime assert(list.len > 0);
+    assert(value.len <= std.math.maxInt(u32));
     inline for (list) |name| {
         if (std.ascii.eqlIgnoreCase(value, name)) return true;
     }
@@ -217,6 +223,7 @@ fn eqlAny(value: []const u8, comptime list: []const []const u8) bool {
 
 /// css-tree's `consumeNumber`: where the number at the start of `s` ends.
 pub fn numberEnd(s: []const u8) u32 {
+    assert(s.len <= std.math.maxInt(u32));
     var at: u32 = 0;
     if (byteAt(s, 0) == '+' or byteAt(s, 0) == '-') at = 1;
     while (isDigit(byteAt(s, at))) at += 1;
@@ -238,11 +245,13 @@ pub fn numberEnd(s: []const u8) u32 {
 
 /// JavaScript's `Number(s)` for the decimal strings tokens hold, NaN when it is not one.
 pub fn jsNumber(s: []const u8) f64 {
+    assert(s.len <= std.math.maxInt(u32));
     const trimmed = std.mem.trim(u8, s, " \t\n\r\x0B\x0C");
     if (trimmed.len == 0) return 0;
     const end = numberEnd(trimmed);
     // a lone sign, or anything past the number, is not a number to JavaScript
     if (end != trimmed.len or (end == 1 and !isDigit(trimmed[0]))) return std.math.nan(f64);
+    assert(end > 0);
     return decimal(trimmed);
 }
 
@@ -309,6 +318,8 @@ fn isPostfixIeHack(s: []const u8, offset: usize) bool {
 }
 
 fn outOfRange(range: ?Range, value: []const u8, number_end: u32) bool {
+    assert(number_end <= value.len);
+    assert(value.len > 0);
     const r = range orelse return false;
     const num = jsNumber(if (number_end != value.len) value[0..number_end] else value);
     if (std.math.isNan(num)) return true;
@@ -319,6 +330,8 @@ fn outOfRange(range: ?Range, value: []const u8, number_end: u32) bool {
 
 // tokens through the closer of the block `at` opens
 fn consumeBlock(t: *const Tokens, at: u32) u32 {
+    assert(at < t.len());
+    assert(t.tag(at) == .function);
     var stack: [max_depth]Tag = undefined;
     var depth: u32 = 0;
     var closing: Tag = .eof;
@@ -349,6 +362,7 @@ const max_depth = 256;
 // css-tree's `<declaration-value>` and `<any-value>`: balanced tokens, stopping at a bad token, an
 // unmatched closer, and for declarations a top-level `;` or `!`
 fn balanced(t: *const Tokens, at: u32, declaration: bool) u32 {
+    assert(at <= t.len());
     if (at >= t.len()) return 0;
     var stack: [max_depth]Tag = undefined;
     var depth: u32 = 0;
@@ -378,44 +392,56 @@ fn balanced(t: *const Tokens, at: u32, declaration: bool) u32 {
             else => {},
         }
     }
+    assert(at + length == t.len());
     return length;
 }
 
 fn math(t: *const Tokens, at: u32, comptime names_: []const []const u8) ?u32 {
+    comptime assert(names_.len > 0);
+    assert(at <= t.len());
     if (at >= t.len()) return 0;
     if (t.tag(at) == .function and eqlAny(t.text(at), names_)) return consumeBlock(t, at);
     return null;
 }
 
 fn number(t: *const Tokens, at: u32, range: ?Range) u32 {
+    assert(at <= t.len());
     if (at >= t.len()) return 0;
     const value = t.text(at);
     const end = numberEnd(value);
     if (end != value.len and !isPostfixIeHack(value, end)) return 0;
+    assert(end <= value.len);
     return @intFromBool(!outOfRange(range, value, end));
 }
 
 fn integer(t: *const Tokens, at: u32, range: ?Range) u32 {
+    assert(at <= t.len());
     if (at >= t.len() or t.tag(at) != .number) return 0;
     const value = t.text(at);
     var i: u32 = if (value[0] == '+' or value[0] == '-') 1 else 0;
     while (i < value.len) : (i += 1) {
         if (!isDigit(value[i])) return 0;
     }
+    assert(i == value.len);
     return @intFromBool(!outOfRange(range, value, i));
 }
 
 fn percentage(t: *const Tokens, at: u32, range: ?Range) u32 {
+    assert(at <= t.len());
     if (at >= t.len() or t.tag(at) != .percentage) return 0;
     const value = t.text(at);
+    assert(value[value.len - 1] == '%');
     return @intFromBool(!outOfRange(range, value, @intCast(value.len - 1)));
 }
 
 fn zero(t: *const Tokens, at: u32) bool {
+    assert(at <= t.len());
     return at < t.len() and t.tag(at) == .number and jsNumber(t.text(at)) == 0;
 }
 
 fn dimension(t: *const Tokens, at: u32, range: ?Range, units: ?*const Units, group: usize) u32 {
+    assert(at <= t.len());
+    assert(group < unit_groups.len);
     if (at >= t.len() or t.tag(at) != .dimension) return 0;
     const value = t.text(at);
     const end = numberEnd(value);
@@ -430,29 +456,37 @@ fn dimension(t: *const Tokens, at: u32, range: ?Range, units: ?*const Units, gro
 }
 
 fn customIdent(t: *const Tokens, at: u32) u32 {
+    assert(at <= t.len());
     if (at >= t.len() or t.tag(at) != .ident) return 0;
     const value = t.text(at);
+    assert(value.len > 0);
     for (css_wide_keywords) |keyword| if (std.ascii.eqlIgnoreCase(value, keyword)) return 0;
     return @intFromBool(!std.ascii.eqlIgnoreCase(value, "default"));
 }
 
 fn dashedIdent(t: *const Tokens, at: u32) bool {
+    assert(at <= t.len());
     if (at >= t.len() or t.tag(at) != .ident) return false;
     const value = t.text(at);
+    assert(value.len > 0);
     return byteAt(value, 0) == '-' and byteAt(value, 1) == '-';
 }
 
 fn hexColor(t: *const Tokens, at: u32) u32 {
+    assert(at <= t.len());
     if (at >= t.len() or t.tag(at) != .hash) return 0;
     const value = t.text(at);
     if (value.len != 4 and value.len != 5 and value.len != 7 and value.len != 9) return 0;
+    assert(value[0] == '#');
     for (value[1..]) |c| if (!isHex(c)) return 0;
     return 1;
 }
 
 fn idSelector(t: *const Tokens, at: u32) u32 {
+    assert(at <= t.len());
     if (at >= t.len() or t.tag(at) != .hash) return 0;
     const v = t.text(at);
+    assert(v[0] == '#');
     return @intFromBool(identStart(byteAt(v, 1), byteAt(v, 2), byteAt(v, 3)));
 }
 
@@ -472,13 +506,17 @@ fn identStart(a: u8, b: u8, c: u8) bool {
 
 /// U+FEFF or U+FFFE at the start, which the tokenizer skips.
 pub fn bomLen(source: []const u8) u32 {
+    assert(source.len <= std.math.maxInt(u32));
     if (source.len < 3 or source[0] != 0xEF) return 0;
     const feff = source[1] == 0xBB and source[2] == 0xBF;
     const fffe = source[1] == 0xBF and source[2] == 0xBE;
+    assert(!(feff and fffe));
     return if (feff or fffe) 3 else 0;
 }
 
 fn attrUnit(t: *const Tokens, at: u32, units: *const Units) u32 {
+    assert(at <= t.len());
+    assert(units.groups.len == unit_groups.len);
     if (at >= t.len()) return 0;
     const value = t.text(at);
     if (t.tag(at) == .delim and std.mem.eql(u8, value, "%")) return 1;
@@ -489,6 +527,7 @@ fn attrUnit(t: *const Tokens, at: u32, units: *const Units) u32 {
 
 /// How many tokens from `at` the generic type matches, 0 for none.
 pub fn match(g: Generic, t: *const Tokens, at: u32, range: ?Range, units: *const Units) u32 {
+    assert(units.groups.len == unit_groups.len);
     assert(at <= t.len());
     const count_ = switch (g) {
         .ident_token,
@@ -550,6 +589,7 @@ pub fn match(g: Generic, t: *const Tokens, at: u32, range: ?Range, units: *const
 }
 
 fn tokenTag(g: Generic) Tag {
+    assert(@backingInt(g) < generic_token_count);
     assert(@backingInt(g) <= @backingInt(Generic.right_curly_bracket_token));
     return switch (g) {
         .ident_token => .ident,
