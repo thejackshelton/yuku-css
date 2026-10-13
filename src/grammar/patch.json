@@ -1,0 +1,215 @@
+{
+  "types": {
+    "boolean-expr": {
+      "syntax": null,
+      "reason": "the definition syntax reads `<boolean-expr[ ]>` itself, and webref's generic form references the undefined <boolean-expr-group>"
+    },
+    "timeline-range-name": {
+      "syntax": "cover | contain | entry | exit | entry-crossing | exit-crossing",
+      "reason": "webref defines it in prose only; syntax from mdn-data"
+    },
+    "animation-action": {
+      "syntax": "none | play | play-once | play-forwards | play-backwards | pause | reset | replay",
+      "reason": "webref defines it in prose only; syntax from mdn-data"
+    },
+    "media-query-list": {
+      "syntax": "<media-query>#",
+      "reason": "webref defines it in prose only; syntax from mdn-data"
+    },
+    "declaration": {
+      "syntax": "<ident-token> : <declaration-value>? [ '!' important ]?",
+      "reason": "webref defines it in prose only; syntax from css-tree's patch"
+    },
+    "declaration-list": {
+      "syntax": "[ <declaration>? ';' ]* <declaration>?",
+      "reason": "webref defines it in prose only; syntax from css-tree's patch"
+    },
+    "url-modifier": {
+      "syntax": "<ident> | <function-token> <any-value> )",
+      "reason": "webref has no definition; syntax from css-tree's patch"
+    },
+    "size-feature": {
+      "syntax": "<mf-plain> | <mf-boolean> | <mf-range>",
+      "reason": "webref defines it in prose only; syntax from css-tree's patch"
+    },
+    "scroll-state-feature": {
+      "syntax": "<mf-plain> | <mf-boolean> | <mf-range>",
+      "reason": "webref's prose says it reads as a media feature"
+    },
+    "top": {
+      "syntax": "<length> | auto",
+      "reason": "rect() references it, webref has no definition; syntax from css-tree's patch"
+    },
+    "right": {
+      "syntax": "<length> | auto",
+      "reason": "rect() references it, webref has no definition; syntax from css-tree's patch"
+    },
+    "bottom": {
+      "syntax": "<length> | auto",
+      "reason": "rect() references it, webref has no definition; syntax from css-tree's patch"
+    },
+    "left": {
+      "syntax": "<length> | auto",
+      "reason": "rect() references it, webref has no definition; syntax from css-tree's patch"
+    },
+    "age": {
+      "syntax": "child | young | old",
+      "reason": "webref defines it in prose only; syntax from css-tree's patch"
+    },
+    "gender": {
+      "syntax": "male | female | neutral",
+      "reason": "webref defines it in prose only; syntax from css-tree's patch"
+    },
+    "id": {
+      "syntax": "<id-selector>",
+      "reason": "webref's prose: an ID selector"
+    },
+    "target-name": {
+      "syntax": "<string>",
+      "reason": "webref's prose: a <string>"
+    },
+    "whole-value": {
+      "syntax": "<declaration-value>",
+      "reason": "webref defines it in prose only: the whole value of the property"
+    },
+    "anchored-feature": {
+      "syntax": "<declaration-value>",
+      "reason": "webref has no definition"
+    },
+    "style-feature-name": {
+      "syntax": "<custom-property-name> | <ident>",
+      "reason": "webref's prose: a property name"
+    },
+    "style-feature-value": {
+      "syntax": "<declaration-value>",
+      "reason": "webref's prose: a property value"
+    },
+    "size-keyword": {
+      "syntax": "auto | min-content | max-content | fit-content | stretch | contain",
+      "reason": "webref's prose: the sizing keywords"
+    },
+    "url-set": {
+      "syntax": "image-set( [ <url> [ <resolution> || type( <string> ) ]? ]# )",
+      "reason": "webref's prose: image-set() restricted to <url>"
+    },
+    "extension-name": {
+      "syntax": "<dashed-ident>",
+      "reason": "webref's prose: an identifier that starts with two dashes"
+    },
+    "supports-condition-name": {
+      "syntax": "<extension-name>",
+      "reason": "webref's prose: an <extension-name>"
+    },
+    "timeline-range-center-subject": {
+      "syntax": "<ident>",
+      "reason": "webref's prose: a CSS identifier"
+    },
+    "voice-family-name": {
+      "syntax": "<string> | <custom-ident>+",
+      "reason": "webref's prose: a string or a sequence of identifiers"
+    },
+    "font-src-list": {
+      "syntax": "<font-src>#",
+      "reason": "webref's prose: a list of <font-src>s"
+    },
+    "dashed-function": {
+      "syntax": "<function-token> <any-value>? )",
+      "reason": "webref's prose: a function whose name starts with two dashes"
+    },
+    "boolean-condition": {
+      "syntax": "<boolean-expr[ media( <media-query> ) | supports( <supports-condition> ) ]>",
+      "reason": "webref's prose: boolean algebra over media() and supports()"
+    },
+    "number-zero-one": {
+      "syntax": "<number [0,1]>",
+      "reason": "css-tree's fixtures need it, webref keeps to the specs; syntax from css-tree's patch"
+    },
+    "number-one-or-greater": {
+      "syntax": "<number [1,∞]>",
+      "reason": "css-tree's fixtures need it, webref keeps to the specs; syntax from css-tree's patch"
+    },
+    "gradient": {
+      "syntax": "| <-legacy-gradient>",
+      "reason": "css-tree's fixtures need it, webref keeps to the specs; syntax from css-tree's patch"
+    },
+    "-legacy-gradient": {
+      "syntax": "<-webkit-gradient()> | <-legacy-linear-gradient> | <-legacy-repeating-linear-gradient> | <-legacy-radial-gradient> | <-legacy-repeating-radial-gradient>",
+      "reason": "css-tree's fixtures need it, webref keeps to the specs; syntax from css-tree's patch"
+    },
+    "-legacy-linear-gradient": {
+      "syntax": "-moz-linear-gradient( <-legacy-linear-gradient-arguments> ) | -webkit-linear-gradient( <-legacy-linear-gradient-arguments> ) | -o-linear-gradient( <-legacy-linear-gradient-arguments> )",
+      "reason": "css-tree's fixtures need it, webref keeps to the specs; syntax from css-tree's patch"
+    },
+    "-legacy-repeating-linear-gradient": {
+      "syntax": "-moz-repeating-linear-gradient( <-legacy-linear-gradient-arguments> ) | -webkit-repeating-linear-gradient( <-legacy-linear-gradient-arguments> ) | -o-repeating-linear-gradient( <-legacy-linear-gradient-arguments> )",
+      "reason": "css-tree's fixtures need it, webref keeps to the specs; syntax from css-tree's patch"
+    },
+    "-legacy-linear-gradient-arguments": {
+      "syntax": "[ <angle> | <side-or-corner> ]? , <color-stop-list>",
+      "reason": "css-tree's fixtures need it, webref keeps to the specs; syntax from css-tree's patch"
+    },
+    "-legacy-radial-gradient": {
+      "syntax": "-moz-radial-gradient( <-legacy-radial-gradient-arguments> ) | -webkit-radial-gradient( <-legacy-radial-gradient-arguments> ) | -o-radial-gradient( <-legacy-radial-gradient-arguments> )",
+      "reason": "css-tree's fixtures need it, webref keeps to the specs; syntax from css-tree's patch"
+    },
+    "-legacy-repeating-radial-gradient": {
+      "syntax": "-moz-repeating-radial-gradient( <-legacy-radial-gradient-arguments> ) | -webkit-repeating-radial-gradient( <-legacy-radial-gradient-arguments> ) | -o-repeating-radial-gradient( <-legacy-radial-gradient-arguments> )",
+      "reason": "css-tree's fixtures need it, webref keeps to the specs; syntax from css-tree's patch"
+    },
+    "-legacy-radial-gradient-arguments": {
+      "syntax": "[ <position> , ]? [ [ [ <-legacy-radial-gradient-shape> || <-legacy-radial-gradient-size> ] | [ <length> | <percentage> ]{2} ] , ]? <color-stop-list>",
+      "reason": "css-tree's fixtures need it, webref keeps to the specs; syntax from css-tree's patch"
+    },
+    "-legacy-radial-gradient-size": {
+      "syntax": "closest-side | closest-corner | farthest-side | farthest-corner | contain | cover",
+      "reason": "css-tree's fixtures need it, webref keeps to the specs; syntax from css-tree's patch"
+    },
+    "-legacy-radial-gradient-shape": {
+      "syntax": "circle | ellipse",
+      "reason": "css-tree's fixtures need it, webref keeps to the specs; syntax from css-tree's patch"
+    },
+    "-webkit-gradient()": {
+      "syntax": "-webkit-gradient( <-webkit-gradient-type>, <-webkit-gradient-point> [, <-webkit-gradient-point> | , <-webkit-gradient-radius>, <-webkit-gradient-point> ] [, <-webkit-gradient-radius>]? [, <-webkit-gradient-color-stop>]* )",
+      "reason": "css-tree's fixtures need it, webref keeps to the specs; syntax from css-tree's patch"
+    },
+    "-webkit-gradient-color-stop": {
+      "syntax": "from( <color> ) | color-stop( [ <number-zero-one> | <percentage> ] , <color> ) | to( <color> )",
+      "reason": "css-tree's fixtures need it, webref keeps to the specs; syntax from css-tree's patch"
+    },
+    "-webkit-gradient-point": {
+      "syntax": "[ left | center | right | <length-percentage> ] [ top | center | bottom | <length-percentage> ]",
+      "reason": "css-tree's fixtures need it, webref keeps to the specs; syntax from css-tree's patch"
+    },
+    "-webkit-gradient-radius": {
+      "syntax": "<length> | <percentage>",
+      "reason": "css-tree's fixtures need it, webref keeps to the specs; syntax from css-tree's patch"
+    },
+    "-webkit-gradient-type": {
+      "syntax": "linear | radial",
+      "reason": "css-tree's fixtures need it, webref keeps to the specs; syntax from css-tree's patch"
+    },
+    "url": {
+      "syntax": "<url()> | <src()> | <url-token>",
+      "reason": "css-tree's matcher files <url()> under the function name `url(`, so the <url-token> webref puts inside <url()> never matches; moved up to <url>, as css-tree's patch has it"
+    },
+    "url()": {
+      "syntax": "url( <string> <url-modifier>* )",
+      "reason": "<url-token> moved to <url>, see there"
+    }
+  },
+  "properties": {},
+  "atrules": {
+    "font-face": {
+      "descriptors": {
+        "unicode-range": {
+          "syntax": "<urange>#",
+          "reason": "webref names the token <unicode-range-token>, which the lexer reads as <urange>; as css-tree's patch does"
+        }
+      }
+    },
+    "-webkit-keyframes": {
+      "prelude": "<keyframes-name>",
+      "reason": "webref lists the legacy alias without a syntax, so the lexer finds it before falling back to @keyframes as css-tree's fixtures expect; the Compatibility spec makes it an alias of @keyframes"
+    }
+  }
+}

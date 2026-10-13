@@ -120,9 +120,74 @@ const GENERATORS: Parser[] = [
   },
 ];
 
-// `node bench/index.ts tokenize` or `generate` times tokenizing or printing instead, and leaves the chart alone
-const task = process.argv[2] === "tokenize" || process.argv[2] === "generate" ? process.argv[2] : "parse";
-const suite = task === "tokenize" ? TOKENIZERS : task === "generate" ? GENERATORS : PARSERS;
+// every declaration of a file, as property and value text, which every lexer matches as a string
+async function declarations(source: string): Promise<[string, string][]> {
+  const { parse, walk } = await import("css-tree");
+  const found: [string, string][] = [];
+  const ast = parse(source, { parseValue: false, parseAtrulePrelude: false });
+  walk(ast, { visit: "Declaration", enter: (node) => found.push([node.property, (node.value as { value: string }).value.trim()]) });
+  return found;
+}
+
+const MATCHERS: Parser[] = [
+  {
+    name: "yuku-css",
+    color: "#FF6B35",
+    prepare: declarations,
+    async load() {
+      const { lexer } = await import("yuku-css/lexer");
+      // reading `matched` and `error` builds the tree and error css-tree builds
+      return (list: [string, string][]) => {
+        for (const [property, value] of list) {
+          const result = lexer.matchProperty(property, value);
+          void result.matched;
+          void result.error;
+        }
+      };
+    },
+  },
+  {
+    name: "yuku-css unread",
+    color: "#FFA07A",
+    prepare: declarations,
+    async load() {
+      const { lexer } = await import("yuku-css/lexer");
+      // neither read, so neither built, as a caller that keeps only valid values does not
+      return (list: [string, string][]) => {
+        for (const [property, value] of list) lexer.matchProperty(property, value);
+      };
+    },
+  },
+  {
+    name: "css-tree webref",
+    color: "#8338EC",
+    prepare: declarations,
+    async load() {
+      // css-tree's matcher over the same grammar
+      const oraclePath = "../test/grammar/webref.ts";
+      const { oracle } = (await import(oraclePath)) as typeof import("../test/grammar/webref");
+      return (list: [string, string][]) => {
+        for (const [property, value] of list) oracle.matchProperty(property, value);
+      };
+    },
+  },
+  {
+    name: "css-tree",
+    color: "#3A86FF",
+    prepare: declarations,
+    async load() {
+      const { lexer } = await import("css-tree");
+      return (list: [string, string][]) => {
+        for (const [property, value] of list) lexer.matchProperty(property, value);
+      };
+    },
+  },
+];
+
+// `node bench/index.ts tokenize`, `generate` or `match` times tokenizing, printing or matching
+// every declaration instead, and leaves the chart alone
+const task = ["tokenize", "generate", "match"].includes(process.argv[2]!) ? process.argv[2]! : "parse";
+const suite = { tokenize: TOKENIZERS, generate: GENERATORS, match: MATCHERS }[task] ?? PARSERS;
 const child = suite.find((parser) => parser.name === process.argv[3]);
 if (child === undefined) main();
 else process.stdout.write(String(await time(child)));
@@ -133,7 +198,7 @@ function main(): void {
     return { ...parser, microseconds: median(runs) };
   });
   console.table(
-    results.map(({ name, microseconds }) => ({ [task === "parse" ? "parser" : task === "tokenize" ? "tokenizer" : "generator"]: name, "per file": format(microseconds) })),
+    results.map(({ name, microseconds }) => ({ [{ parse: "parser", tokenize: "tokenizer", generate: "generator" }[task] ?? "lexer"]: name, "per file": format(microseconds) })),
   );
   if (task === "parse") writeFileSync(new URL("chart.svg", import.meta.url), chart(results));
 }

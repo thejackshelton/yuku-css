@@ -82,12 +82,26 @@ const VALUES = "pending: declaration values are `Raw` until the value parser lan
 const PRELUDES = "pending: at-rule preludes are `Raw` until the prelude parser lands";
 const BOTH = "pending: declaration values and at-rule preludes are `Raw` until their parsers land";
 const GENERATOR = "pending: no generator yet";
-const LEXER = "pending: no lexer yet";
+const VALUE_NODES =
+  "pending: the lexer matches a value's text, so a match names no nodes until the value parser lands";
+const FRAGMENTS = "pending: fragment search walks value nodes, which wait for the value parser";
 
 // fixtures of what yuku-css does not build yet: a fixture id, a fixture file, or a directory ending in `/`
 export const pending: Record<string, string> = {
-  "definition-syntax/": LEXER,
-  "definition-syntax-match/": LEXER,
+  "lexer-match-result.js > lexer match result > getTrace()": VALUE_NODES,
+  "lexer-match-result.js > lexer match result > isType()": VALUE_NODES,
+  "lexer-match-result.js > lexer match result > isProperty()": VALUE_NODES,
+  "lexer-match-result.js > lexer match result > isKeyword()": VALUE_NODES,
+  "lexer-match.js > Lexer#match() > should match by type": VALUE_NODES,
+  "lexer-match.js > Lexer#match() > should fails on bad syntax": VALUE_NODES,
+  "lexer-match.js > Lexer#match() > mismatch position > ast value > <foo()> -> foo(1, 2)": VALUE_NODES,
+  "lexer-search-fragments.js > lexer search fragments > findValueFragments() > should find single entry": FRAGMENTS,
+  "lexer-search-fragments.js > lexer search fragments > findValueFragments() > should find multiple entries": FRAGMENTS,
+  "lexer-search-fragments.js > lexer search fragments > findDeclarationValueFragments() > should find single entry":
+    FRAGMENTS,
+  "lexer-search-fragments.js > lexer search fragments > findDeclarationValueFragments() > should find multiple entries":
+    FRAGMENTS,
+  "lexer-search-fragments.js > lexer search fragments > findAllFragments() > should find all entries in ast": FRAGMENTS,
   "sourceMaps/": GENERATOR,
   "stringify.css": BOTH,
   "ast/value/": VALUES,
@@ -281,6 +295,29 @@ export const pending: Record<string, string> = {
   "ast/stylesheet/StyleSheet.json issue90.test1": BOTH,
   "ast/stylesheet/StyleSheet.json issue90.test2": BOTH,
 };
+
+/**
+ * Where the grammar, from `@webref/css`, and css-tree's, from mdn-data, disagree on a corpus
+ * declaration: the property and whether yuku-css matches it.
+ */
+export const grammarDivergences: { property: string; reason: string }[] = [
+  {
+    property: "fill does not match",
+    reason: "css-fill-stroke-3 defines `<paint> = none | <image> | <svg-paint>`, with no <color>; mdn-data keeps SVG 2's",
+  },
+  {
+    property: "stroke does not match",
+    reason: "css-fill-stroke-3 defines `<paint> = none | <image> | <svg-paint>`, with no <color>; mdn-data keeps SVG 2's",
+  },
+  {
+    property: "position-visibility does not match",
+    reason: "css-anchor-position-1 renamed `anchors-visible` to `anchor-visible`; mdn-data keeps the old name",
+  },
+  {
+    property: "-webkit-touch-callout does not match",
+    reason: "no spec defines `-webkit-touch-callout`, so webref has no such property; mdn-data lists it",
+  },
+];
 
 const reasons = new Map<string, string>();
 for (const { rule, spec, fixtures } of divergences) for (const id of fixtures) reasons.set(id, `${rule} (${spec})`);

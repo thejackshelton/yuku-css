@@ -100,7 +100,10 @@ test("stringify.css", () => {
 
 test("every fixture runs or is listed", () => {
   const ids = new Set([...ast, ...tokens].map(([id]) => id));
-  const run = (path: string) => /^(ast|tokenize)\/|^stringify\./.test(path) || reasonOf(path) !== undefined;
+  // test/grammar runs the definition syntax fixtures
+  const run = (path: string) =>
+    /^(ast|tokenize|definition-syntax(-match)?)\/|^stringify\./.test(path) || reasonOf(path) !== undefined;
   expect(files("").filter((path) => !run(path))).toEqual([]);
-  expect(listed.filter((id) => !ids.has(id) && !existsSync(new URL(id, SUITE)))).toEqual([]);
+  const own = listed.filter((id) => !/^(definition-syntax|lexer)/.test(id));
+  expect(own.filter((id) => !ids.has(id) && !existsSync(new URL(id, SUITE)))).toEqual([]);
 });
