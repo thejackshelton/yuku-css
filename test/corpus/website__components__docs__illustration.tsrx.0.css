@@ -1,0 +1,33 @@
+
+			.il {
+				display: inline-grid;
+				flex: none;
+				width: var(--il-size);
+				height: var(--il-size);
+				vertical-align: middle;
+			}
+
+			.il.is-corner {
+				position: absolute;
+				inset-block-start: calc(var(--il-size) * -0.42);
+				inset-inline-end: calc(var(--il-size) * -0.28);
+				z-index: 1;
+				rotate: 7deg;
+				pointer-events: none;
+			}
+
+			.il-cut {
+				grid-area: 1 / 1;
+				width: 100%;
+				height: 100%;
+				object-fit: contain;
+			}
+
+			.il-light {
+				display: var(--sprite-light);
+			}
+
+			.il-dark {
+				display: var(--sprite-dark);
+			}
+		

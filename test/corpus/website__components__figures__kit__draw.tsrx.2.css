@@ -1,0 +1,24 @@
+
+			.iso-wire-end {
+				fill: var(--anatomy-paper);
+				stroke: var(--anatomy-lo);
+				stroke-width: var(--anatomy-weight);
+				vector-effect: non-scaling-stroke;
+			}
+
+			.iso-wire[data-tone='hi'] .iso-wire-end {
+				stroke: var(--anatomy-hi);
+			}
+
+			.iso-wire[data-tone='mid'] .iso-wire-end {
+				stroke: var(--anatomy-mid);
+			}
+
+			.iso-wire[data-tone='faint'] .iso-wire-end {
+				stroke: var(--anatomy-faint);
+			}
+
+			.iso-wire[data-tone='lit'] .iso-wire-end {
+				stroke: var(--anatomy-lit);
+			}
+		

@@ -1,0 +1,9 @@
+
+			@layer markless {
+				[ui-editor] { white-space: pre-wrap; }
+				/* user-select is deliberately left at its default: any other value
+				   changes how the caret steps past the island, and the island's own
+				   traversal is the whole atomicity story. */
+				[ui-token] { white-space: nowrap; }
+			}
+		

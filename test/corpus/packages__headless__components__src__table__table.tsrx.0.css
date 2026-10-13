@@ -1,0 +1,11 @@
+
+			@layer markless {
+				/* A Shift walk and a Shift click both paint the page's own text
+				   selection across the rows they cross, over the top of the selection
+				   the table is actually reporting. */
+				[ui-selectable] {
+					-webkit-user-select: none;
+					user-select: none;
+				}
+			}
+		

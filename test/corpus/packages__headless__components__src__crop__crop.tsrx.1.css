@@ -1,0 +1,12 @@
+
+			@layer markless {
+				[ui-selection] {
+					position: absolute;
+					inset-inline-start: var(--x, 0px);
+					inset-block-start: var(--y, 0px);
+					inline-size: var(--width, 0px);
+					block-size: var(--height, 0px);
+					touch-action: none;
+				}
+			}
+		

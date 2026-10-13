@@ -1,0 +1,133 @@
+
+			.desk {
+				display: grid;
+				gap: 0.7em;
+				width: min(20rem, 100%);
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-size: var(--step--1);
+				line-height: 1.5;
+				color: var(--ink);
+			}
+
+			.readout {
+				margin: 0;
+			}
+
+			.readout-value {
+				font-family: var(--font-mono);
+			}
+
+			.files {
+				display: grid;
+				gap: 0.2em;
+				box-sizing: border-box;
+				width: min(20rem, 100%);
+				padding: 0.6em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-size: var(--step--1);
+				line-height: 1.5;
+				color: var(--ink);
+			}
+
+			.files:focus-visible {
+				outline: 2px solid var(--ink);
+				outline-offset: 3px;
+			}
+
+			.row {
+				display: grid;
+				gap: 0.2em;
+				outline: none;
+			}
+
+			.line {
+				display: flex;
+				gap: 0.5em;
+				align-items: center;
+				padding: 0.35em 0.6em;
+				border-radius: 6px;
+				cursor: default;
+				transition: background 140ms ease;
+			}
+
+			.row[ui-leaf] > .line {
+				padding-inline-start: 2.45em;
+			}
+
+			.line:hover {
+				background: color-mix(in srgb, var(--purple) 16%, var(--paper));
+			}
+
+			.row:focus > .line {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			.row:focus-visible > .line {
+				outline: 2px solid var(--ink);
+				outline-offset: -2px;
+			}
+
+			.row[ui-disabled] > .line {
+				opacity: 0.55;
+				cursor: not-allowed;
+			}
+
+			.row[ui-disabled] > .line:hover {
+				background: transparent;
+			}
+
+			.arrow {
+				display: grid;
+				place-items: center;
+				width: 1.35em;
+				height: 1.35em;
+				padding: 0;
+				border: 0;
+				border-radius: 4px;
+				background: transparent;
+				color: var(--ink);
+				cursor: pointer;
+			}
+
+			.arrow:disabled {
+				cursor: not-allowed;
+			}
+
+			.arrow-mark {
+				display: grid;
+				place-items: center;
+				transition: rotate 140ms ease;
+			}
+
+			.arrow-mark[ui-open] {
+				rotate: 90deg;
+			}
+
+			.arrow-icon,
+			.kind {
+				width: 1.1em;
+				height: 1.1em;
+				flex: none;
+			}
+
+			.group {
+				display: grid;
+				gap: 0.2em;
+				margin-inline-start: 1.25em;
+				padding-inline-start: 0.4em;
+				border-inline-start: 1px solid var(--ink);
+			}
+
+			.group[hidden] {
+				display: none;
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.line,
+				.arrow-mark {
+					transition: none;
+				}
+			}
+		

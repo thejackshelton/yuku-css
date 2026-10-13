@@ -1,0 +1,8 @@
+
+			.pin {
+				position: relative;
+				display: grid;
+				justify-items: center;
+				width: min(31rem, 100%);
+			}
+		

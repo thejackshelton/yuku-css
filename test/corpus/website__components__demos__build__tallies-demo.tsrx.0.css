@@ -1,0 +1,14 @@
+
+			.pin {
+				position: relative;
+				display: grid;
+			}
+
+			.variant[hidden] {
+				display: none;
+			}
+
+			div.variant {
+				display: contents;
+			}
+		

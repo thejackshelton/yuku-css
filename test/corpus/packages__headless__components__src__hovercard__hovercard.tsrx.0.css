@@ -1,0 +1,5 @@
+
+			@layer markless {
+				div:not([overlay]) { anchor-scope: --ui-hovercard; }
+			}
+		

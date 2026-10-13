@@ -1,0 +1,74 @@
+
+   .keyboard-study { --keyboard-control-shadow: 4px 4px 0 var(--muted-ink); --keyboard-control-radius: 3px; --keyboard-preview-depth: color-mix(in srgb, var(--purple) 60%, var(--paper)); --keyboard-key-depth: color-mix(in srgb, var(--purple) 25%, var(--paper)); margin: 0 0 2rem; width: 100%; color: var(--ink); }
+   .keyboard-workspace { display: block; clear: both; }
+   .keyboard-study[data-family='accordion'] .keyboard-workspace { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(210px, .72fr); gap: 0 1.5rem; margin-top: 1rem; align-items: start; }
+   .practice-host { display: contents; }
+   .practice-host[hidden] { display: none; }
+   .keyboard-study[data-family='accordion'] .keyboard-drawing { grid-column: 1; grid-row: 2; align-self: center; }
+   .keyboard-study[data-family='accordion'] .practice-feedback, .keyboard-study[data-family='accordion'] .keyboard-instruction { display: none; }
+   .keyboard-study[data-family='accordion'] .keyboard-actions { display: none; }
+   .keyboard-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: calc(var(--step-3) * 1.3); box-sizing: border-box; padding: 0; }
+   .keyboard-title { font-size: var(--step-0); font-weight: 600; }
+   .platform-picker { --picker-edge: color-mix(in oklch, var(--ink) 80%, transparent); --picker-wash: color-mix(in srgb, var(--purple) 26%, var(--paper)); position: relative; display: grid; grid-template-columns: auto max-content; align-items: center; gap: .8em; font: var(--step--1)/1.3 'Shantell Sans', system-ui, sans-serif; }
+   .platform-picker[ui-open] { z-index: 30; --keyboard-control-shadow: 4px 4px 0 var(--purple); }
+   .platform-picker { margin-inline-start: auto; }
+   html.dark .platform-picker { --picker-wash: color-mix(in srgb, var(--purple) 20%, var(--paper)); }
+   .platform-trigger { box-sizing: border-box; box-shadow: var(--keyboard-control-shadow); display: flex; align-items: center; justify-content: space-between; gap: .7em; cursor: pointer; min-width: 10rem; border: 1px solid var(--picker-edge); border-radius: 6px; background: var(--paper); color: var(--ink); padding: .45em .8em; font: inherit; text-align: start; }
+   .platform-trigger > svg { width: 1em; height: 1em; opacity: .65; transition: transform 140ms ease; }
+   .platform-trigger[ui-open] > svg { transform: rotate(180deg); }
+   .platform-trigger > span:not(.platform-icon) { flex: 1; text-align: left; }
+   .platform-trigger:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+   .keyboard-drawing { position: relative; padding: .85rem 0 0; }
+   .keyboard-meta { color: var(--muted-ink); font: 11px var(--font-mono); margin: 0 0 .6rem .25rem; }
+   .keyboard-scroll { overflow-x: auto; padding: 16px 12px 24px;  }
+   .physical-keyboard { display: block; width: 100%; height: auto; filter: drop-shadow(0 6px 5px color-mix(in srgb, var(--ink) 6%, transparent)); }
+   .keyboard-key { --key-fill: var(--paper); --key-stroke: var(--code-edge); --key-opacity: .65; opacity: var(--key-opacity); transition: opacity 120ms ease-out; }
+   .key-shadow { fill: var(--keyboard-key-depth); stroke: var(--code-edge); stroke-width: .6; }
+   .key-top { transform: translateY(-2px); transition: transform 150ms ease-out; }
+   .keyboard-key[data-actionable] { --key-opacity: 1; cursor: pointer; }
+   .keyboard-key[data-actionable]:hover .key-top, .keyboard-key:focus-visible .key-top { transform: translateY(-5px); }
+   .keyboard-key[data-actionable]:active .key-top { transform: translateY(4px); }
+   .keyboard-key:focus-visible { outline: none; }
+   .keyboard-key:focus-visible .key-face { stroke: var(--ink); stroke-width: 3; }
+   .key-face { fill: var(--key-fill); stroke: var(--key-stroke); stroke-width: 1.5; transition: fill 120ms ease-out, stroke 120ms ease-out; }
+   .keyboard-key text { fill: var(--ink); font: 11px system-ui, sans-serif; pointer-events: none; }
+   .platform-view { display: none; }
+   html:not([data-keyboard-platform]) .keyboard-study[data-platform='auto'] .platform-view[data-os='windows'] { display: revert; }
+   .keyboard-actions { min-width: 0; margin: 0; padding: .6rem 0 0; border: 0; border-top: 1px solid var(--code-edge); }
+   .keyboard-action { transition: opacity 150ms ease-out; display: flex; align-items: center; gap: .65rem; padding: .75rem .5rem; border-top: 1px solid var(--code-edge); }
+   @media (max-width: 760px) {
+    .keyboard-header { flex-wrap: wrap; gap: .75rem; }
+    .keyboard-study[data-family='accordion'] .platform-label { display: none; }
+    .keyboard-study[data-family='accordion'] .keyboard-workspace { display: none; }
+    .keyboard-study .keyboard-drawing, .keyboard-study .practice-feedback { display: none; }
+    .keyboard-study[data-family='accordion'] .keyboard-actions { display: block; }
+   }
+   @media (prefers-reduced-motion: reduce) { .keyboard-key, .key-face, .key-top, .keyboard-action { transition: none; } }
+   .platform-menu { position: absolute; grid-column: 2 / 3; inset-block-start: 100%; inset-inline: 0; box-sizing: border-box; inline-size: 100%; z-index: 30; margin-block: .3em; padding: .3em; border: 1px solid var(--picker-edge); border-radius: 6px; background: var(--paper); color: var(--ink); box-shadow: var(--keyboard-control-shadow); font: inherit; }
+   .platform-menu:is([ui-closed], [hidden]) { display: none; }
+   @supports (position-area: block-end) {
+    .platform-picker { anchor-scope: --keyboard-platform; }
+    .platform-trigger[ui-open] { anchor-name: --keyboard-platform; }
+    .platform-menu { position: fixed; grid-column: auto; inset: auto; inline-size: anchor-size(--keyboard-platform inline); position-anchor: --keyboard-platform; position-area: block-end span-inline-start; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; }
+   }
+   .platform-option { display: flex; align-items: center; gap: .6em; padding: .3em .6em; border-radius: 4px; font: inherit; cursor: pointer; }
+   .platform-option:hover { background: color-mix(in oklch, var(--ink) var(--hover-wash), transparent); }
+   .platform-option[ui-selected] { background: var(--picker-wash); }
+   .platform-option:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+   .keyboard-instruction { margin: 0 .25rem; color: var(--muted-ink); font-size: var(--step--2); }
+   .keyboard-study[data-inspected] .keyboard-action { opacity: .3; }
+   .keyboard-study[data-inspected] .keyboard-key { --key-opacity: .25; }
+   .practice-feedback { display: grid; gap: .3rem; min-height: 4.5rem; box-sizing: border-box; padding: .9rem .25rem; }
+   .practice-feedback strong { font: 600 14px var(--font-mono); }
+   .practice-feedback span { font-size: var(--step--1); }
+   .keyboard-action { margin: 0; }
+   .reference-key { flex: 0 0 auto; min-width: 4rem; padding: .45rem .6rem; border: 1px solid var(--ink); border-radius: 3px; background: var(--paper); box-shadow: 2px 2px 0 var(--purple); text-align: center; font: 600 12px var(--font-mono); }
+   .keyboard-study[data-fn] .keyboard-key[data-code='Fn'] { --key-fill: var(--purple); --key-stroke: var(--ink); --key-opacity: 1; }
+   .keyboard-study[data-family='accordion']:not([data-playing]) { --keyboard-preview-depth: color-mix(in srgb, var(--ink) 15%, var(--paper)); --keyboard-key-depth: color-mix(in srgb, var(--ink) 10%, var(--paper)); }
+   .keyboard-study[data-family='accordion']:not([data-playing]) .platform-picker { --picker-wash: color-mix(in srgb, var(--ink) 8%, var(--paper)); }
+   .keyboard-study[data-family='accordion']:not([data-playing]) .key-face { fill: var(--paper); stroke: var(--code-edge); }
+   .keyboard-study[data-family='accordion']:not([data-playing]) .keyboard-key[data-code='KeyK'] .key-face { fill: var(--purple); stroke: var(--ink); }
+   @keyboard-inspection;
+   @keyboard-platforms;
+   @keyboard-highlights;
+  

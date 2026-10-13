@@ -1,0 +1,18 @@
+
+			@layer markless {
+				[data-tg-spacer-top] { height: 240px; }
+				[data-tg-spacer-bottom] { height: 2400px; }
+				[data-tg-pop-root] { anchor-scope: --ui-popover; }
+				[data-tg-scope-root] { anchor-scope: --tg-c; }
+				[data-tg-card-a], [data-tg-card-b], [data-tg-card-c] {
+					position: fixed;
+					position-area: bottom span-right;
+					width: 60px;
+					height: 24px;
+					background: rgb(200 200 255);
+				}
+				[data-tg-card-a] { position-anchor: --tg-a; }
+				[data-tg-card-b] { position-anchor: --tg-b; }
+				[data-tg-card-c] { position-anchor: --tg-c; }
+			}
+		

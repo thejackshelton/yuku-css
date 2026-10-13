@@ -1,0 +1,108 @@
+
+			.part code span {
+				font-family: var(--font-mono);
+			}
+
+			.said,
+			.said :where(span, b) {
+				font-family: var(--pg-font);
+			}
+
+			.steps {
+				display: inline-flex;
+				gap: 0.6em;
+				align-items: center;
+				margin-inline-start: auto;
+			}
+
+			.count {
+				color: var(--ink);
+				font-family: var(--pg-font);
+			}
+
+			.board {
+				display: grid;
+				grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+				gap: 1.5em;
+				align-items: center;
+				width: min(32rem, 100%);
+			}
+
+
+
+			.screen {
+				display: grid;
+				gap: 0.3em;
+				padding: 0.9em 0.85em 1.1em;
+			}
+
+			.title {
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-size: var(--step-1);
+				font-weight: 700;
+			}
+
+			.text {
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+			}
+
+			.response {
+				display: grid;
+				gap: 0.6em;
+				min-width: 0;
+			}
+
+			.label,
+			.end {
+				color: var(--ink);
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+			}
+
+			.part {
+				display: grid;
+				gap: 0.15em;
+				padding: 0.55em 0.85em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+				font-size: 0.92em;
+				overflow-wrap: anywhere;
+				transition: background 140ms ease;
+			}
+
+			.name {
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-weight: 700;
+			}
+
+			.board[data-step='1'] .one,
+			.board[data-step='2'] .two {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			.board[data-fast='no'][data-step='1'] .two {
+				border-style: dashed;
+				color: var(--muted-ink);
+			}
+
+			.board[data-fast='yes'] .two {
+				display: none;
+			}
+
+			@media (max-width: 40rem) {
+				.board {
+					grid-template-columns: minmax(0, 1fr);
+				}
+
+				.steps {
+					margin-inline-start: 0;
+				}
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.part {
+					transition: none;
+				}
+			}
+		

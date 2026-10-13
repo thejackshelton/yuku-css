@@ -1,0 +1,72 @@
+
+			.said,
+			.said :where(span, b) {
+				font-family: var(--pg-font);
+			}
+
+			.board {
+				display: grid;
+				gap: 0.6em;
+				width: min(34rem, 100%);
+			}
+
+			.command {
+				font-family: var(--font-mono);
+			}
+
+			.prompt {
+				margin-inline-end: 0.5em;
+				color: color-mix(in srgb, var(--slab-ink) 60%, var(--slab));
+				font-family: var(--font-mono);
+			}
+
+			.job {
+				display: grid;
+				grid-template-columns: 9.5em minmax(0, 1fr);
+				gap: 0.3em 1em;
+				align-items: baseline;
+				padding: 0.55em 0.85em;
+				border: 1px dashed var(--pg-edge);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--muted-ink);
+				transition: background 140ms ease;
+			}
+
+			.state {
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-weight: 700;
+			}
+
+			.names {
+				font-family: var(--font-mono);
+				font-size: 0.85em;
+				line-height: 1.5;
+				overflow-wrap: anywhere;
+			}
+
+			.board[data-mode='fast'] .fast,
+			.board[data-mode='full'] :is(.fast, .full),
+			.board[data-mode='ci'] :is(.fast, .full, .bench) {
+				border: 1px solid var(--ink);
+				color: var(--ink);
+			}
+
+			.board[data-mode='fast'] .fast,
+			.board[data-mode='full'] :is(.fast, .full),
+			.board[data-mode='ci'] .bench {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			@media (max-width: 40rem) {
+				.job {
+					grid-template-columns: minmax(0, 1fr);
+				}
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.job {
+					transition: none;
+				}
+			}
+		

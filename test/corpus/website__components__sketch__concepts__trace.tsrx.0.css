@@ -1,0 +1,15 @@
+
+			.tr-page {
+				position: relative;
+				min-width: 0;
+			}
+
+			.tr-view {
+				display: grid;
+				gap: 0.6em;
+				align-content: start;
+				min-width: 0;
+				padding: 0.85em 1em 1.1em;
+				font-size: var(--step-0);
+			}
+		

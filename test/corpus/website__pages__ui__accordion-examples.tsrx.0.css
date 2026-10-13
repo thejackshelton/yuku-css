@@ -1,0 +1,8 @@
+
+   .preview-theme { position:fixed; top:0; right:var(--space-s-l); z-index:40; height:var(--header-height); display:flex; align-items:center; }
+   button { padding:0; width:var(--theme-toggle-size); height:var(--theme-toggle-size); border:0; border-radius:50%; background:transparent; cursor:pointer; }
+   button:focus-visible { outline:3px solid var(--pink); outline-offset:4px; }
+   img { display:block; width:100%; height:100%; object-fit:contain; }
+   .to-light { display:none; html.dark & { display:block; } }
+   .to-dark { display:block; html.dark & { display:none; } }
+  

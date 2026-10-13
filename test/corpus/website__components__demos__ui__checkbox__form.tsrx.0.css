@@ -1,0 +1,126 @@
+
+			.form {
+				display: grid;
+				gap: 0.8em;
+				justify-items: start;
+				width: min(22rem, 100%);
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-size: var(--step--1);
+				line-height: 1.5;
+				color: var(--ink);
+			}
+
+			.field {
+				display: grid;
+				gap: 0.3em;
+				width: 100%;
+			}
+
+			.input {
+				box-sizing: border-box;
+				width: 100%;
+				padding: 0.45em 0.7em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+				font: inherit;
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+			}
+
+			.input:focus-visible {
+				outline: 2px solid var(--ink);
+				outline-offset: 4px;
+			}
+
+			.row {
+				display: grid;
+				grid-template-columns: auto 1fr;
+				gap: 0.2em 0.75em;
+				align-items: center;
+			}
+
+			.hint {
+				grid-column: 2;
+				color: var(--muted-ink);
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+			}
+
+			.save {
+				padding: 0.45em 0.9em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+				font: inherit;
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				cursor: pointer;
+				transition: background 140ms ease;
+			}
+
+			.save:hover {
+				background: color-mix(in srgb, var(--purple) 16%, var(--paper));
+			}
+
+			.save:active {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			.save:focus-visible {
+				outline: 2px solid var(--ink);
+				outline-offset: 4px;
+			}
+
+			.note {
+				margin: 0;
+				color: var(--muted-ink);
+				font-family: var(--font-mono);
+			}
+
+			.box {
+				display: grid;
+				place-items: center;
+				box-sizing: border-box;
+				width: 1.75em;
+				height: 1.75em;
+				padding: 0;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+				cursor: pointer;
+				transition: background 140ms ease;
+			}
+
+			.box:hover {
+				background: color-mix(in srgb, var(--purple) 16%, var(--paper));
+			}
+
+			.box[ui-checked],
+			.box[ui-mixed] {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			.box:focus-visible {
+				outline: 2px solid var(--ink);
+				outline-offset: 4px;
+			}
+
+			.tick {
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-size: 1.15em;
+				line-height: 1;
+			}
+
+			.label {
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				cursor: pointer;
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.box,
+				.save {
+					transition: none;
+				}
+			}
+		

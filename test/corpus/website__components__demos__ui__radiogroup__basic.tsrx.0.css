@@ -1,0 +1,96 @@
+
+			.plans {
+				display: grid;
+				gap: 0.7em;
+				width: min(31rem, 100%);
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-size: var(--step--1);
+				line-height: 1.5;
+				color: var(--ink);
+			}
+
+			.plans[ui-horizontal] {
+				grid-template-columns: repeat(3, minmax(0, 1fr));
+			}
+
+			.plans-label {
+				grid-column: 1 / -1;
+				margin-block-end: 0.15em;
+			}
+
+			.plan {
+				display: flex;
+				gap: 0.75em;
+				align-items: center;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				cursor: pointer;
+			}
+
+			.plan:hover {
+				background: color-mix(in srgb, var(--purple) 16%, var(--paper));
+			}
+
+			.plan[ui-selected] {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			.plan:has(:focus-visible) {
+				outline: 2px solid var(--ink);
+				outline-offset: 3px;
+			}
+
+			.plan[ui-disabled] {
+				cursor: not-allowed;
+				opacity: 0.55;
+			}
+
+			.plan[ui-disabled]:hover {
+				background: transparent;
+			}
+
+			.dot {
+				display: grid;
+				flex: none;
+				place-items: center;
+				box-sizing: border-box;
+				width: 1.1em;
+				height: 1.1em;
+				margin-inline-start: 1em;
+				border: 1px solid var(--ink);
+				border-radius: 999px;
+				background: var(--paper);
+			}
+
+			.dot-fill {
+				display: grid;
+				place-items: center;
+			}
+
+			.plan[ui-selected] .dot-fill::before {
+				content: '';
+				width: 0.55em;
+				height: 0.55em;
+				border-radius: 999px;
+				background: currentColor;
+			}
+
+			.plan-label {
+				display: flex;
+				flex: 1;
+				flex-wrap: wrap;
+				gap: 0 0.75em;
+				justify-content: space-between;
+				padding: 0.85em 1em 0.85em 0;
+				cursor: inherit;
+			}
+
+			.plan-note {
+				opacity: 0.75;
+			}
+
+			.plans[ui-horizontal] .plan-label {
+				flex-direction: column;
+				justify-content: center;
+			}
+		

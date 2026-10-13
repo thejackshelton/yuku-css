@@ -1,0 +1,155 @@
+
+ .mascot { --spring: linear(0, 0.027 1.1%, 0.103 2.3%, 0.583 7.5%, 0.792 10.4%, 0.932 13.6%, 0.977 15.4%, 1.006 17.4%, 1.02 19.4%, 1.024 21.7%, 1 38.4%, 1); --snap: linear(0, 0.029 0.8%, 0.13 1.8%, 0.908 7.2%, 1.051 9.1%, 1.112 11.2%, 1.116 12.2%, 1.106 13.4%, 1.007 19.5%, 0.987 23.1%, 1.001 35%, 1); container-type: inline-size; margin: 1.5rem 0 2rem; color: var(--ink); }
+ .studio { --lilac: #d9c8ef; --accent: #f3d567; display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--ink); border-radius: 3px; box-shadow: 3px 3px 0 var(--lilac); background: color-mix(in srgb, var(--paper) 70%, transparent); overflow: clip; }
+ .stage { min-width: 0; display: flex; flex-direction: column; border-right: 1px solid color-mix(in srgb, var(--ink) 25%, transparent); padding: 18px; }
+ .stage-top { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
+ .eyebrow { font-size: 11px; line-height: 1.4; max-width: 100px; opacity: .7; }
+ button { font: inherit; color: inherit; cursor: pointer; border: 1px solid var(--ink); background: color-mix(in srgb, var(--paper) 85%, transparent); border-radius: 3px; box-shadow: 0 2px 0 var(--lilac); touch-action: manipulation; }
+ button:hover { background: color-mix(in srgb, var(--lilac) 35%, var(--paper)); }
+ button:focus-visible { outline: 1px dashed var(--ink); outline-offset: 4px; }
+ button[aria-pressed='true'] { background: color-mix(in srgb, var(--lilac) 48%, var(--paper)); border-color: var(--ink); box-shadow: none; }
+ .pause { padding: 6px 8px; font-size: 12px; white-space: nowrap; }
+ .drawing { --mug-width:min(100%,275px); --mug-height:320px; position: relative; min-height: 300px; flex: 1; display: grid; place-items: center; }
+
+ .stage-caption { display: grid; text-align: center; gap: 4px; padding: 4px 0 8px; min-height: 34px; }
+ .stage-caption strong { font-size: 19px; font-weight: 600; }
+
+ .motion-panel { padding: 20px 18px; min-width: 0; }
+ .section-title { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 13px; flex-wrap: wrap; }
+ .section-title h2 { font-family: 'Joy Elia', cursive; font-size: 24px; line-height: 1.2; font-weight: 500; margin: 0; border: 0; padding: 0; text-shadow: -1px 1px 0 var(--lilac); }
+ .section-title > span { font-size: 10px; opacity: .7; }
+ .motions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+ .motion-pick { min-height: 62px; display: grid; place-content: center; gap: 2px; padding: 5px 2px; font-size: 12px; line-height: 1.3; }
+ .motion-icon { width: 32px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; justify-self: center; overflow: visible; }
+ .playback { margin: 16px 0 24px; display: grid; gap: 6px; }
+ .play { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--accent); color: #292728; border-color: #292728; padding: 9px 12px; font-size: 13px; box-shadow: 0 2px 0 var(--lilac); }
+ .play:hover { background: #ffe28a; }
+ .play-note { font-size: 10px; opacity: .65; }
+ .glaze-title { margin-bottom: 10px; }
+ .glazes { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+ .glaze-pick, .glaze-pick[aria-pressed='true'], .glaze-pick:hover { border: 0; background: transparent; box-shadow: none; }
+ .glaze-pick { font-size: 11px; padding: 7px 2px; min-height: 48px; display: grid; gap: 7px; justify-items: center; }
+ .swatch { width: 100%; height: 23px; border: 1px solid var(--ink); border-radius: 2px; display: grid; place-items: center; color: #2d2b2a; }
+ .swatch-check { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
+ .glaze-pick[aria-pressed='true'] .swatch-check { opacity: 1; }
+ .glaze-pick[aria-pressed='true'] .glaze-label { text-decoration: underline; text-decoration-color: var(--lilac); text-decoration-thickness: 2px; text-underline-offset: 4px; }
+ .expression-panel { grid-column: 1 / -1; border-top: 1px solid color-mix(in srgb, var(--ink) 25%, transparent); padding: 18px; }
+ .expressions { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 7px; }
+ .face-pick { min-width: 0; display: grid; justify-items: center; padding: 2px 1px 7px; font-size: 12px; line-height: 1.2; }
+ .face-preview { width: 66px; max-width: 100%; height: 44px; fill: currentColor; }
+ .pour-title { margin: 18px 0 10px; }
+ .pours { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+ .pour-pick { min-height: 44px; padding: 6px 2px; font-size: 12px; }
+ @container (max-width: 800px) { .expressions { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+ @container (max-width: 620px) { .studio { display: block; } .stage { position: sticky; top: var(--header-height); z-index: 3; display: grid; grid-template-columns: 125px minmax(0, 1fr); gap: 4px 10px; align-items: center; padding: 8px 12px; border-right: 0; border-bottom: 1px solid var(--ink); background: var(--paper); } .stage-top { grid-column: 2; grid-row: 1; align-self: end; } .eyebrow { display: none; } .drawing { --mug-width:125px; --mug-height:150px; grid-column: 1; grid-row: 1 / span 2; min-height: 150px; } .stage-caption { grid-column: 2; grid-row: 2; align-self: start; text-align: left; min-height: 0; } .stage-caption strong { font-size: 17px; } .stage-caption span { font-size: 11px; } .motion-panel { padding: 20px 16px; } .motion-pick { font-size: 12px; } .expressions { grid-template-columns: repeat(4, minmax(0, 1fr)); } .face-pick { font-size: 12px; } .face-pick span { overflow-wrap: anywhere; } .swatch { height: 27px; } .glaze-pick { font-size: 11px; } }
+ 
+ .decoration-controls { grid-column:1/-1; padding:18px; border-top:1px solid color-mix(in srgb,var(--ink) 25%,transparent); }
+ .decoration-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+ .decoration-controls fieldset { min-width:0; margin:0; padding:0; border:0; }
+ .decoration-controls legend { font-size:14px; margin-bottom:8px; }
+ .decoration-options { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+ .decoration-options button { font-size:12px; min-height:44px; padding:7px 9px; }
+ .decoration-controls p { font-size:11px; line-height:1.5; margin:7px 0 0; opacity:.75; }
+ .decoration-controls output { font-size:12px; padding:4px; }
+ @container(max-width:620px) { .decoration-grid { grid-template-columns:1fr; } }
+
+ @container(min-width:621px) {
+  .stage { position:sticky; top:calc(var(--header-height) + 8px); grid-row:1 / span 3; height:calc(100svh - var(--header-height) - 24px); max-height:min(420px,50svh); align-self:start; }
+  .stage .drawing { min-height:0; --mug-height:min(320px,calc(50svh - 84px)); }
+ 
+  .expression-panel,.decoration-controls { grid-column:2; border-left:1px solid color-mix(in srgb,var(--ink) 25%,transparent); }
+  .expressions { grid-template-columns:repeat(4,minmax(0,1fr)); }
+  .decoration-grid { grid-template-columns:1fr; }
+ }
+
+.glazeCream[aria-pressed='true'] { display:none; html:not(:is([data-mascot-glaze='yellow'],[data-mascot-glaze='pink'],[data-mascot-glaze='purple'],[data-mascot-glaze='green'],[data-mascot-glaze='ink'],[data-mascot-glaze='paper'])) & { display:grid; } }
+.glazeCream[aria-pressed='false'] { display:grid; html:not(:is([data-mascot-glaze='yellow'],[data-mascot-glaze='pink'],[data-mascot-glaze='purple'],[data-mascot-glaze='green'],[data-mascot-glaze='ink'],[data-mascot-glaze='paper'])) & { display:none; } }
+.glazeYellow[aria-pressed='true'] { display:none; html[data-mascot-glaze='yellow'] & { display:grid; } }
+.glazeYellow[aria-pressed='false'] { display:grid; html[data-mascot-glaze='yellow'] & { display:none; } }
+.glazePink[aria-pressed='true'] { display:none; html[data-mascot-glaze='pink'] & { display:grid; } }
+.glazePink[aria-pressed='false'] { display:grid; html[data-mascot-glaze='pink'] & { display:none; } }
+.glazePurple[aria-pressed='true'] { display:none; html[data-mascot-glaze='purple'] & { display:grid; } }
+.glazePurple[aria-pressed='false'] { display:grid; html[data-mascot-glaze='purple'] & { display:none; } }
+.glazeGreen[aria-pressed='true'] { display:none; html[data-mascot-glaze='green'] & { display:grid; } }
+.glazeGreen[aria-pressed='false'] { display:grid; html[data-mascot-glaze='green'] & { display:none; } }
+.glazeInk[aria-pressed='true'] { display:none; html[data-mascot-glaze='ink'] & { display:grid; } }
+.glazeInk[aria-pressed='false'] { display:grid; html[data-mascot-glaze='ink'] & { display:none; } }
+.glazePaper[aria-pressed='true'] { display:none; html[data-mascot-glaze='paper'] & { display:grid; } }
+.glazePaper[aria-pressed='false'] { display:grid; html[data-mascot-glaze='paper'] & { display:none; } }
+.pourRosetta[aria-pressed='true'] { display:none; html:not(:is([data-mascot-pour='heart'],[data-mascot-pour='tulip'],[data-mascot-pour='markless'])) & { display:inline-block; } }
+.pourRosetta[aria-pressed='false'] { display:inline-block; html:not(:is([data-mascot-pour='heart'],[data-mascot-pour='tulip'],[data-mascot-pour='markless'])) & { display:none; } }
+.pourHeart[aria-pressed='true'] { display:none; html[data-mascot-pour='heart'] & { display:inline-block; } }
+.pourHeart[aria-pressed='false'] { display:inline-block; html[data-mascot-pour='heart'] & { display:none; } }
+.pourTulip[aria-pressed='true'] { display:none; html[data-mascot-pour='tulip'] & { display:inline-block; } }
+.pourTulip[aria-pressed='false'] { display:inline-block; html[data-mascot-pour='tulip'] & { display:none; } }
+.pourMarkless[aria-pressed='true'] { display:none; html[data-mascot-pour='markless'] & { display:inline-block; } }
+.pourMarkless[aria-pressed='false'] { display:inline-block; html[data-mascot-pour='markless'] & { display:none; } }
+.expressionNeutral[aria-pressed='true'] { display:none; html:not(:is([data-mascot-expression='attentive'],[data-mascot-expression='surprised'],[data-mascot-expression='excited'],[data-mascot-expression='happy'],[data-mascot-expression='laughing'],[data-mascot-expression='angry'],[data-mascot-expression='sad'],[data-mascot-expression='scared'],[data-mascot-expression='suspicious'],[data-mascot-expression='confused'],[data-mascot-expression='curious'],[data-mascot-expression='proud'],[data-mascot-expression='shy'],[data-mascot-expression='unimpressed'],[data-mascot-expression='sleepy'])) & { display:grid; } }
+.expressionNeutral[aria-pressed='false'] { display:grid; html:not(:is([data-mascot-expression='attentive'],[data-mascot-expression='surprised'],[data-mascot-expression='excited'],[data-mascot-expression='happy'],[data-mascot-expression='laughing'],[data-mascot-expression='angry'],[data-mascot-expression='sad'],[data-mascot-expression='scared'],[data-mascot-expression='suspicious'],[data-mascot-expression='confused'],[data-mascot-expression='curious'],[data-mascot-expression='proud'],[data-mascot-expression='shy'],[data-mascot-expression='unimpressed'],[data-mascot-expression='sleepy'])) & { display:none; } }
+.expressionAttentive[aria-pressed='true'] { display:none; html[data-mascot-expression='attentive'] & { display:grid; } }
+.expressionAttentive[aria-pressed='false'] { display:grid; html[data-mascot-expression='attentive'] & { display:none; } }
+.expressionSurprised[aria-pressed='true'] { display:none; html[data-mascot-expression='surprised'] & { display:grid; } }
+.expressionSurprised[aria-pressed='false'] { display:grid; html[data-mascot-expression='surprised'] & { display:none; } }
+.expressionExcited[aria-pressed='true'] { display:none; html[data-mascot-expression='excited'] & { display:grid; } }
+.expressionExcited[aria-pressed='false'] { display:grid; html[data-mascot-expression='excited'] & { display:none; } }
+.expressionHappy[aria-pressed='true'] { display:none; html[data-mascot-expression='happy'] & { display:grid; } }
+.expressionHappy[aria-pressed='false'] { display:grid; html[data-mascot-expression='happy'] & { display:none; } }
+.expressionLaughing[aria-pressed='true'] { display:none; html[data-mascot-expression='laughing'] & { display:grid; } }
+.expressionLaughing[aria-pressed='false'] { display:grid; html[data-mascot-expression='laughing'] & { display:none; } }
+.expressionAngry[aria-pressed='true'] { display:none; html[data-mascot-expression='angry'] & { display:grid; } }
+.expressionAngry[aria-pressed='false'] { display:grid; html[data-mascot-expression='angry'] & { display:none; } }
+.expressionSad[aria-pressed='true'] { display:none; html[data-mascot-expression='sad'] & { display:grid; } }
+.expressionSad[aria-pressed='false'] { display:grid; html[data-mascot-expression='sad'] & { display:none; } }
+.expressionScared[aria-pressed='true'] { display:none; html[data-mascot-expression='scared'] & { display:grid; } }
+.expressionScared[aria-pressed='false'] { display:grid; html[data-mascot-expression='scared'] & { display:none; } }
+.expressionSuspicious[aria-pressed='true'] { display:none; html[data-mascot-expression='suspicious'] & { display:grid; } }
+.expressionSuspicious[aria-pressed='false'] { display:grid; html[data-mascot-expression='suspicious'] & { display:none; } }
+.expressionConfused[aria-pressed='true'] { display:none; html[data-mascot-expression='confused'] & { display:grid; } }
+.expressionConfused[aria-pressed='false'] { display:grid; html[data-mascot-expression='confused'] & { display:none; } }
+.expressionCurious[aria-pressed='true'] { display:none; html[data-mascot-expression='curious'] & { display:grid; } }
+.expressionCurious[aria-pressed='false'] { display:grid; html[data-mascot-expression='curious'] & { display:none; } }
+.expressionProud[aria-pressed='true'] { display:none; html[data-mascot-expression='proud'] & { display:grid; } }
+.expressionProud[aria-pressed='false'] { display:grid; html[data-mascot-expression='proud'] & { display:none; } }
+.expressionShy[aria-pressed='true'] { display:none; html[data-mascot-expression='shy'] & { display:grid; } }
+.expressionShy[aria-pressed='false'] { display:grid; html[data-mascot-expression='shy'] & { display:none; } }
+.expressionUnimpressed[aria-pressed='true'] { display:none; html[data-mascot-expression='unimpressed'] & { display:grid; } }
+.expressionUnimpressed[aria-pressed='false'] { display:grid; html[data-mascot-expression='unimpressed'] & { display:none; } }
+.expressionSleepy[aria-pressed='true'] { display:none; html[data-mascot-expression='sleepy'] & { display:grid; } }
+.expressionSleepy[aria-pressed='false'] { display:grid; html[data-mascot-expression='sleepy'] & { display:none; } }
+.coasterOff[aria-pressed='true'] { display:none; html:not(:is([data-mascot-coaster='cork'])) & { display:inline-block; } }
+.coasterOff[aria-pressed='false'] { display:inline-block; html:not(:is([data-mascot-coaster='cork'])) & { display:none; } }
+.coasterCork[aria-pressed='true'] { display:none; html[data-mascot-coaster='cork'] & { display:inline-block; } }
+.coasterCork[aria-pressed='false'] { display:inline-block; html[data-mascot-coaster='cork'] & { display:none; } }
+.companionOff[aria-pressed='true'] { display:none; html:not(:is([data-mascot-companion='beans'],[data-mascot-companion='sugar'],[data-mascot-companion='crane'],[data-mascot-companion='eucalyptus'],[data-mascot-companion='notes'],[data-mascot-companion='moka'])) & { display:inline-block; } }
+.companionOff[aria-pressed='false'] { display:inline-block; html:not(:is([data-mascot-companion='beans'],[data-mascot-companion='sugar'],[data-mascot-companion='crane'],[data-mascot-companion='eucalyptus'],[data-mascot-companion='notes'],[data-mascot-companion='moka'])) & { display:none; } }
+.companionBeans[aria-pressed='true'] { display:none; html[data-mascot-companion='beans'] & { display:inline-block; } }
+.companionBeans[aria-pressed='false'] { display:inline-block; html[data-mascot-companion='beans'] & { display:none; } }
+.companionSugar[aria-pressed='true'] { display:none; html[data-mascot-companion='sugar'] & { display:inline-block; } }
+.companionSugar[aria-pressed='false'] { display:inline-block; html[data-mascot-companion='sugar'] & { display:none; } }
+.companionCrane[aria-pressed='true'] { display:none; html[data-mascot-companion='crane'] & { display:inline-block; } }
+.companionCrane[aria-pressed='false'] { display:inline-block; html[data-mascot-companion='crane'] & { display:none; } }
+.companionEucalyptus[aria-pressed='true'] { display:none; html[data-mascot-companion='eucalyptus'] & { display:inline-block; } }
+.companionEucalyptus[aria-pressed='false'] { display:inline-block; html[data-mascot-companion='eucalyptus'] & { display:none; } }
+.companionNotes[aria-pressed='true'] { display:none; html[data-mascot-companion='notes'] & { display:inline-block; } }
+.companionNotes[aria-pressed='false'] { display:inline-block; html[data-mascot-companion='notes'] & { display:none; } }
+.companionMoka[aria-pressed='true'] { display:none; html[data-mascot-companion='moka'] & { display:inline-block; } }
+.companionMoka[aria-pressed='false'] { display:inline-block; html[data-mascot-companion='moka'] & { display:none; } }
+.caption-neutral { display:inline; html:not(:is([data-mascot-expression='attentive'],[data-mascot-expression='surprised'],[data-mascot-expression='excited'],[data-mascot-expression='happy'],[data-mascot-expression='laughing'],[data-mascot-expression='angry'],[data-mascot-expression='sad'],[data-mascot-expression='scared'],[data-mascot-expression='suspicious'],[data-mascot-expression='confused'],[data-mascot-expression='curious'],[data-mascot-expression='proud'],[data-mascot-expression='shy'],[data-mascot-expression='unimpressed'],[data-mascot-expression='sleepy'])) & { display:inline; } }
+.caption-attentive { display:none; html[data-mascot-expression='attentive'] & { display:inline; } }
+.caption-surprised { display:none; html[data-mascot-expression='surprised'] & { display:inline; } }
+.caption-excited { display:none; html[data-mascot-expression='excited'] & { display:inline; } }
+.caption-happy { display:none; html[data-mascot-expression='happy'] & { display:inline; } }
+.caption-laughing { display:none; html[data-mascot-expression='laughing'] & { display:inline; } }
+.caption-angry { display:none; html[data-mascot-expression='angry'] & { display:inline; } }
+.caption-sad { display:none; html[data-mascot-expression='sad'] & { display:inline; } }
+.caption-scared { display:none; html[data-mascot-expression='scared'] & { display:inline; } }
+.caption-suspicious { display:none; html[data-mascot-expression='suspicious'] & { display:inline; } }
+.caption-confused { display:none; html[data-mascot-expression='confused'] & { display:inline; } }
+.caption-curious { display:none; html[data-mascot-expression='curious'] & { display:inline; } }
+.caption-proud { display:none; html[data-mascot-expression='proud'] & { display:inline; } }
+.caption-shy { display:none; html[data-mascot-expression='shy'] & { display:inline; } }
+.caption-unimpressed { display:none; html[data-mascot-expression='unimpressed'] & { display:inline; } }
+.caption-sleepy { display:none; html[data-mascot-expression='sleepy'] & { display:inline; } }
+.caption-neutral { html:is([data-mascot-expression='attentive'],[data-mascot-expression='surprised'],[data-mascot-expression='excited'],[data-mascot-expression='happy'],[data-mascot-expression='laughing'],[data-mascot-expression='angry'],[data-mascot-expression='sad'],[data-mascot-expression='scared'],[data-mascot-expression='suspicious'],[data-mascot-expression='confused'],[data-mascot-expression='curious'],[data-mascot-expression='proud'],[data-mascot-expression='shy'],[data-mascot-expression='unimpressed'],[data-mascot-expression='sleepy']) & { display:none; } }
+.stage-caption[data-action="false"] .action-caption { display:none; }
+.stage-caption[data-action="true"] .saved-caption-group { display:none; }

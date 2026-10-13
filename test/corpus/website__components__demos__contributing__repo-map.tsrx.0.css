@@ -1,0 +1,206 @@
+
+			.said code span {
+				font-family: var(--font-mono);
+			}
+
+			.said,
+			.said :where(span, b) {
+				font-family: var(--pg-font);
+			}
+
+			.wrap {
+				display: grid;
+				gap: 1.25em;
+				justify-items: center;
+				width: 100%;
+			}
+
+			.board {
+				display: grid;
+				grid-template-columns: repeat(4, minmax(0, 1fr));
+				gap: 1em;
+				width: 100%;
+			}
+
+			.group {
+				display: grid;
+				align-content: start;
+				gap: 0.5em;
+			}
+
+			.group-name {
+				color: var(--ink);
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-weight: 700;
+			}
+
+			.pkgs {
+				display: grid;
+				gap: 0.45em;
+			}
+
+			.pkg {
+				padding: 0.35em 0.6em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+				font-family: var(--font-mono);
+				font-size: 0.8em;
+				line-height: 1.4;
+				text-align: start;
+				white-space: nowrap;
+				cursor: pointer;
+				transition: background 140ms ease;
+			}
+
+			.pkg:hover {
+				background: color-mix(in srgb, var(--purple) 16%, var(--paper));
+			}
+
+			.pkg:focus-visible {
+				outline: 2px solid var(--ink);
+				outline-offset: 4px;
+			}
+
+
+			.board[data-picked='compiler'] .compiler {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+			.board[data-picked='compiler'] :is(.serializer) {
+				background: var(--mark);
+				color: var(--on-mark);
+			}
+			.board[data-picked='compiler'] :is(.bundler, .ts) {
+				border-style: dashed;
+				text-decoration: underline dashed var(--pink);
+				text-underline-offset: 0.2em;
+			}
+			.board[data-picked='bundler'] .bundler {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+			.board[data-picked='bundler'] :is(.compiler, .serializer, .web) {
+				background: var(--mark);
+				color: var(--on-mark);
+			}
+			.board[data-picked='bundler'] :is(.core, .router) {
+				border-style: dashed;
+				text-decoration: underline dashed var(--pink);
+				text-underline-offset: 0.2em;
+			}
+			.board[data-picked='ts'] .ts {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+			.board[data-picked='ts'] :is(.compiler) {
+				background: var(--mark);
+				color: var(--on-mark);
+			}
+			.board[data-picked='web'] .web {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+			.board[data-picked='web'] :is(.runtime, .serializer) {
+				background: var(--mark);
+				color: var(--on-mark);
+			}
+			.board[data-picked='web'] :is(.bundler, .core, .router, .vitest) {
+				border-style: dashed;
+				text-decoration: underline dashed var(--pink);
+				text-underline-offset: 0.2em;
+			}
+			.board[data-picked='runtime'] .runtime {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+			.board[data-picked='runtime'] :is(.serializer) {
+				background: var(--mark);
+				color: var(--on-mark);
+			}
+			.board[data-picked='runtime'] :is(.web) {
+				border-style: dashed;
+				text-decoration: underline dashed var(--pink);
+				text-underline-offset: 0.2em;
+			}
+			.board[data-picked='serializer'] .serializer {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+			.board[data-picked='serializer'] :is(.compiler, .bundler, .web, .runtime) {
+				border-style: dashed;
+				text-decoration: underline dashed var(--pink);
+				text-underline-offset: 0.2em;
+			}
+			.board[data-picked='core'] .core {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+			.board[data-picked='core'] :is(.web, .bundler, .router) {
+				background: var(--mark);
+				color: var(--on-mark);
+			}
+			.board[data-picked='core'] :is(.vitest) {
+				border-style: dashed;
+				text-decoration: underline dashed var(--pink);
+				text-underline-offset: 0.2em;
+			}
+			.board[data-picked='router'] .router {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+			.board[data-picked='router'] :is(.bundler, .web) {
+				background: var(--mark);
+				color: var(--on-mark);
+			}
+			.board[data-picked='router'] :is(.core) {
+				border-style: dashed;
+				text-decoration: underline dashed var(--pink);
+				text-underline-offset: 0.2em;
+			}
+			.board[data-picked='cli'] .cli {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+			.board[data-picked='vitest'] .vitest {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+			.board[data-picked='vitest'] :is(.core, .web) {
+				background: var(--mark);
+				color: var(--on-mark);
+			}
+
+			.key {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.5em 1.25em;
+				color: var(--ink);
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+			}
+
+			.swatch {
+				padding: 0 0.4em;
+				border: 1px solid var(--ink);
+				border-radius: 4px;
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+			}
+
+			.swatch.picked {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			.swatch.uses {
+				background: var(--mark);
+				color: var(--on-mark);
+			}
+
+			.swatch.used {
+				border-style: dashed;
+				text-decoration: underline dashed var(--pink);
+				text-underline-offset: 0.2em;
+			}
+
+			@media (max-width: 40rem) {
+				.board {
+					grid-template-columns: repeat(2, minmax(0, 1fr));
+				}
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.pkg {
+					transition: none;
+				}
+			}
+		

@@ -1,0 +1,14 @@
+
+				.page-subtitle {
+					max-width: 46ch;
+					margin-block: -0.2em var(--space-m);
+					font-size: var(--step-1);
+					line-height: 135%;
+					opacity: 0.72;
+				}
+
+				.page-subtitle.rich {
+					opacity: 1;
+					color: color-mix(in oklch, currentColor 72%, transparent);
+				}
+			

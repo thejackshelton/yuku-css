@@ -1,0 +1,37 @@
+
+.face-preview { width:66px; max-width:100%; height:44px; fill:currentColor; }
+.face-preview[data-expression='neutral'] .eye-l { transform:translate(100px,149px) rotate(-12deg) scale(0.85,0.85); }
+.face-preview[data-expression='neutral'] .eye-r { transform:translate(136px,149px) rotate(12deg) scale(0.85,0.85); }
+.face-preview[data-expression='attentive'] .eye-l { transform:translate(100px,144px) rotate(-5deg) scale(0.9,1); }
+.face-preview[data-expression='attentive'] .eye-r { transform:translate(136px,144px) rotate(5deg) scale(0.9,1); }
+.face-preview[data-expression='surprised'] .eye-l { transform:translate(100px,147px) rotate(-3deg) scale(1.18,1.18); }
+.face-preview[data-expression='surprised'] .eye-r { transform:translate(136px,147px) rotate(3deg) scale(1.18,1.18); }
+.face-preview[data-expression='excited'] .eye-l { transform:translate(100px,151px) rotate(-22deg) scale(1,1.25); }
+.face-preview[data-expression='excited'] .eye-r { transform:translate(136px,151px) rotate(22deg) scale(1,1.25); }
+.face-preview[data-expression='happy'] .eye-l { transform:translate(100px,143px) rotate(-27deg) scale(1.05,0.52); }
+.face-preview[data-expression='happy'] .eye-r { transform:translate(136px,143px) rotate(27deg) scale(1.05,0.52); }
+.face-preview[data-expression='laughing'] .eye-l { transform:translate(100px,140px) rotate(-36deg) scale(1.2,0.32); }
+.face-preview[data-expression='laughing'] .eye-r { transform:translate(136px,140px) rotate(36deg) scale(1.2,0.32); }
+.face-preview[data-expression='angry'] .eye-l { transform:translate(100px,146px) rotate(30deg) scale(1.05,0.58); }
+.face-preview[data-expression='angry'] .eye-r { transform:translate(136px,146px) rotate(-30deg) scale(1.05,0.58); }
+.face-preview[data-expression='sad'] .eye-l { transform:translate(100px,153px) rotate(-32deg) scale(0.8,0.65); }
+.face-preview[data-expression='sad'] .eye-r { transform:translate(136px,153px) rotate(32deg) scale(0.8,0.65); }
+.face-preview[data-expression='scared'] .eye-l { transform:translate(96px,155px) rotate(-7deg) scale(1.15,1.4); }
+.face-preview[data-expression='scared'] .eye-r { transform:translate(140px,155px) rotate(7deg) scale(1.15,1.4); }
+.face-preview[data-expression='suspicious'] .eye-l { transform:translate(100px,148px) rotate(12deg) scale(0.82,0.72); }
+.face-preview[data-expression='suspicious'] .eye-r { transform:translate(136px,150px) rotate(-10deg) scale(1,0.3); }
+.face-preview[data-expression='confused'] .eye-l { transform:translate(100px,141px) rotate(-28deg) scale(0.88,0.95); }
+.face-preview[data-expression='confused'] .eye-r { transform:translate(136px,154px) rotate(22deg) scale(0.88,0.6); }
+.face-preview[data-expression='curious'] .eye-l { transform:translate(103px,142px) rotate(-18deg) scale(1,1.1); }
+.face-preview[data-expression='curious'] .eye-r { transform:translate(139px,147px) rotate(-18deg) scale(0.7,0.78); }
+.face-preview[data-expression='proud'] .eye-l { transform:translate(100px,138px) rotate(-14deg) scale(1,0.3); }
+.face-preview[data-expression='proud'] .eye-r { transform:translate(136px,138px) rotate(14deg) scale(1,0.3); }
+.face-preview[data-expression='shy'] .eye-l { transform:translate(96px,155px) rotate(-20deg) scale(0.6,0.65); }
+.face-preview[data-expression='shy'] .eye-r { transform:translate(132px,155px) rotate(20deg) scale(0.6,0.65); }
+.face-preview[data-expression='unimpressed'] .eye-l { transform:translate(100px,152px) rotate(3deg) scale(1.1,0.24); }
+.face-preview[data-expression='unimpressed'] .eye-r { transform:translate(136px,152px) rotate(-3deg) scale(1.1,0.24); }
+.face-preview[data-expression='sleepy'] .eye-l { transform:translate(100px,156px) rotate(-8deg) scale(1,0.17); }
+.face-preview[data-expression='sleepy'] .eye-r { transform:translate(136px,156px) rotate(8deg) scale(1,0.17); }
+.face-preview .bean-eye { fill:currentColor; }
+.face-preview .bean-slit { fill:none; stroke:var(--paper); stroke-width:2; stroke-linecap:round; }
+.face-preview .eye-bean { transform-origin:0px 0px; }

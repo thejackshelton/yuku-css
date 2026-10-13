@@ -1,0 +1,13 @@
+
+			.callout-title {
+				display: flex;
+				gap: 0.45em;
+				align-items: center;
+				margin: 0 0 0.3em;
+				font-weight: 700;
+			}
+
+			.callout-body {
+				margin: 0;
+			}
+		

@@ -1,0 +1,393 @@
+
+			.anatomy {
+				margin: var(--space-m) 0;
+				border-radius: 12px;
+			}
+
+			.stage {
+				display: block;
+				width: 100%;
+				padding: 0;
+				border: 0;
+				background: none;
+				color: inherit;
+				cursor: pointer;
+				border-radius: 12px;
+			}
+
+			.stage:focus-visible {
+				outline: 2px dashed var(--ink);
+				outline-offset: 4px;
+			}
+
+			.scene {
+				display: block;
+				width: 100%;
+				height: auto;
+				overflow: visible;
+				--sheet: color-mix(in oklch, var(--paper) 50%, white);
+				--shell: color-mix(in oklch, var(--paper) 72%, oklch(80% 0.012 75));
+				--shade: color-mix(in oklch, var(--ink) 22%, transparent);
+				--shade-ink: var(--ink);
+				--sheet-ink: var(--ink);
+				--pencil: color-mix(in srgb, var(--pink) 70%, #e0603c);
+
+				html.dark & {
+					--sheet: color-mix(in oklch, var(--ink) 94%, var(--yellow));
+					--shell: oklch(34% 0.012 75);
+					--shade: rgb(0 0 0 / 0.5);
+					--shade-ink: rgb(0 0 0 / 0.85);
+					--sheet-ink: var(--paper);
+				}
+			}
+
+			.scene.tall {
+				display: none;
+			}
+
+			@media (max-width: 560px) {
+				.scene.wide {
+					display: none;
+				}
+
+				.scene.tall {
+					display: block;
+				}
+			}
+
+			.paper {
+				fill: var(--sheet);
+			}
+
+			.shell {
+				fill: var(--shell);
+			}
+
+			.lens {
+				fill: white;
+				opacity: 0.12;
+			}
+
+			.ink {
+				fill: var(--sheet-ink);
+			}
+
+			.faint {
+				opacity: 0.4;
+			}
+
+			.hatch {
+				fill: none;
+				stroke: var(--sheet-ink);
+				stroke-width: 0.7;
+				stroke-linecap: round;
+				opacity: 0.8;
+			}
+
+			.deep {
+				stroke: var(--shade-ink);
+			}
+
+			.light {
+				opacity: 0.5;
+			}
+
+			.shadow-wash {
+				fill: var(--shade);
+			}
+
+			.wash {
+				stroke-width: 1;
+				mix-blend-mode: multiply;
+			}
+
+			.yellow {
+				fill: var(--yellow);
+				stroke: var(--yellow);
+				opacity: 0.85;
+			}
+
+			.pink {
+				fill: var(--pink);
+				stroke: var(--pink);
+				opacity: 0.75;
+			}
+
+			.pool {
+				fill: color-mix(in oklch, var(--yellow) 70%, oklch(70% 0.16 70));
+				stroke: none;
+				opacity: 0.5;
+			}
+
+			.wash-edge {
+				fill: none;
+				stroke: oklch(72% 0.15 75);
+				stroke-width: 0.8;
+				opacity: 0.5;
+				mix-blend-mode: multiply;
+			}
+
+			.words text,
+			.printed {
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				fill: var(--sheet-ink);
+				font-weight: 600;
+			}
+
+			.words .title,
+			.status,
+			.state .now {
+				font-weight: 800;
+			}
+
+			.action,
+			.state {
+				text-anchor: middle;
+			}
+
+			.action {
+				font-weight: 700;
+			}
+
+			.tag {
+				font-family: 'Joy Elia', system-ui, sans-serif;
+				font-weight: 400;
+			}
+
+			.words .code {
+				font-family: 'Joy Elia', system-ui, sans-serif;
+				font-weight: 400;
+				text-anchor: middle;
+			}
+
+			.sketched {
+				fill: var(--pencil);
+				font-weight: 400;
+				opacity: 0.8;
+			}
+
+			.arrow.native {
+				fill: var(--ink);
+			}
+
+			.arrow.wanted,
+			.sketch,
+			.pencil {
+				fill: none;
+				stroke: var(--pencil);
+				stroke-linecap: round;
+				stroke-linejoin: round;
+			}
+
+			.pencil {
+				stroke-width: 0.7;
+				opacity: 0.4;
+
+				html.dark & {
+					opacity: 0.28;
+				}
+			}
+
+			.arrow.wanted,
+			.sketch {
+				stroke-width: 0.8;
+				opacity: 0.85;
+
+				html.dark & {
+					opacity: 0.65;
+				}
+			}
+
+			.finding,
+			.press,
+			.name,
+			.caption {
+				text-anchor: middle;
+			}
+
+			.finding {
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-size: var(--f-finding);
+				font-weight: 600;
+				fill: var(--ink);
+			}
+
+			.press {
+				font-family: 'Joy Elia', system-ui, sans-serif;
+				font-size: var(--f-press);
+				fill: var(--ink);
+			}
+
+			.name {
+				font-family: 'Joy Elia', system-ui, sans-serif;
+				font-size: var(--f-name);
+				letter-spacing: 0.14em;
+				fill: var(--ink);
+				opacity: 0.8;
+			}
+
+			.press.wanted,
+			.caption {
+				fill: var(--pencil);
+			}
+
+			.press .wrote {
+				fill: var(--ink);
+			}
+
+			.press .said {
+				stroke: var(--ink);
+				stroke-width: 0.75px;
+			}
+
+			.press.wanted .said {
+				stroke: var(--pencil);
+			}
+
+			.caption {
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-size: var(--f-caption);
+				font-style: italic;
+			}
+
+			.old text {
+				font-weight: 600;
+				opacity: 0.6;
+			}
+
+			.strike,
+			.tick {
+				fill: none;
+				stroke: var(--sheet-ink);
+				stroke-width: 1.3;
+				stroke-linecap: round;
+				stroke-dasharray: 60;
+			}
+
+			.tick {
+				stroke-width: 1.1;
+			}
+
+			.now,
+			.old,
+			.tick {
+				display: none;
+			}
+
+			.stage[data-order='brewing'] .now[data-s='brewing'],
+			.stage[data-order='ready'] .now[data-s='ready'],
+			.stage[data-order='ready'] .tick,
+			.stage[data-was='brewing'] .old[data-s='brewing'],
+			.stage[data-was='ready'] .old[data-s='ready'] {
+				display: inline;
+			}
+
+			.pulse {
+				fill: none;
+				stroke: var(--ink);
+				stroke-width: 3.2;
+				stroke-linecap: round;
+				stroke-dasharray: 3 100000;
+				opacity: 0;
+			}
+
+			.pulse.wanted {
+				stroke: var(--pencil);
+				stroke-width: 2.4;
+			}
+
+			.stage[data-beat='odd'] .scene {
+				--sink: sink-a;
+				--flash: flash-a;
+				--run: run-a;
+				--word: word-a;
+				--strike: strike-a;
+				--swing: swing-a;
+				--ink-in: ink-in-a;
+			}
+
+			.stage[data-beat='even'] .scene {
+				--sink: sink-b;
+				--flash: flash-b;
+				--run: run-b;
+				--word: word-b;
+				--strike: strike-b;
+				--swing: swing-b;
+				--ink-in: ink-in-b;
+			}
+
+			.press-sink {
+				animation: var(--sink) 320ms ease-out;
+			}
+
+			.finding-2 {
+				animation: var(--flash) 700ms 80ms ease-out;
+			}
+
+			.tag-swing {
+				transform-box: view-box;
+				animation: var(--swing) 900ms 200ms ease-out;
+			}
+
+			.plan-pulse {
+				animation: var(--run) 520ms 700ms ease-in-out both;
+			}
+
+			.arrow-pulse {
+				animation: var(--run) 820ms 1200ms ease-in-out both;
+			}
+
+			.press.native .said {
+				animation: var(--word) 600ms 1500ms ease-out;
+			}
+
+			.crossed .strike,
+			.tick {
+				animation: var(--strike) 240ms 2050ms ease-out both;
+			}
+
+			.crossed {
+				animation: var(--ink-in) 300ms 2000ms ease-out both;
+			}
+
+			.now {
+				stroke: var(--sheet-ink);
+				stroke-width: 0.3;
+				stroke-dasharray: 40;
+				animation: var(--ink-in) 520ms 2250ms ease-out both;
+			}
+
+			.words .now {
+				animation-delay: 150ms;
+			}
+
+			@keyframes sink-a { 35% { transform: translateY(1.5px); } }
+			@keyframes sink-b { 35% { transform: translateY(1.5px); } }
+			@keyframes flash-a { 20% { fill: var(--pink); } }
+			@keyframes flash-b { 20% { fill: var(--pink); } }
+			@keyframes swing-a { 25% { transform: rotate(9deg); } 55% { transform: rotate(-5deg); } 80% { transform: rotate(2deg); } }
+			@keyframes swing-b { 25% { transform: rotate(9deg); } 55% { transform: rotate(-5deg); } 80% { transform: rotate(2deg); } }
+			@keyframes run-a { from { opacity: 1; stroke-dashoffset: 0; } 92% { opacity: 1; } to { opacity: 0; stroke-dashoffset: calc(var(--l) * -1); } }
+			@keyframes run-b { from { opacity: 1; stroke-dashoffset: 0; } 92% { opacity: 1; } to { opacity: 0; stroke-dashoffset: calc(var(--l) * -1); } }
+			@keyframes word-a { 40% { font-weight: 700; fill: var(--pink); } }
+			@keyframes word-b { 40% { font-weight: 700; fill: var(--pink); } }
+			@keyframes strike-a { from { stroke-dashoffset: 60; } to { stroke-dashoffset: 0; } }
+			@keyframes strike-b { from { stroke-dashoffset: 60; } to { stroke-dashoffset: 0; } }
+			@keyframes ink-in-a { from { opacity: 0; stroke-dashoffset: 40; } }
+			@keyframes ink-in-b { from { opacity: 0; stroke-dashoffset: 40; } }
+
+			@media (prefers-reduced-motion: reduce) {
+				.scene * {
+					animation: none !important;
+				}
+			}
+
+			.sr {
+				position: absolute;
+				width: 1px;
+				height: 1px;
+				overflow: hidden;
+				clip-path: inset(50%);
+				white-space: nowrap;
+			}
+		

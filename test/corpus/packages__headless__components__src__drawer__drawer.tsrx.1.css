@@ -1,0 +1,37 @@
+
+			@layer markless {
+				[ui-content] {
+					position: fixed;
+					inset-inline: 0;
+					inset-block: auto 0;
+					translate: 0 calc(var(--offset, 0) * 100%);
+					/* The browser must not claim the pan before the family sees it, and a
+					   swipe that runs out of drawer must not rubber-band the page behind -
+					   the iOS webview failure. A scroll region inside the drawer sets its
+					   own touch-action, because this one reaches its descendants. */
+					touch-action: none;
+					overscroll-behavior: contain;
+				}
+				[ui-content][ui-start] {
+					inset-block: 0 auto;
+					translate: 0 calc(var(--offset, 0) * -100%);
+				}
+				[ui-content][ui-orientation=horizontal] {
+					inset-block: 0;
+					inset-inline: auto 0;
+					translate: calc(var(--offset, 0) * 100%) 0;
+				}
+				[ui-content][ui-orientation=horizontal][ui-start] {
+					inset-inline: 0 auto;
+					translate: calc(var(--offset, 0) * -100%) 0;
+				}
+				/* `inset-inline` is logical and `translate` is physical, so the inline
+				   axis needs the page's direction to agree on which way is out. */
+				[ui-content][ui-orientation=horizontal]:dir(rtl) {
+					translate: calc(var(--offset, 0) * -100%) 0;
+				}
+				[ui-content][ui-orientation=horizontal][ui-start]:dir(rtl) {
+					translate: calc(var(--offset, 0) * 100%) 0;
+				}
+			}
+		

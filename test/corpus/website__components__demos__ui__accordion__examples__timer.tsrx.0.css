@@ -1,0 +1,9 @@
+
+   .timer[hidden] { display:none; }
+   .timer { display:grid; justify-items:center; gap:6px; }
+   output { display:block; min-width:132px; padding:10px 16px; background:#f8f1e4; border:2px solid #38303b; border-radius:19px 22px 13px 15px; box-shadow:4px 4px 0 #cfafe1; font:32px/1.2 'Shantell Sans',sans-serif; color:#292333; font-variant-numeric:tabular-nums; }
+   .actions { display:flex; gap:14px; }
+   button { padding:4px; border:0; background:transparent; color:#413048; text-decoration:underline; text-underline-offset:3px; cursor:pointer; font:14px 'Shantell Sans',sans-serif; }
+   button:focus-visible { outline:2px solid #7c4891; outline-offset:3px; }
+   span { font:14px 'Shantell Sans',sans-serif; }
+  

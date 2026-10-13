@@ -1,0 +1,34 @@
+
+			.js-badge {
+				display: inline-block;
+				width: 1.45em;
+				height: 1.45em;
+				vertical-align: top;
+				rotate: -4deg;
+			}
+
+			.paper {
+				fill: var(--yellow);
+			}
+
+			.line {
+				fill: none;
+				stroke: var(--on-accent);
+				stroke-width: 1.8;
+				stroke-linecap: round;
+				stroke-linejoin: round;
+			}
+
+			.faint {
+				stroke-width: 0.9;
+				opacity: 0.5;
+			}
+
+			.label {
+				fill: var(--on-accent);
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-size: 21px;
+				font-weight: 800;
+				text-anchor: end;
+			}
+		

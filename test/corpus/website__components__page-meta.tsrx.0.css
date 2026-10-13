@@ -1,0 +1,44 @@
+
+			.page-meta {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.5em;
+				align-items: baseline;
+				margin-block: calc(var(--space-xs) * -0.5) var(--space-m);
+				font-size: var(--step--1);
+				color: color-mix(in oklch, var(--ink) 72%, var(--paper));
+			}
+
+			.page-meta-level {
+				padding: 0.1em 0.55em;
+				background: var(--yellow);
+				border: 2px solid var(--ink);
+				border-radius: 999px;
+				color: var(--on-accent);
+				font-weight: 700;
+			}
+
+			.page-meta-sep {
+				opacity: 0.5;
+			}
+
+			/* The page sprite rides in .page-meta, because MDX cannot nest a component
+			   inside a markdown heading; it is lifted back up beside the H1 here. */
+			.page-meta-sprite {
+				display: inline-flex;
+				margin-top: -0.9em;
+			}
+
+			/* The assumes line: one link per concept, and the slots a page does not use. */
+			.page-meta-assume-link {
+				color: inherit;
+				text-decoration-color: var(--pink);
+				text-decoration-thickness: 0.1em;
+				text-underline-offset: 0.16em;
+			}
+
+			.page-meta a.is-hidden,
+			.page-meta span.is-hidden {
+				display: none;
+			}
+		

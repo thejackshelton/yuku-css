@@ -1,0 +1,282 @@
+/* @markless/ui ships no styles, so this is the consumer's half: enough CSS to
+   make the gallery legible on screen. None of it changes what a reader says. */
+
+:root {
+	color-scheme: light dark;
+	--ink: #16181d;
+	--paper: #fbfbfd;
+	--line: #d2d5dd;
+	--accent: #2f5fe0;
+	--muted: #5c6270;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--ink: #eceef4;
+		--paper: #14161b;
+		--line: #333844;
+		--accent: #7fa2ff;
+		--muted: #99a0b0;
+	}
+}
+
+body {
+	margin: 0;
+	background: var(--paper);
+	color: var(--ink);
+	font:
+		16px/1.55 ui-sans-serif,
+		system-ui,
+		-apple-system,
+		Segoe UI,
+		sans-serif;
+}
+
+main {
+	margin: 0 auto;
+	max-width: 44rem;
+	padding: 3rem 1.5rem 4rem;
+}
+
+h1 {
+	font-size: 1.6rem;
+	margin: 0 0 0.25rem;
+}
+
+.lede {
+	color: var(--muted);
+	margin: 0 0 2rem;
+}
+
+.scenario {
+	border: 1px solid var(--line);
+	border-radius: 0.6rem;
+	padding: 1.5rem;
+}
+
+.after {
+	margin-top: 2rem;
+	color: var(--muted);
+}
+
+a {
+	color: var(--accent);
+}
+
+.families {
+	line-height: 2.1;
+	padding-left: 1.2rem;
+}
+
+button {
+	font: inherit;
+	color: inherit;
+	background: transparent;
+	border: 1px solid var(--line);
+	border-radius: 0.35rem;
+	padding: 0.25rem 0.6rem;
+	min-width: 2.2rem;
+	min-height: 2.2rem;
+	cursor: pointer;
+}
+
+button[aria-checked='true'],
+button[aria-pressed='true'] {
+	border-color: var(--accent);
+}
+
+label {
+	margin-left: 0.5rem;
+}
+
+input {
+	font: inherit;
+	color: inherit;
+	background: transparent;
+	border: 1px solid var(--line);
+	border-radius: 0.35rem;
+	padding: 0.35rem 0.5rem;
+}
+
+/* The slider family ships no rail size, and a dragged thumb needs touch
+   scrolling off, so the consumer's stylesheet owns both. */
+.slider-track {
+	position: relative;
+	width: 200px;
+	height: 20px;
+	margin-top: 0.75rem;
+	border: 1px solid var(--line);
+	border-radius: 0.35rem;
+	touch-action: none;
+}
+
+/* The tooltip family emits the anchor identity and one default grid cell in its
+   own layer, so the rest of the placement is here: where to go when that cell
+   runs off screen, and when to disappear with an anchor that scrolled away. */
+.tip {
+	position-area: block-start;
+	margin-bottom: 0.35rem;
+	position-try-fallbacks: flip-block, flip-inline;
+	position-visibility: anchors-visible;
+	max-width: 16rem;
+	padding: 0.25rem 0.5rem;
+	border: 1px solid var(--line);
+	border-radius: 0.35rem;
+	background: var(--paper);
+	color: var(--ink);
+	font-size: 0.9rem;
+}
+
+/* Same split as the tip: the hovercard family emits the anchor identity and one
+   default grid cell, and the consumer owns the rest. A card occludes more than a
+   tip does, so the fallbacks matter more here. */
+.card {
+	margin-top: 0.5rem;
+	position-try-fallbacks: flip-block, flip-inline;
+	position-visibility: anchors-visible;
+	width: 18rem;
+	padding: 0.75rem 1rem;
+	border: 1px solid var(--line);
+	border-radius: 0.5rem;
+	background: var(--paper);
+	color: var(--ink);
+}
+
+/* The menu family places and hides its own surface; the paint is the consumer's. */
+.menu-surface {
+	min-width: 10rem;
+	padding: 0.25rem;
+	border: 1px solid var(--line);
+	border-radius: 0.5rem;
+	background: var(--paper);
+	color: var(--ink);
+}
+
+.menu-surface [role^='menuitem'] {
+	padding: 0.25rem 0.6rem;
+	border-radius: 0.35rem;
+	cursor: pointer;
+}
+
+.menu-surface [role^='menuitem']:focus-visible {
+	outline: 2px solid var(--accent);
+}
+
+/* The colour picker positions its plane, rail and thumbs itself, so a consumer
+   owes them a size and something to look at. */
+.picker-plane {
+	width: 200px;
+	height: 160px;
+	border: 1px solid var(--line);
+	border-radius: 0.35rem;
+	background:
+		linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, #3399ff);
+}
+
+.picker-rail {
+	width: 200px;
+	height: 20px;
+	margin-top: 0.75rem;
+	border: 1px solid var(--line);
+	border-radius: 0.35rem;
+	background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+}
+
+.picker-thumb {
+	width: 16px;
+	height: 16px;
+	translate: -50% 50%;
+	border: 1px solid var(--ink);
+	border-radius: 50%;
+	background: transparent;
+}
+
+/* The family hands the consumer `--slider-offset` and leaves the placing here. */
+.slider-thumb {
+	position: absolute;
+	top: 0;
+	left: var(--slider-offset, 0%);
+	translate: -50% 0;
+	width: 20px;
+	height: 20px;
+	border: 1px solid var(--accent);
+	border-radius: 50%;
+	background: var(--paper);
+}
+
+/* The drawing surface ships no size and paints its strokes in `currentColor`,
+   so both are the consumer's. */
+.ink-surface {
+	display: block;
+	width: 300px;
+	height: 150px;
+	border: 1px solid var(--line);
+	border-radius: 0.35rem;
+	color: var(--ink);
+}
+
+/* The pad ships no dimensions: the field's size and the handle's look are the
+   consumer's, and the family places the handle from `--pad-x` / `--pad-y`. */
+.pad-plane {
+	display: block;
+	width: 200px;
+	height: 200px;
+	border: 1px solid var(--line);
+	border-radius: 0.35rem;
+	color: var(--ink);
+}
+
+.pad-handle {
+	width: 16px;
+	height: 16px;
+	translate: -50% 50%;
+	border: 1px solid var(--ink);
+	border-radius: 50%;
+	background: var(--paper);
+}
+
+.pad-grid {
+	background:
+		repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px 25%),
+		repeating-linear-gradient(to top, var(--line) 0 1px, transparent 1px 25%);
+}
+
+.pad-curve {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+}
+
+.crop-area {
+	width: 400px;
+	height: 300px;
+	border: 1px solid var(--line);
+	border-radius: 0.35rem;
+	color: var(--ink);
+}
+
+.crop-picture {
+	display: block;
+	width: 400px;
+	height: 300px;
+	object-fit: fill;
+}
+
+.crop-rect {
+	outline: 2px solid var(--ink);
+}
+
+.crop-grid {
+	background:
+		repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px 33.34%),
+		repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px 33.34%);
+}
+
+.crop-handle {
+	width: 12px;
+	height: 12px;
+	border: 1px solid var(--paper);
+	background: var(--ink);
+}

@@ -1,0 +1,21 @@
+
+			.iso-face-text {
+				fill: var(--anatomy-mid);
+				font-family: var(--anatomy-hand);
+				font-weight: 600;
+				letter-spacing: 0.14em;
+				text-transform: uppercase;
+			}
+
+			.iso-face-text[data-tone='hi'] {
+				fill: var(--anatomy-hi);
+			}
+
+			.iso-face-text[data-tone='lo'] {
+				fill: var(--anatomy-lo);
+			}
+
+			.iso-face-text[data-tone='faint'] {
+				fill: var(--anatomy-faint);
+			}
+		

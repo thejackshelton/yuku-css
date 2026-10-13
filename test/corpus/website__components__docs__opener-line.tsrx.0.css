@@ -1,0 +1,14 @@
+
+			/* p span, not bare span: the prose column's global font rule is
+			   .prose :is(p, ...) :is(..., span), specificity (0,1,2), and the scoped
+			   selector has to tie it to win by order. */
+			p span {
+				display: inline-block;
+				font-family: 'Joy Elia', system-ui, sans-serif;
+				font-size: var(--step--1);
+				color: var(--ink);
+				opacity: 0.72;
+				transform: rotate(-2deg) translateY(-0.4em);
+				margin-inline: 0.15em;
+			}
+		

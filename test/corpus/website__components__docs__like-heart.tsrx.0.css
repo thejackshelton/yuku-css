@@ -1,0 +1,10 @@
+
+			.like-heart { display:flex; justify-content:center; margin-top:var(--space-l); }
+			.like-heart-button { --spring:linear(0, 0.027 1.1%, 0.103 2.3%, 0.583 7.5%, 0.792 10.4%, 0.932 13.6%, 0.977 15.4%, 1.006 17.4%, 1.02 19.4%, 1.024 21.7%, 1 38.4%, 1); display:grid; justify-items:center; width:11rem; padding:0; border:0; background:none; color:var(--ink); font:inherit; cursor:pointer; border-radius:12px; }
+			.like-heart-button:focus-visible { outline:2px solid var(--ink); outline-offset:3px; }@media(min-width:70.01rem) {
+				.like-heart { position:fixed; right:var(--space-s-l); width:11rem; margin:0; top: min(calc(var(--header-height) + var(--space-s) + 21rem), calc(100vh - 12rem)); }
+				@supports(position-anchor:--on-this-page) {
+					.like-heart { position-anchor:--on-this-page; top:calc(anchor(bottom, var(--header-height)) + var(--space-s)); left:anchor(left, auto); }
+				}
+			}
+

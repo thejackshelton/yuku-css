@@ -1,0 +1,57 @@
+
+			.pages {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.4em;
+				justify-content: center;
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-size: var(--step--1);
+				line-height: 1;
+				color: var(--ink);
+			}
+
+			.page-box {
+				display: grid;
+				place-items: center;
+				box-sizing: border-box;
+				min-width: 2.2em;
+				height: 2.2em;
+				padding: 0 0.4em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+				font: inherit;
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-variant-numeric: tabular-nums;
+				cursor: pointer;
+			}
+
+			.page-box svg {
+				width: 1em;
+				height: 1em;
+			}
+
+			.page-box:hover {
+				background: color-mix(in srgb, var(--purple) 16%, var(--paper));
+			}
+
+			.page-box[ui-active] {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			.page-box:focus-visible {
+				outline: 2px solid var(--ink);
+				outline-offset: 2px;
+			}
+
+			.page-box:disabled,
+			.page-box[aria-disabled='true'] {
+				cursor: not-allowed;
+				opacity: 0.45;
+			}
+
+			.page-box:disabled:hover {
+				background: var(--paper);
+			}
+		

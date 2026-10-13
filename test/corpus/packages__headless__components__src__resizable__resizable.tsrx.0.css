@@ -1,0 +1,6 @@
+
+			@layer markless {
+				[ui-panels] { display: flex; flex-direction: row; }
+				[ui-panels][ui-orientation="vertical"] { flex-direction: column; }
+			}
+		

@@ -1,0 +1,10 @@
+
+			@layer markless {
+				[overlay] {
+					--ui-anchor: --ui-hovercard;
+					position: absolute;
+					position-anchor: --ui-hovercard;
+					position-area: block-end;
+				}
+			}
+		

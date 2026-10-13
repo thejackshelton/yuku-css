@@ -1,0 +1,11 @@
+
+			@layer markless {
+				/* The containing block for a half fill the consumer paints over the
+				   mark, and the selection a drag across the marks would otherwise make. */
+				[ui-star] {
+					position: relative;
+					-webkit-user-select: none;
+					user-select: none;
+				}
+			}
+		

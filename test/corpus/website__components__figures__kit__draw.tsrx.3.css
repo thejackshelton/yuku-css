@@ -1,0 +1,45 @@
+
+			.iso-dots circle {
+				fill: var(--anatomy-dot);
+				stroke: none;
+				opacity: 0.75;
+			}
+
+			.iso-dots[data-tone='hi'] circle {
+				opacity: 1;
+			}
+
+			.iso-dots[data-tone='lo'] circle {
+				opacity: 0.55;
+			}
+
+			.iso-dots[data-tone='faint'] circle {
+				opacity: 0.3;
+			}
+
+			.iso-dots circle[data-pulse] {
+				animation: iso-pulse 1600ms steps(1, end) infinite;
+				animation-delay: var(--pulse-at, 0ms);
+			}
+
+			@keyframes iso-pulse {
+				0%,
+				100% {
+					opacity: 0.18;
+				}
+
+				12% {
+					opacity: 1;
+				}
+
+				40% {
+					opacity: 0.18;
+				}
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.iso-dots circle[data-pulse] {
+					animation: none;
+				}
+			}
+		

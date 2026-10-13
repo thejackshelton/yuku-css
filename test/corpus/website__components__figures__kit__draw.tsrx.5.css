@@ -1,0 +1,78 @@
+
+			.iso-stage {
+				--anatomy-accent: var(--figure-accent, var(--yellow));
+				--anatomy-paper: var(--paper);
+				--anatomy-wash-paper: var(--paper);
+				--anatomy-wash-top-paper: var(--paper);
+				--anatomy-wash-steel: color-mix(in oklch, var(--ink) 8%, var(--paper));
+				--anatomy-wash-top-steel: color-mix(in oklch, var(--ink) 4%, var(--paper));
+				--anatomy-wash-accent: var(--paper);
+				--anatomy-wash-top-accent: var(--paper);
+				--anatomy-marker: color-mix(in oklch, var(--anatomy-accent) 82%, var(--pink));
+				--anatomy-marker-opacity: 0.78;
+				--anatomy-marker-blend: multiply;
+				--anatomy-shadow: var(--ink);
+				--anatomy-hatch: var(--ink);
+				--anatomy-pencil: color-mix(in oklch, var(--pink) 75%, var(--paper));
+				--anatomy-top: var(--paper);
+				--wash: var(--anatomy-wash-paper);
+				--wash-top: var(--anatomy-wash-top-paper);
+				--anatomy-hi: var(--ink);
+				--anatomy-mid: var(--ink);
+				--anatomy-lo: color-mix(in oklch, var(--ink) 86%, var(--paper));
+				--anatomy-faint: color-mix(in oklch, var(--ink) 62%, var(--paper));
+				--anatomy-lit: color-mix(in oklch, var(--anatomy-accent) 55%, var(--ink));
+				--anatomy-dot: var(--ink);
+				--anatomy-red: color-mix(in oklch, var(--pink) 75%, var(--ink));
+				--anatomy-green: color-mix(in oklch, var(--green-star) 75%, var(--ink));
+				--anatomy-blue: color-mix(in oklch, var(--purple) 75%, var(--ink));
+				--anatomy-weight: 1.2px;
+				--ink-heavy: 2.5;
+				--ink-hi: 1.55;
+				--ink-mid: 1.35;
+				--ink-lo: 1.05;
+				--ink-faint: 0.75;
+				--anatomy-mono: var(--font-mono);
+				--anatomy-hand: 'Shantell Sans', system-ui, sans-serif;
+
+				html.dark & {
+					--anatomy-wash-steel: color-mix(in oklch, var(--ink) 9%, var(--paper));
+					--anatomy-wash-top-steel: color-mix(in oklch, var(--ink) 5%, var(--paper));
+					--anatomy-marker: color-mix(in oklch, var(--anatomy-accent) 70%, var(--paper));
+					--anatomy-marker-opacity: 0.5;
+					--anatomy-marker-blend: normal;
+					--anatomy-shadow: black;
+					--anatomy-pencil: color-mix(in oklch, var(--pink) 42%, var(--paper));
+					--anatomy-lo: color-mix(in oklch, var(--ink) 82%, var(--paper));
+					--anatomy-faint: color-mix(in oklch, var(--ink) 55%, var(--paper));
+					--anatomy-lit: var(--anatomy-accent);
+					--anatomy-red: var(--pink);
+					--anatomy-green: var(--green-star);
+					--anatomy-blue: var(--purple);
+				}
+			}
+
+			.iso-stage[data-accent='yellow'] {
+				--figure-accent: var(--yellow);
+			}
+
+			.iso-stage[data-accent='pink'] {
+				--figure-accent: var(--pink);
+			}
+
+			.iso-stage[data-accent='purple'] {
+				--figure-accent: var(--purple);
+			}
+
+			.iso-stage[data-accent='green'] {
+				--figure-accent: var(--green-star);
+			}
+
+			.iso-svg {
+				display: block;
+				width: 100%;
+				height: auto;
+				margin: 0 auto;
+				overflow: visible;
+			}
+		

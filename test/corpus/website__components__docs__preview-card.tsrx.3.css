@@ -1,0 +1,36 @@
+
+			.pv-watch {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.35em 0.8em;
+				align-items: baseline;
+				margin: 0;
+				padding: 0.8em 1.35em;
+				border-block-start: 1px dashed var(--code-edge);
+				background: var(--tinted);
+				color: var(--ink);
+				font-family: var(--pg-font);
+				font-size: var(--step--1);
+				line-height: 1.5;
+			}
+
+			.pv-watch:last-child {
+				border-radius: 0 0 13px 13px;
+			}
+
+			.pv-watch-label {
+				padding: 0 0.3em;
+				border-radius: 3px;
+				background: var(--mark);
+				font-family: 'Joy Elia', system-ui, sans-serif;
+				font-weight: 700;
+			}
+
+			.pv-watch-text {
+				flex: 1 1 20em;
+			}
+
+			.pv-watch + .pg-code {
+				padding-block-start: 0.75em;
+			}
+		

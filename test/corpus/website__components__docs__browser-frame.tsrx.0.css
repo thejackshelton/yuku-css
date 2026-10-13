@@ -1,0 +1,24 @@
+
+			.wd {
+				display: inline-flex;
+				flex: none;
+				gap: 0.32em;
+			}
+
+			.wd i {
+				box-sizing: border-box;
+				width: 0.62em;
+				height: 0.62em;
+				border: 1px solid var(--ink);
+				border-radius: 50%;
+				background: var(--pink);
+			}
+
+			.wd i:nth-child(2) {
+				background: var(--yellow);
+			}
+
+			.wd i:nth-child(3) {
+				background: var(--green-star);
+			}
+		

@@ -1,0 +1,111 @@
+
+			.split {
+				display: grid;
+				grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+				gap: 1.5em;
+				align-items: stretch;
+				width: min(38rem, 100%);
+			}
+
+			.window {
+				position: relative;
+				display: grid;
+				min-width: 0;
+			}
+
+			.page {
+				display: grid;
+				gap: 0.5em;
+				align-content: start;
+				box-sizing: border-box;
+				padding: 0.85em 1em 1em;
+			}
+
+			.pick {
+				display: contents;
+			}
+
+			.art:not([data-mug='tall']) .tall,
+			.art:not([data-mug='cracked']) .cracked,
+			.art:is([data-mug='tall'], [data-mug='cracked']) .small {
+				display: none;
+			}
+
+			.held {
+				margin: 0;
+				color: var(--muted-ink);
+				font-size: var(--step--1);
+			}
+
+			.held {
+				justify-self: start;
+				padding: 0 0.4em;
+				border-radius: 3px;
+				background: var(--mark);
+				color: var(--ink);
+			}
+
+			.held[hidden] {
+				display: none;
+			}
+
+			.blocks {
+				display: grid;
+				gap: 0.7em;
+				margin: 0;
+				padding: 0;
+				list-style: none;
+			}
+
+			.block {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.2em 0.8em;
+				align-items: baseline;
+				padding: 0.6em 1em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+				transition: background 140ms ease;
+			}
+
+			.block:is([data-on='true'], [data-on='held']) {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			.block:is([data-on='true'], [data-on='held'])::after {
+				content: 'on the page';
+				margin-inline-start: auto;
+				font-size: var(--step--1);
+			}
+
+			.block[data-on='held']::after {
+				content: 'still showing';
+			}
+
+			.block code {
+				padding: 0;
+				background: none;
+				color: inherit;
+				font-family: var(--font-mono);
+				font-size: var(--step--1);
+				font-weight: 700;
+			}
+
+			.block span {
+				font-size: var(--step--1);
+			}
+
+			@media (max-width: 600px) {
+				.split {
+					grid-template-columns: minmax(0, 1fr);
+				}
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.block {
+					transition: none;
+				}
+			}
+		

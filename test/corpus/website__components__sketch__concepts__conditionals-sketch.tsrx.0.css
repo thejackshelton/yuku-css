@@ -1,0 +1,28 @@
+
+			.slot {
+				position: relative;
+			}
+
+			.branch {
+				position: absolute;
+				box-sizing: border-box;
+				border: 1px dashed var(--ink);
+				border-radius: 8px;
+				pointer-events: none;
+			}
+
+			.branch[hidden] {
+				display: none;
+			}
+
+			.tag {
+				position: absolute;
+				inset-block-start: -0.75em;
+				inset-inline-end: 0.6em;
+				padding: 0 0.3em;
+				background: var(--paper);
+				font-family: var(--font-mono);
+				font-size: var(--step--2);
+				line-height: 1.4;
+			}
+		

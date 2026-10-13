@@ -1,0 +1,11 @@
+
+			.said,
+			.said :where(span, b) {
+				font-family: var(--pg-font);
+			}
+
+			.spot {
+				display: grid;
+				place-items: center;
+			}
+		

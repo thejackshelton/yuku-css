@@ -1,0 +1,17 @@
+
+			@layer markless {
+				[ui-handle] { position: absolute; touch-action: none; }
+				[ui-handle][ui-inline-start] { inset-inline-start: 0; }
+				[ui-handle][ui-inline-end] { inset-inline-end: 0; }
+				[ui-handle][ui-block-start] { inset-block-start: 0; }
+				[ui-handle][ui-block-end] { inset-block-end: 0; }
+				[ui-handle]:not([ui-inline-start]):not([ui-inline-end]) {
+					inset-inline-start: 0;
+					inset-inline-end: 0;
+				}
+				[ui-handle]:not([ui-block-start]):not([ui-block-end]) {
+					inset-block-start: 0;
+					inset-block-end: 0;
+				}
+			}
+		

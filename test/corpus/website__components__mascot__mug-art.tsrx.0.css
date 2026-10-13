@@ -1,0 +1,206 @@
+
+.mug { --spring: linear(0, 0.027 1.1%, 0.103 2.3%, 0.583 7.5%, 0.792 10.4%, 0.932 13.6%, 0.977 15.4%, 1.006 17.4%, 1.02 19.4%, 1.024 21.7%, 1 38.4%, 1); --snap: linear(0, 0.029 0.8%, 0.13 1.8%, 0.908 7.2%, 1.051 9.1%, 1.112 11.2%, 1.116 12.2%, 1.106 13.4%, 1.007 19.5%, 0.987 23.1%, 1.001 35%, 1); display:block; width:var(--mug-width, min(100%,275px)); height:var(--mug-height,320px); overflow:visible; }
+ .halo { fill: none; stroke: #fffdf7; stroke-width: 14; stroke-linejoin: round; stroke-linecap: round; }
+ .handle-motion { transform-origin: 172px 129px; }
+ .handle-halo { fill: none; stroke: #fffdf6; stroke-width: 27; stroke-linecap: round; }
+ .handle-ink { fill: none; stroke: #2d2b2a; stroke-width: 19; stroke-linecap: round; }
+ .handle-glaze { fill: none; stroke: var(--glaze); stroke-width: 11; stroke-linecap: round; }
+ .body-shape, .rim { fill: var(--glaze); stroke: #2d2b2a; stroke-width: 3; }
+ .shine { fill: none; stroke: #fffdf6; stroke-width: 4; stroke-linecap: round; opacity: .5; }
+ .coffee { fill: #74492f; stroke: #2d2b2a; stroke-width: 2; }
+ .latte-art { fill: #f7e7bd; transform-origin: 0px 0px; }
+ .pour-art { display: none; }
+.mug [data-art='rosetta'] { html[data-mascot-pour='rosetta'] & {  display: inline; } }
+.mug [data-art='heart'] { html[data-mascot-pour='heart'] & {  display: inline; } }
+.mug [data-art='tulip'] { html[data-mascot-pour='tulip'] & {  display: inline; } }
+.mug [data-art='markless']  { html[data-mascot-pour='markless'] & {  display: inline; } }
+ .coffee-cut { fill: none; stroke: #74492f; stroke-width: 2; stroke-linecap: round; }
+ .markless-pour { fill: none; stroke: #f7e7bd; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+ .shadow { fill: #786c83; opacity: .18; transform-origin: 127px 214px; }
+ .mug[data-interacted="true"] .eye-l,.mug[data-interacted="true"] .eye-r { transition:transform 900ms var(--spring); }
+ .eye-bean { transform-origin:0px 0px; }
+ .pose, .gesture, .breath { transform-origin: 120px 207px; }
+ .pose { transform: translateY(0) rotate(0) scale(1); transition: transform 900ms var(--spring); }
+ .breath { animation: breathe 4s ease-in-out infinite; }
+ .gaze { animation: glance 11s ease-in-out infinite; }
+ .blink { transform-origin: 120px 149px; animation: blink 7s linear infinite; }
+ .wisp { fill: none; stroke: #8d7b6a; stroke-width: 2.5; stroke-linecap: round; animation: steam 4s ease-in-out infinite; transform-origin: 120px 60px; }
+ .wisp:nth-child(2) { animation-delay: -1.3s; }
+ .wisp:nth-child(3) { animation-delay: -2.6s; }
+ .badge { opacity: 0; transform-origin: 173px 89px; }
+ .badge circle { fill: #ed8fb4; stroke: #fffdf6; stroke-width: 5; }
+ .thoughts { opacity: 0; fill: var(--ink); }
+ .mug[data-state='thinking'] .thoughts { opacity: 1; }
+ .mug[data-state='thinking'] .steam { opacity: .15; }
+ .mug[data-state='thinking'] .thoughts circle { animation: thought 2s ease-in-out infinite; }
+ .thoughts circle:nth-child(2) { animation-delay: .2s !important; }
+ .thoughts circle:nth-child(3) { animation-delay: .4s !important; }
+ @keyframes thought { 0%, 70%, 100% { transform: translateY(0); opacity: .5; } 30% { transform: translateY(-7px); opacity: 1; } }
+.mug { html[data-mascot-glaze='cream'] & { --glaze: #f7e7bd; } }
+.mug { html[data-mascot-glaze='yellow'] & { --glaze: #f3d567; } }
+.mug { html[data-mascot-glaze='pink'] & { --glaze: #efa3bd; } }
+.mug { html[data-mascot-glaze='purple'] & { --glaze: #baa1e2; } }
+.mug { html[data-mascot-glaze='green'] & { --glaze: #a5ceb4; } }
+.mug { html[data-mascot-glaze='ink'] & { --glaze: #343432; --eye: #faf7ed; } }
+.mug { html[data-mascot-glaze='paper'] & { --glaze: #faf7ed; } }
+
+ .mug:not([data-state='idle']) .gaze, .mug:not([data-state='idle']) .blink { animation: none; }
+.mug:not([data-state='idle']) .eye-l { transform:translate(91px,140px); }
+.mug:not([data-state='idle']) .eye-r { transform:translate(127px,140px); }
+ .mug[data-state='thinking'] .pose { transform: rotate(4deg); }
+ .mug[data-state='thinking'] .gesture { animation: ponder 4s var(--spring) infinite; }
+ .mug[data-state='thinking'] .gaze { transform: translate(7px, -9px); }
+ .mug[data-state='thinking'] .latte-art { animation: stir 4s ease-in-out infinite; }
+
+ .bean-eye { fill:var(--eye, currentColor); }
+ .bean-slit { fill:none; stroke:var(--glaze, var(--paper)); stroke-width:2; stroke-linecap:round; }
+ .mug[data-interacted="true"] .eye-l,.mug[data-interacted="true"] .eye-r { transition:transform 900ms var(--spring); }
+ .eye-bean { transform-origin:0px 0px; }
+.mug[data-state='wide'] .eye-l { transform:translate(100px,147px) rotate(-3deg) scale(1.18,1.18); }
+.mug[data-state='wide'] .eye-r { transform:translate(136px,147px) rotate(3deg) scale(1.18,1.18); }
+.mug[data-state='sleep'] .eye-l { transform:translate(100px,156px) rotate(-8deg) scale(1,0.17); }
+.mug[data-state='sleep'] .eye-r { transform:translate(136px,156px) rotate(8deg) scale(1,0.17); }
+.mug[data-state='wiggle'] .eye-l { transform:translate(100px,143px) rotate(-27deg) scale(1.05,0.52); }
+.mug[data-state='wiggle'] .eye-r { transform:translate(136px,143px) rotate(27deg) scale(1.05,0.52); }
+.mug[data-state='cheers'] .eye-l { transform:translate(100px,143px) rotate(-27deg) scale(1.05,0.52); }
+.mug[data-state='cheers'] .eye-r { transform:translate(136px,143px) rotate(27deg) scale(1.05,0.52); }
+.mug[data-state='sigh'] .eye-l { transform:translate(100px,156px) rotate(-8deg) scale(1,0.17); }
+.mug[data-state='sigh'] .eye-r { transform:translate(136px,156px) rotate(8deg) scale(1,0.17); }
+.mug[data-state='bow'] .eye-l { transform:translate(96px,155px) rotate(-20deg) scale(0.6,0.65); }
+.mug[data-state='bow'] .eye-r { transform:translate(132px,155px) rotate(20deg) scale(0.6,0.65); }
+ .mug[data-state='wink'] .eye-r .eye-bean { animation:wink-eye 4s var(--spring) infinite; }
+ .mug[data-state='wink'] .gesture { animation: wink-roll 4s var(--spring) infinite; }
+ .mug[data-state='wide'] .gesture { animation: notice 4s var(--spring) infinite; }
+ .mug[data-state='notify'] .gesture { animation: nudge 4s var(--spring) infinite; }
+ .mug[data-state='notify'] .badge { animation: badge 4s var(--snap) infinite; }
+ .mug[data-state='sleep'] .pose { transform: rotate(6deg) scaleY(.96); }
+ .mug[data-state='sleep'] .gesture { animation: doze 4s ease-in-out infinite; }
+ .mug[data-state='sleep'] .steam { opacity: .3; }
+ .mug[data-state='hello'] .gesture { animation: hello 4s ease-in-out infinite; }
+ .mug[data-state='hello'] .handle-motion { animation: handle-wave 4s var(--spring) infinite; }
+ .mug[data-state='hello'] .gaze { transform: translate(5px, -4px); }
+ .mug[data-state='wiggle'] .gesture { animation: wiggle 4s var(--spring) infinite; }
+ .mug[data-state='sigh'] .gesture { animation: sigh 4s ease-in-out infinite; }
+ .sigh-wisp { fill: none; stroke: #8b827a; stroke-width: 3; stroke-linecap: round; opacity: 0; transform-origin: 120px 60px; }
+ .mug[data-state='sigh'] .steam { opacity: 0; }
+ .mug[data-state='sigh'] .sigh-wisp { animation: exhale 4s ease-in-out infinite; }
+ .mug[data-state='bow'] .gesture { animation: bow 4s var(--spring) infinite; }
+ .mug[data-state='bow'] .gaze { animation: bow-gaze 4s ease-in-out infinite; }
+ .mug[data-state='brew'] .latte-art { animation: fresh-stir 4s ease-in-out infinite; }
+ .mug[data-state='brew'] .gaze { animation: brew-gaze 4s ease-in-out infinite; }
+ .mug[data-state='brew'] .wisp { animation-name: fresh-steam; animation-duration: 2.8s; stroke-width: 3.3; }
+ .mug[data-state='cheers'] .pose { transform: translate(-6px,-12px) rotate(3deg); }
+ .mug[data-state='cheers'] .gesture { animation: cheers 4s var(--spring) infinite; }
+ .mug[data-state='cheers'] .shadow { animation: toast-shadow 4s ease-in-out infinite; }
+ .mug[data-paused='true'] * { animation-play-state: paused !important; }
+ @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.008, .993); } }
+ @keyframes glance { 0%, 18%, 100% { transform: translate(0, 0); } 27%, 42% { transform: translate(3px, -2px); } 58%, 73% { transform: translate(-2px, 1px); } }
+ @keyframes blink { 0%, 41%, 44%, 76%, 79%, 100% { transform: scaleY(1); } 42.5%, 77.5% { transform: scaleY(.08); } }
+ @keyframes steam { 0% { opacity: 0; transform: translateY(7px) scale(.92); } 30% { opacity: .6; } 75% { opacity: .3; } 100% { opacity: 0; transform: translateY(-12px) scale(1.06); } }
+ @keyframes ponder { 0%, 85%, 100% { transform: rotate(0); } 25%, 60% { transform: rotate(1deg); } }
+ @keyframes stir { 0%, 85%, 100% { transform: rotate(0) scaleX(1); } 30% { transform: rotate(9deg) scaleX(.82); } 65% { transform: rotate(-7deg) scaleX(1.08); } }
+ @keyframes wink-roll { 0%, 65%, 100% { transform: rotate(0); } 22%, 42% { transform: rotate(-6deg); } }
+ @keyframes wink-eye { 0%,12%,55%,100% { transform:scaleY(1); } 22%,42% { transform:scaleY(.15); } }
+ @keyframes notice { 0%, 75%, 100% { transform: none; } 18% { transform: translateY(3px) scale(1.02, .97); } 32%, 55% { transform: translateY(-4px) rotate(-3deg); } }
+ @keyframes nudge { 0%, 65%, 100% { transform: none; } 15% { transform: rotate(-4deg); } 25% { transform: rotate(4deg); } 35% { transform: rotate(-2deg); } 45% { transform: rotate(1deg); } }
+ @keyframes badge { 0%, 8%, 78%, 100% { opacity: 0; transform: scale(.7); } 20%, 60% { opacity: 1; transform: scale(1); } }
+ @keyframes doze { 0%, 100% { transform: rotate(-1deg) scaleY(1.01); } 50% { transform: rotate(1deg) scaleY(.99); } }
+ @keyframes hello { 0%, 85%, 100% { transform: none; } 20%, 55% { transform: translateX(1px) rotate(5deg); } }
+ @keyframes handle-wave { 0%, 78%, 100% { transform: rotate(0); } 15% { transform: rotate(-18deg); } 29% { transform: rotate(12deg); } 42% { transform: rotate(-12deg); } 55% { transform: rotate(7deg); } 68% { transform: rotate(-3deg); } }
+ @keyframes wiggle { 0%, 80%, 100% { transform: none; } 12% { transform: scale(1.03, .96); } 24% { transform: translateX(-5px) rotate(-6deg); } 35% { transform: translateX(5px) rotate(6deg); } 46% { transform: translateX(-4px) rotate(-4deg); } 57% { transform: translateX(3px) rotate(3deg); } 68% { transform: translateX(-1px) rotate(-1deg); } }
+ @keyframes sigh { 0%, 100% { transform: none; } 20% { transform: scale(.99, 1.02); } 55%, 75% { transform: translateY(2px) scale(1.02, .96); } }
+ @keyframes exhale { 0%, 100% { opacity: 0; transform: translateY(5px) scale(.8); } 20% { opacity: .35; transform: translateY(2px) scale(.9); } 55%, 68% { opacity: .65; transform: translateY(-8px) scale(1.35); } 90% { opacity: 0; transform: translateY(-16px) scale(1.45); } }
+ @keyframes bow { 0%, 85%, 100% { transform: none; } 30%, 52% { transform: translateY(4px) rotate(-8deg) scale(1.03, .92); } 70% { transform: rotate(1deg); } }
+ @keyframes bow-gaze { 0%, 85%, 100% { transform: none; } 30%, 52% { transform: translateY(12px); } }
+ @keyframes fresh-stir { 0%, 8% { transform: rotate(0); } 72%, 100% { transform: rotate(360deg); } }
+ @keyframes fresh-steam { 0% { opacity: 0; transform: translateY(8px) scale(.85); } 25% { opacity: .75; } 70% { opacity: .4; } 100% { opacity: 0; transform: translateY(-18px) scale(1.15); } }
+ @keyframes brew-gaze { 0%, 85%, 100% { transform: none; } 30%, 60% { transform: translate(2px, -10px); } }
+ @keyframes cheers { 0%,24%,42%,75%,100% { transform:none; } 55% { transform:translateX(-2px) rotate(-1deg); } }
+ @keyframes toast-shadow { 0%, 80%, 100% { transform: scaleX(1); opacity: .18; } 32%, 52% { transform: scaleX(.8); opacity: .11; } }
+ .partner-cup { opacity:0; transform-origin:0px 4px; }
+ .partner-halo { fill:none; stroke:#fffdf6; stroke-width:10; stroke-linecap:round; stroke-linejoin:round; }
+ .partner-handle { fill:none; stroke:#2d2b2a; stroke-width:4; }
+ .partner-body,.partner-rim { fill:#c9b8e3; stroke:#2d2b2a; stroke-width:2.5; }
+ .partner-coffee { fill:#74492f; }
+ .partner-shine { fill:none; stroke:#fffdf6; stroke-width:3; stroke-linecap:round; opacity:.6; }
+ .clink-marks { fill:none; stroke:var(--ink); stroke-width:2.5; stroke-linecap:round; opacity:0; }
+ .mug[data-state='cheers'] .partner-cup { animation:clink 4s var(--spring) infinite; }
+ .mug[data-state='cheers'] .clink-marks { animation:contact 4s linear infinite; }
+ @keyframes clink { 0%,8%,100% { opacity:0; transform:translate(255px,85px) rotate(6deg); } 24%,42% { opacity:1; transform:translate(174px,60px) rotate(-10deg); } 57% { opacity:1; transform:translate(189px,69px) rotate(1deg); } 78% { opacity:0; transform:translate(240px,85px) rotate(6deg); } }
+ @keyframes contact { 0%,23%,45%,100% { opacity:0; } 25%,40% { opacity:1; } }
+ .sleep-signs { opacity:0; fill:var(--ink); font-family:Georgia,serif; font-style:italic; font-weight:600; font-size:16px; }
+ .mug[data-state='sleep'] .sleep-signs { opacity:1; }
+ .mug[data-state='sleep'] .sleep-z { animation:sleep-rise 3.6s ease-out infinite; }
+ .sleep-z:nth-child(2) { animation-delay:-1.2s; font-size:19px; }
+ .sleep-z:nth-child(3) { animation-delay:-2.4s; font-size:22px; }
+ @keyframes sleep-rise { 0% { opacity:0; transform:translate(-5px,12px) scale(.8); } 25%,55% { opacity:.8; } 100% { opacity:0; transform:translate(6px,-10px) scale(1.08); } }
+ @media (prefers-reduced-motion: reduce) { .mug .pose, .mug .eye-l, .mug .eye-r, .mug .bean-eye { transition: none; } .mug * { animation-play-state: paused !important; animation-delay: -1.3s !important; } .mug .blink { animation: none; } }
+ .coaster-art,.companion-art { display:none; }
+ .mug .shadow { html[data-mascot-coaster='cork'] & { visibility:hidden; } }
+.mug [data-coaster-art='cork']  { html[data-mascot-coaster='cork'] & {  display:inline; } }
+.mug [data-companion-art='beans']  { html[data-mascot-companion='beans'] & {  display:inline; } }
+.mug [data-companion-art='sugar']  { html[data-mascot-companion='sugar'] & {  display:inline; } }
+.mug [data-companion-art='crane']  { html[data-mascot-companion='crane'] & {  display:inline; } }
+.mug [data-companion-art='eucalyptus']  { html[data-mascot-companion='eucalyptus'] & {  display:inline; } }
+.mug [data-companion-art='notes']  { html[data-mascot-companion='notes'] & {  display:inline; } }
+.mug [data-companion-art='moka']  { html[data-mascot-companion='moka'] & {  display:inline; } }
+.mug { --glaze:#f7e7bd; --eye:#2d2b2a; }
+.mug [data-art='rosetta'] { display:inline; html:is([data-mascot-pour='heart'],[data-mascot-pour='tulip'],[data-mascot-pour='markless']) & { display:none; } }
+.mug .eye-l { transform:translate(100px,149px) rotate(-12deg) scale(0.85,0.85); }
+.mug[data-state='idle'] .eye-l { html[data-mascot-expression='neutral'] & { transform:translate(100px,149px) rotate(-12deg) scale(0.85,0.85); } }
+.mug .eye-r { transform:translate(136px,149px) rotate(12deg) scale(0.85,0.85); }
+.mug[data-state='idle'] .eye-r { html[data-mascot-expression='neutral'] & { transform:translate(136px,149px) rotate(12deg) scale(0.85,0.85); } }
+.mug[data-state='idle'] .eye-l { html[data-mascot-expression='attentive'] & { transform:translate(100px,144px) rotate(-5deg) scale(0.9,1); } }
+.mug[data-state='idle'] .eye-r { html[data-mascot-expression='attentive'] & { transform:translate(136px,144px) rotate(5deg) scale(0.9,1); } }
+.mug[data-state='idle'] .eye-l { html[data-mascot-expression='surprised'] & { transform:translate(100px,147px) rotate(-3deg) scale(1.18,1.18); } }
+.mug[data-state='idle'] .eye-r { html[data-mascot-expression='surprised'] & { transform:translate(136px,147px) rotate(3deg) scale(1.18,1.18); } }
+.mug[data-state='idle'] .eye-l { html[data-mascot-expression='excited'] & { transform:translate(100px,151px) rotate(-22deg) scale(1,1.25); } }
+.mug[data-state='idle'] .eye-r { html[data-mascot-expression='excited'] & { transform:translate(136px,151px) rotate(22deg) scale(1,1.25); } }
+.mug[data-state='idle'] .eye-l { html[data-mascot-expression='happy'] & { transform:translate(100px,143px) rotate(-27deg) scale(1.05,0.52); } }
+.mug[data-state='idle'] .eye-r { html[data-mascot-expression='happy'] & { transform:translate(136px,143px) rotate(27deg) scale(1.05,0.52); } }
+.mug[data-state='idle'] .eye-l { html[data-mascot-expression='laughing'] & { transform:translate(100px,140px) rotate(-36deg) scale(1.2,0.32); } }
+.mug[data-state='idle'] .eye-r { html[data-mascot-expression='laughing'] & { transform:translate(136px,140px) rotate(36deg) scale(1.2,0.32); } }
+.mug[data-state='idle'] .eye-l { html[data-mascot-expression='angry'] & { transform:translate(100px,146px) rotate(30deg) scale(1.05,0.58); } }
+.mug[data-state='idle'] .eye-r { html[data-mascot-expression='angry'] & { transform:translate(136px,146px) rotate(-30deg) scale(1.05,0.58); } }
+.mug[data-state='idle'] .eye-l { html[data-mascot-expression='sad'] & { transform:translate(100px,153px) rotate(-32deg) scale(0.8,0.65); } }
+.mug[data-state='idle'] .eye-r { html[data-mascot-expression='sad'] & { transform:translate(136px,153px) rotate(32deg) scale(0.8,0.65); } }
+.mug[data-state='idle'] .eye-l { html[data-mascot-expression='scared'] & { transform:translate(96px,155px) rotate(-7deg) scale(1.15,1.4); } }
+.mug[data-state='idle'] .eye-r { html[data-mascot-expression='scared'] & { transform:translate(140px,155px) rotate(7deg) scale(1.15,1.4); } }
+.mug[data-state='idle'] .eye-l { html[data-mascot-expression='suspicious'] & { transform:translate(100px,148px) rotate(12deg) scale(0.82,0.72); } }
+.mug[data-state='idle'] .eye-r { html[data-mascot-expression='suspicious'] & { transform:translate(136px,150px) rotate(-10deg) scale(1,0.3); } }
+.mug[data-state='idle'] .eye-l { html[data-mascot-expression='confused'] & { transform:translate(100px,141px) rotate(-28deg) scale(0.88,0.95); } }
+.mug[data-state='idle'] .eye-r { html[data-mascot-expression='confused'] & { transform:translate(136px,154px) rotate(22deg) scale(0.88,0.6); } }
+.mug[data-state='idle'] .eye-l { html[data-mascot-expression='curious'] & { transform:translate(103px,142px) rotate(-18deg) scale(1,1.1); } }
+.mug[data-state='idle'] .eye-r { html[data-mascot-expression='curious'] & { transform:translate(139px,147px) rotate(-18deg) scale(0.7,0.78); } }
+.mug[data-state='idle'] .eye-l { html[data-mascot-expression='proud'] & { transform:translate(100px,138px) rotate(-14deg) scale(1,0.3); } }
+.mug[data-state='idle'] .eye-r { html[data-mascot-expression='proud'] & { transform:translate(136px,138px) rotate(14deg) scale(1,0.3); } }
+.mug[data-state='idle'] .eye-l { html[data-mascot-expression='shy'] & { transform:translate(96px,155px) rotate(-20deg) scale(0.6,0.65); } }
+.mug[data-state='idle'] .eye-r { html[data-mascot-expression='shy'] & { transform:translate(132px,155px) rotate(20deg) scale(0.6,0.65); } }
+.mug[data-state='idle'] .eye-l { html[data-mascot-expression='unimpressed'] & { transform:translate(100px,152px) rotate(3deg) scale(1.1,0.24); } }
+.mug[data-state='idle'] .eye-r { html[data-mascot-expression='unimpressed'] & { transform:translate(136px,152px) rotate(-3deg) scale(1.1,0.24); } }
+.mug[data-state='idle'] .eye-l { html[data-mascot-expression='sleepy'] & { transform:translate(100px,156px) rotate(-8deg) scale(1,0.17); } }
+.mug[data-state='idle'] .eye-r { html[data-mascot-expression='sleepy'] & { transform:translate(136px,156px) rotate(8deg) scale(1,0.17); } }
+
+.mug[data-variant='toc'] { width:10rem; height:10rem; }
+.mug[data-docs-mug] .gaze { animation:none; transform:translate(var(--gaze-x,0px),var(--gaze-y,0px)); }
+.mug[data-reaction='odd'] .steam { animation:tip-steam-odd 1800ms linear; }
+.mug[data-reaction='even'] .steam { animation:tip-steam-even 1800ms linear; }
+@keyframes tip-steam-odd { 0%,100% { opacity:1; } 5%,90% { opacity:0; } }
+@keyframes tip-steam-even { 0%,100% { opacity:1; } 5%,90% { opacity:0; } }
+.greeting-eyes { transform-origin:118px 149px; }
+.mug[data-reaction='odd'] .pop { animation:tip-odd 1800ms var(--spring); }
+.mug[data-reaction='even'] .pop { animation:tip-even 1800ms var(--spring); }
+.mug[data-reaction='odd'] .greeting-eyes { animation:eyes-odd 900ms var(--spring); }
+.mug[data-reaction='even'] .greeting-eyes { animation:eyes-even 900ms var(--spring); }
+@keyframes tip-odd { 0%,100% { transform:none; } 35%,60% { transform:translate(-65px,-83px) rotate(90deg); } }
+@keyframes tip-even { 0%,100% { transform:none; } 35%,60% { transform:translate(-65px,-83px) rotate(90deg); } }
+@keyframes eyes-odd { from { transform:scaleY(.1); } to { transform:none; } }
+@keyframes eyes-even { from { transform:scaleY(.1); } to { transform:none; } }
+@media(prefers-reduced-motion:reduce) {
+.mug .eye-l,.mug .eye-r,.mug .pose { transition:none!important; }
+.mug .pop,.mug .breath,.mug .greeting-eyes,.mug .steam { animation:none!important; }
+.mug[data-docs-mug] .gaze { transform:none; }
+.mug[data-reaction='odd'] .greeting-eyes { transform:scaleY(.65); }
+.mug[data-reaction='even'] .greeting-eyes { transform:scaleY(.8); }
+}
+

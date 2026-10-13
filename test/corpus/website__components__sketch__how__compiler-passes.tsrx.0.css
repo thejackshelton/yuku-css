@@ -1,0 +1,160 @@
+
+			.stepper {
+				display: flex;
+				gap: 0.5em;
+				align-items: center;
+				margin-inline-start: auto;
+			}
+
+			.where {
+				margin: 0;
+				min-width: 6.5em;
+				color: var(--ink);
+				text-align: center;
+			}
+
+			.board {
+				display: grid;
+				grid-template-columns: max-content minmax(0, 1fr);
+				gap: 1.1em 1.4em;
+				width: min(42rem, 100%);
+			}
+
+			.source,
+			.pass {
+				min-width: 0;
+			}
+
+			.file,
+			.cap {
+				margin: 0 0 0.4em;
+				color: var(--ink);
+				font-family: 'Joy Elia', system-ui, sans-serif;
+				font-weight: 700;
+			}
+
+			.code,
+			.out {
+				margin: 0;
+				padding: 0.7em 0.85em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				overflow-x: auto;
+			}
+
+			.code code,
+			.out code,
+			.name code,
+			.chip {
+				padding: 0;
+				background: none;
+				color: var(--ink);
+				font-family: var(--font-mono);
+				font-size: 0.85em;
+				line-height: 1.6;
+			}
+
+			.code code *,
+			.out code * {
+				font-family: var(--font-mono);
+			}
+
+			.line {
+				display: block;
+				white-space: pre;
+			}
+
+			.m {
+				border-radius: 3px;
+				transition: background 140ms ease;
+			}
+
+			.board[data-marks~='state'] .m.state,
+			.board[data-marks~='button'] .m.button,
+			.board[data-marks~='click'] .m.click,
+			.board[data-marks~='text'] .m.text {
+				background: var(--mark);
+				color: var(--on-mark);
+			}
+
+			.name {
+				margin: 0;
+			}
+
+			.name code {
+				font-size: var(--step-0);
+				font-weight: 700;
+			}
+
+			.does {
+				margin: 0.2em 0 0.6em;
+				color: var(--ink);
+			}
+
+			.out code {
+				white-space: pre;
+			}
+
+			.io {
+				display: grid;
+				grid-template-columns: auto minmax(0, 1fr);
+				gap: 0.55em 0.8em;
+				align-items: start;
+				margin-block-end: 0.75em;
+			}
+
+			.io-name {
+				padding-block-start: 0.1em;
+				color: var(--ink);
+			}
+
+			.chips {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.35em;
+				margin: 0;
+				padding: 0;
+				list-style: none;
+			}
+
+			.chip {
+				padding: 0.1em 0.45em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				font-size: var(--step--2);
+			}
+
+			.chip.read {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			.chip.new {
+				background: var(--mark);
+				color: var(--on-mark);
+				font-weight: 700;
+			}
+
+			.track {
+				flex: 1 0 100%;
+				height: 6px;
+				border: 1px solid var(--ink);
+				border-radius: 999px;
+				background:
+					linear-gradient(var(--ink), var(--ink)) 0 0 / calc(100% * var(--done) / var(--total)) 100% no-repeat,
+					linear-gradient(color-mix(in srgb, var(--purple) 55%, var(--paper)), color-mix(in srgb, var(--purple) 55%, var(--paper))) calc(100% * var(--done) / (var(--total) - 1)) 0 / calc(100% / var(--total)) 100% no-repeat,
+					var(--paper);
+			}
+
+			@media (max-width: 640px) {
+				.board {
+					grid-template-columns: minmax(0, 1fr);
+				}
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.m {
+					transition: none;
+				}
+			}
+		

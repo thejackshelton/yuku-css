@@ -1,0 +1,69 @@
+
+		.iso-line {
+			fill: none;
+			stroke: var(--anatomy-hi);
+			stroke-width: var(--ink-lo);
+			stroke-linecap: round;
+			stroke-linejoin: round;
+		}
+
+		.iso-line[data-tone='hi'] {
+			stroke-width: var(--ink-hi);
+		}
+
+		.iso-line[data-tone='mid'] {
+			stroke-width: var(--ink-mid);
+		}
+
+		.iso-line[data-tone='faint'] {
+			stroke: var(--anatomy-faint);
+			stroke-width: var(--ink-faint);
+		}
+
+		.iso-line[data-tone='lit'] {
+			stroke: var(--anatomy-lit);
+		}
+
+		.iso-line[data-tone='pencil'] {
+			stroke: var(--anatomy-pencil);
+			stroke-width: 0.55;
+		}
+
+		.iso-line[data-tone='red'] {
+			stroke: var(--anatomy-red);
+		}
+
+		.iso-line[data-tone='green'] {
+			stroke: var(--anatomy-green);
+		}
+
+		.iso-line[data-tone='blue'] {
+			stroke: var(--anatomy-blue);
+		}
+
+		.iso-line[data-dotted] {
+			stroke-dasharray: 0.01 3.5;
+			stroke-width: 1;
+		}
+
+		.iso-line[data-dashed] {
+			stroke-dasharray: 3 3;
+		}
+
+		.iso-line[data-flow] {
+			stroke-dasharray: 2 6;
+			animation: iso-flow 1600ms linear infinite;
+		}
+
+		@keyframes iso-flow {
+			to {
+				stroke-dashoffset: -32;
+			}
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.iso-line[data-flow] {
+				animation: none;
+			}
+		}
+	

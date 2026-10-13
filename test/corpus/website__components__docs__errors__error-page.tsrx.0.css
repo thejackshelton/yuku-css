@@ -1,0 +1,72 @@
+
+			h1 {
+				overflow-wrap: anywhere;
+			}
+
+			.code-title {
+				font-size: var(--step-3);
+			}
+
+			.crumb {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.4em;
+				margin-bottom: var(--space-xs);
+				font-size: var(--step--1);
+				opacity: 0.8;
+			}
+
+			.summary {
+				max-width: 46ch;
+				font-size: var(--step-1);
+				line-height: 135%;
+				opacity: 0.8;
+			}
+
+			.meta {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.6em;
+				align-items: baseline;
+			}
+
+			.tag {
+				padding: 0.1em 0.6em;
+				border: 2px solid var(--ink);
+				border-radius: 999px;
+				background: var(--pink);
+				color: var(--on-accent);
+				font-weight: 700;
+			}
+
+			.tag.warning {
+				background: var(--yellow);
+			}
+
+			.printed code {
+				white-space: pre-wrap;
+				overflow-wrap: anywhere;
+			}
+
+			.note {
+				font-size: var(--step--1);
+				opacity: 0.8;
+			}
+
+			.sources a {
+				overflow-wrap: anywhere;
+			}
+
+			.missing {
+				margin-top: var(--space-l);
+			}
+
+			.back {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.6em;
+				margin-top: var(--space-l);
+				padding-top: var(--space-s);
+				border-top: 2px dashed var(--code-edge);
+			}
+		

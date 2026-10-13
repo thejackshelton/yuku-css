@@ -1,0 +1,135 @@
+
+			.said,
+			.said :where(span, b) {
+				font-family: var(--pg-font);
+			}
+
+			.editor {
+				box-sizing: border-box;
+				width: min(34rem, 100%);
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+				overflow: hidden;
+			}
+
+			.tab {
+				padding: 0.35em 0.85em;
+				border-block-end: 1px solid var(--pg-edge);
+				font-family: var(--font-mono);
+				font-size: 0.85em;
+			}
+
+			.code {
+				padding: 0.6em 0;
+				overflow-x: auto;
+				color: var(--muted-ink);
+				font-family: var(--font-mono);
+				font-size: 0.85em;
+				line-height: 1.6;
+				tab-size: 2;
+			}
+
+			.code span {
+				font-family: var(--font-mono);
+			}
+
+			.row {
+				display: block;
+				min-height: 1lh;
+				padding-inline: 0.85em;
+				white-space: pre;
+			}
+
+			.editor[data-ext='on'] .code {
+				color: var(--ink);
+			}
+
+			.editor[data-ext='on'] .k {
+				color: color-mix(in oklch, var(--pink) 55%, var(--ink));
+			}
+
+			.editor[data-ext='on'] .s {
+				color: color-mix(in oklch, var(--green-star) 50%, var(--ink));
+			}
+
+			.editor[data-ext='on'] :is(.f, .t) {
+				color: color-mix(in oklch, var(--purple) 60%, var(--ink));
+			}
+
+			.editor[data-ext='on'] .a {
+				color: color-mix(in oklch, var(--yellow) 35%, var(--ink));
+			}
+
+			.hint {
+				display: none;
+				margin-inline: 0.3em 0.1em;
+				padding: 0 0.35em;
+				border-radius: 3px;
+				background: var(--quiet-fill);
+				color: var(--ink);
+			}
+
+			.editor[data-plugin='on'] .hint {
+				display: inline;
+			}
+
+			.editor[data-plugin='on'] .squiggle {
+				text-decoration: underline wavy var(--pink);
+				text-decoration-thickness: 1.5px;
+				text-underline-offset: 0.25em;
+			}
+
+			.caret {
+				display: inline-block;
+				width: 0;
+				height: 1.1em;
+				vertical-align: text-bottom;
+				border-inline-start: 2px solid var(--ink);
+			}
+
+			.popups {
+				display: none;
+				flex-wrap: wrap;
+				gap: 0.7em;
+				align-items: flex-start;
+				padding: 0 0.85em 0.85em;
+			}
+
+			.editor[data-plugin='on'] .popups {
+				display: flex;
+			}
+
+			.problem {
+				flex: 1 1 14rem;
+				padding: 0.45em 0.7em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: color-mix(in srgb, var(--pink) 18%, var(--paper));
+				font-family: var(--font-mono);
+				font-size: 0.8em;
+				line-height: 1.45;
+			}
+
+			.menu {
+				flex: 0 0 auto;
+				margin: 0;
+				padding: 0.25em 0;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				list-style: none;
+			}
+
+			.menu li {
+				margin: 0;
+				padding: 0.1em 0.8em;
+				font-family: var(--font-mono);
+				font-size: 0.8em;
+			}
+
+			.menu li:first-child {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+		

@@ -1,0 +1,11 @@
+
+			.tr-ledger {
+				display: grid;
+				grid-template-columns: minmax(0, max-content) minmax(8.5em, 1fr);
+				align-content: start;
+				min-width: 0;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				overflow: hidden;
+			}
+		

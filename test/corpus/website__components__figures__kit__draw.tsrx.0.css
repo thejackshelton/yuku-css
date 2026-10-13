@@ -1,0 +1,100 @@
+
+			.iso-fill {
+				fill: var(--wash);
+				stroke: none;
+			}
+
+			.iso-shade {
+				stroke: none;
+			}
+
+			.iso-shade[data-shade='0'] {
+				fill: color-mix(in oklch, var(--wash), var(--anatomy-shadow) 13%);
+			}
+
+			.iso-shade[data-shade='1'] {
+				fill: color-mix(in oklch, var(--wash), var(--anatomy-shadow) 7%);
+			}
+
+			.iso-shade[data-shade='2'] {
+				fill: color-mix(in oklch, var(--wash), var(--anatomy-shadow) 3%);
+			}
+
+			.iso-shade[data-shade='3'] {
+				fill: var(--wash);
+			}
+
+			.iso-solid[data-seamless] > .iso-shade {
+				stroke-width: 0.4;
+				stroke-linejoin: round;
+			}
+
+			.iso-solid[data-seamless] > .iso-shade[data-shade='0'] {
+				stroke: color-mix(in oklch, var(--wash), var(--anatomy-shadow) 13%);
+			}
+
+			.iso-solid[data-seamless] > .iso-shade[data-shade='1'] {
+				stroke: color-mix(in oklch, var(--wash), var(--anatomy-shadow) 7%);
+			}
+
+			.iso-solid[data-seamless] > .iso-shade[data-shade='2'] {
+				stroke: color-mix(in oklch, var(--wash), var(--anatomy-shadow) 3%);
+			}
+
+			.iso-solid[data-seamless] > .iso-shade[data-shade='3'] {
+				stroke: var(--wash);
+			}
+
+			.iso-top {
+				fill: var(--wash-top);
+				stroke: none;
+			}
+
+			.iso-solid[data-seamless] > .iso-top {
+				stroke: var(--wash-top);
+				stroke-width: 0.4;
+				stroke-linejoin: round;
+			}
+
+			.iso-marker {
+				fill: var(--anatomy-marker);
+				stroke: var(--anatomy-marker);
+				stroke-width: 3;
+				stroke-linejoin: round;
+				opacity: var(--anatomy-marker-opacity);
+				mix-blend-mode: var(--anatomy-marker-blend);
+			}
+
+			.iso-pencil {
+				fill: none;
+				stroke: var(--anatomy-pencil);
+				stroke-width: 0.7;
+				stroke-linecap: round;
+				stroke-linejoin: round;
+			}
+
+			.iso-line {
+				fill: none;
+				stroke: var(--anatomy-hi);
+				stroke-width: var(--ink-lo);
+				stroke-linecap: round;
+				stroke-linejoin: round;
+			}
+
+			.iso-line[data-tone='hi'] {
+				stroke-width: var(--ink-hi);
+			}
+
+			.iso-line[data-tone='mid'] {
+				stroke-width: var(--ink-mid);
+			}
+
+			.iso-line[data-tone='faint'] {
+				stroke: var(--anatomy-faint);
+				stroke-width: var(--ink-faint);
+			}
+
+			.iso-line.iso-heavy {
+				stroke-width: var(--ink-heavy);
+			}
+		

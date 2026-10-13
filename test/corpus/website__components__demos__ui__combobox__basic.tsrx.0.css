@@ -1,0 +1,142 @@
+
+			.combobox {
+				display: grid;
+				align-content: start;
+				gap: 0.35em;
+				box-sizing: border-box;
+				width: min(18rem, 100%);
+				min-height: 15.5rem;
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-size: var(--step--1);
+				line-height: 1.5;
+				color: var(--ink);
+			}
+
+			.label {
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+			}
+
+			.field {
+				display: flex;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+			}
+
+			.field:focus-within {
+				outline: 2px solid var(--ink);
+				outline-offset: 3px;
+			}
+
+			.input {
+				flex: 1;
+				min-width: 0;
+				padding: 0.5em 0.75em;
+				border: 0;
+				border-radius: 6px 0 0 6px;
+				background: transparent;
+				color: var(--ink);
+				font: inherit;
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				outline: none;
+			}
+
+			.input::placeholder {
+				color: var(--muted-ink);
+			}
+
+			.show {
+				display: grid;
+				place-items: center;
+				width: 2.4em;
+				padding: 0;
+				border: 0;
+				border-inline-start: 1px solid var(--ink);
+				border-radius: 0 6px 6px 0;
+				background: transparent;
+				color: var(--ink);
+				cursor: pointer;
+			}
+
+			.show:hover {
+				background: color-mix(in srgb, var(--purple) 16%, var(--paper));
+			}
+
+			.show-icon {
+				width: 1em;
+				height: 1em;
+				transition: transform 140ms ease;
+			}
+
+			.show[ui-open] .show-icon {
+				transform: rotate(180deg);
+			}
+
+			/* In flow, not absolute: the root's min-height already reserves the room the list opens into. */
+			.list {
+				box-sizing: border-box;
+				margin-block-start: 0.2em;
+				padding: 0.3em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				box-shadow: 3px 3px 0 var(--muted-ink);
+			}
+
+			.list[hidden] {
+				display: none;
+			}
+
+			.combobox[ui-inline] .list {
+				box-shadow: none;
+			}
+
+			.option {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 0.35em 0.6em;
+				border-radius: 4px;
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				cursor: pointer;
+			}
+
+			.option[ui-highlighted] {
+				background: color-mix(in srgb, var(--purple) 16%, var(--paper));
+			}
+
+			.option[ui-selected] {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			.option[ui-disabled] {
+				cursor: not-allowed;
+				opacity: 0.55;
+			}
+
+			.tick[ui-hidden] {
+				visibility: hidden;
+			}
+
+			.tick-icon {
+				display: block;
+				width: 1em;
+				height: 1em;
+			}
+
+			.combobox[ui-disabled] .field {
+				cursor: not-allowed;
+				opacity: 0.55;
+			}
+
+			.field:has(.input[aria-invalid='true']) {
+				border-color: var(--pink);
+				background: color-mix(in srgb, var(--pink) 14%, var(--paper));
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.show-icon {
+					transition: none;
+				}
+			}
+		

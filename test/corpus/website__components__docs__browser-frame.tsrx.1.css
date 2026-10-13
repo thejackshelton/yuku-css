@@ -1,0 +1,45 @@
+
+			.bf {
+				box-sizing: border-box;
+				display: grid;
+				grid-template-rows: auto 1fr;
+				min-width: 0;
+				border: 1px solid var(--ink);
+				border-radius: 8px;
+				background: var(--paper);
+				color: var(--ink);
+				overflow: hidden;
+			}
+
+			.bf-bar {
+				display: flex;
+				align-items: center;
+				gap: 0.75em;
+				padding: 0.42em 0.7em;
+				border-block-end: 1px solid var(--pg-edge, var(--ink));
+				background: color-mix(in srgb, var(--ink) var(--hover-wash), var(--paper));
+				font-size: var(--step--1);
+			}
+
+			.bf-address {
+				flex: 1;
+				min-width: 0;
+				max-width: 16em;
+				padding: 0.05em 0.75em;
+				border: 1px solid var(--pg-edge, var(--ink));
+				border-radius: 999px;
+				background: var(--paper);
+				color: var(--muted-ink);
+				font-family: var(--font-mono);
+				font-size: 0.82em;
+				line-height: 1.5;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+
+			.bf-view {
+				display: grid;
+				min-width: 0;
+			}
+		

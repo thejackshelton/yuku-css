@@ -1,0 +1,98 @@
+
+			.desk {
+				display: grid;
+				gap: 0.9em;
+				width: min(24rem, 100%);
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-size: var(--step--1);
+				line-height: 1.5;
+				color: var(--ink);
+			}
+
+			.field {
+				display: grid;
+				gap: 0.4em;
+			}
+
+			.label {
+				font-family: 'Joy Elia', system-ui, sans-serif;
+				font-size: var(--step-0);
+			}
+
+			.input {
+				box-sizing: border-box;
+				width: 100%;
+				padding: 0.55em 0.8em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+				font: inherit;
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				transition: background 140ms ease;
+			}
+
+			.input::placeholder {
+				color: var(--muted-ink);
+			}
+
+			.input:hover {
+				background: color-mix(in srgb, var(--purple) 16%, var(--paper));
+			}
+
+			.input:focus-visible {
+				outline: 2px solid var(--ink);
+				outline-offset: 3px;
+			}
+
+			.field[ui-disabled] .input {
+				opacity: 0.55;
+				cursor: not-allowed;
+			}
+
+			.help,
+			.echo {
+				margin: 0;
+			}
+
+			.hooks {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.4em;
+				align-items: center;
+				margin: 0.2em 0 0;
+			}
+
+			.hook {
+				display: none;
+				padding: 0.05em 0.5em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+				color: var(--ink);
+				font-family: var(--font-mono);
+				font-size: var(--step--1);
+			}
+
+			.field[ui-empty] .hook-empty,
+			.field[ui-required] .hook-required,
+			.field[ui-readonly] .hook-readonly,
+			.field[ui-disabled] .hook-disabled {
+				display: inline-block;
+			}
+
+			.echo {
+				padding-block-start: 0.7em;
+				border-block-start: 1px solid var(--ink);
+			}
+
+			.echo-text {
+				font-family: var(--font-mono);
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.input {
+					transition: none;
+				}
+			}
+		

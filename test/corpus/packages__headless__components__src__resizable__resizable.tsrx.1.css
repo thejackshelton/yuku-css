@@ -1,0 +1,12 @@
+
+			@layer markless {
+				[ui-panel] {
+					flex: var(--size, 1) 1 0;
+					overflow: hidden;
+					min-inline-size: 0;
+					min-block-size: 0;
+				}
+				[ui-panel][ui-orientation="horizontal"] { display: flex; flex-direction: row; }
+				[ui-panel][ui-orientation="vertical"] { display: flex; flex-direction: column; }
+			}
+		

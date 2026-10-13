@@ -1,0 +1,1460 @@
+:root {
+	/* colors */
+	--ink: oklch(28% 0.015 90);
+	--yellow: oklch(88.6% 0.14 101);
+	--pink: oklch(76% 0.15 0);
+	--purple: oklch(75.4% 0.165 310);
+	--green-soft: oklch(84% 0.1 140);
+	--green-star: oklch(80% 0.155 148);
+	--paper: oklch(91.4% 0.033 79);
+	/* Code surface: paper, a shade lighter than the page, with a quiet edge. */
+	--code-surface: oklch(96% 0.02 79);
+	--code-edge: color-mix(in oklch, var(--ink) 22%, transparent);
+
+	/* Every pastel accent is light in both themes, so anything printed on one is
+	   always the dark ink, never the page's foreground. */
+	--on-accent: oklch(28% 0.015 90);
+	/* The highlighter pen behind inline code: solid on paper, a translucent
+	   wash on the chalkboard. */
+	--mark: var(--yellow);
+	--on-mark: var(--on-accent);
+	/* Raised surfaces: the playground frame, the callout, the collapsible. */
+	--raised: color-mix(in oklch, var(--paper) 80%, white);
+	--tinted: color-mix(in oklch, var(--yellow) 45%, var(--paper));
+	--tinted-quiet: color-mix(in oklch, var(--yellow) 35%, var(--paper));
+	/* The sidebar's hover wash: the page's ink at this strength over the paper. */
+	--hover-wash: 8%;
+	/* The explorer's listing slab, which is a dark block on the light theme. */
+	--slab: var(--ink);
+	--slab-ink: var(--paper);
+	/* Paper grain, tuned per theme: dark ground shows far less tooth. */
+	--grain-fiber-blend: overlay;
+	--grain-fiber-opacity: 0.55;
+	--grain-speck-blend: hard-light;
+	--grain-speck-opacity: 0.22;
+	/* Which cut of a sprite is painted. CSS cannot swap an image `src`, so both
+	   are in the markup and the theme picks one. */
+	--sprite-light: inline-block;
+	--sprite-dark: none;
+
+	/* Dark: the same paper design with the ground and the ink swapped, a warm
+	   near-black chalkboard, off-white chalk, the same four pastel accents. */
+	&.dark {
+		--ink: oklch(93% 0.012 85);
+		--paper: oklch(18% 0.007 70);
+		--code-surface: oklch(32% 0.011 70);
+		--code-edge: color-mix(in oklch, var(--ink) 30%, transparent);
+		--raised: oklch(26% 0.01 70);
+		--mark: color-mix(in oklch, var(--yellow) 26%, transparent);
+		--on-mark: var(--yellow);
+		--tinted: color-mix(in oklch, var(--yellow) 14%, var(--paper));
+		--tinted-quiet: color-mix(in oklch, var(--yellow) 9%, var(--paper));
+		--hover-wash: 11%;
+		--slab: oklch(11% 0.008 70);
+		--slab-ink: oklch(92% 0.012 85);
+		--grain-fiber-blend: soft-light;
+		--grain-fiber-opacity: 0.3;
+		--grain-speck-blend: screen;
+		--grain-speck-opacity: 0.06;
+		--sprite-light: none;
+		--sprite-dark: inline-block;
+	}
+}
+
+:root {
+	--font-mono: 'Recursive', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+	/* text shadow: an offset silhouette peeking out left of the glyphs, dilated
+	   past the glyph edges (text-shadow has no spread). Everything derives from
+	   this one base offset and growth radius; elements pick a color by setting
+	   --shadow-color (see the heading rule below). */
+	--shadow-x: -0.09em;
+	--shadow-y: -0.01em;
+	--shadow-grow: 0.02em;
+	--shadow-color: transparent;
+
+	/* The sticky header's own height, so the sidebar and the right rail can sit
+	   below it without either one guessing. */
+	--header-height: 3.1rem;
+	--theme-toggle-size: 1.9rem;
+
+	/* typography */
+	/* @link https://utopia.fyi/type/calculator?c=360,18,1.2,1240,20,1.25,5,2,&s=0.75|0.5|0.25,1.5|2|3|4|6,s-l&g=s,l,xl,12 */
+	--step--2: clamp(0.7813rem, 0.7736rem + 0.0341vw, 0.8rem);
+	--step--1: clamp(0.9375rem, 0.9119rem + 0.1136vw, 1rem);
+	--step-0: clamp(1.125rem, 1.0739rem + 0.2273vw, 1.25rem);
+	--step-1: clamp(1.35rem, 1.2631rem + 0.3864vw, 1.5625rem);
+	--step-2: clamp(1.62rem, 1.4837rem + 0.6057vw, 1.9531rem);
+	--step-3: clamp(1.944rem, 1.7405rem + 0.9044vw, 2.4414rem);
+	--step-5: clamp(2.7994rem, 2.384rem + 1.8461vw, 3.8147rem);
+
+	/* spacing */
+	/* @link https://utopia.fyi/space/calculator?c=360,18,1.2,1240,20,1.25,5,2,&s=0.75,1.5|2|3|4|6,s-l|m-2xl&g=s,l,xl,12 */
+	--space-xs: clamp(0.875rem, 0.8494rem + 0.1136vw, 0.9375rem);
+	--space-s: clamp(1.125rem, 1.0739rem + 0.2273vw, 1.25rem);
+	--space-m: clamp(1.6875rem, 1.6108rem + 0.3409vw, 1.875rem);
+	--space-l: clamp(2.25rem, 2.1477rem + 0.4545vw, 2.5rem);
+	--space-xl: clamp(3.375rem, 3.2216rem + 0.6818vw, 3.75rem);
+	--space-2xl: clamp(4.5rem, 4.2955rem + 0.9091vw, 5rem);
+
+	/* Custom pairs */
+	--space-s-l: clamp(1.125rem, 0.5625rem + 2.5vw, 2.5rem);
+}
+
+/* Joy Elia — self-hosted under a TypeBerka Font Studio Basic License. */
+@font-face {
+	font-family: 'Joy Elia';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src:
+		url('/fonts/JoyElia-Regular.woff2') format('woff2'),
+		url('/fonts/JoyElia-Regular.woff') format('woff');
+}
+
+@font-face {
+	font-family: 'Joy Elia';
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src:
+		url('/fonts/JoyElia-Bold.woff2') format('woff2'),
+		url('/fonts/JoyElia-Bold.woff') format('woff');
+}
+
+/* Shantell Sans — self-hosted, SIL Open Font License. The body face: a marker
+   face designed for continuous reading, so Joy Elia decorates and Shantell
+   carries the paragraphs. One variable file covers the weight range. */
+@font-face {
+	font-family: 'Shantell Sans';
+	font-style: normal;
+	font-weight: 400 700;
+	font-display: swap;
+	src: url('/fonts/ShantellSans-latin-variable.woff2') format('woff2');
+}
+
+/* Recursive, self-hosted, SIL Open Font License. The code face: its MONO axis
+   makes it a true monospace and CASL gives it a brush-written stroke. */
+@font-face {
+	font-family: 'Recursive';
+	font-style: oblique 0deg 15deg;
+	font-weight: 300 1000;
+	font-display: swap;
+	src: url('/fonts/Recursive-variable.woff2') format('woff2');
+}
+
+* {
+	font-family: 'Joy Elia';
+	/* Only Recursive has these axes, so every other face ignores them. */
+	font-variation-settings: 'MONO' 1, 'CASL' 1;
+}
+
+/* Article prose reads in Shantell Sans; headings, sidebar, chips, buttons, and
+   code stay Joy Elia / mono. The `*` rule above beats inheritance, so inline
+   children are matched explicitly. Bold maps to the real 600 weight. */
+.prose :is(p, li, blockquote, dd, dt, td, th, figcaption, summary),
+.prose
+	:is(p, li, blockquote, dd, dt, td, th, figcaption, summary)
+	:is(a, strong, em, b, i, mark, small, span) {
+	font-family: 'Shantell Sans', system-ui, sans-serif;
+}
+
+.prose :is(p, li, blockquote) :is(strong, b) {
+	font-weight: 600;
+}
+
+/* Body copy lands at about 20-21px on a desktop viewport: a step above the
+   default text step, well under the 25px --step-1 the page used to carry. */
+body {
+	background: var(--paper);
+	color: var(--ink);
+	font-size: calc(var(--step-0) * 1.08);
+	margin: 0;
+	line-height: 160%;
+}
+
+/* The base offset plus its four corners at --shadow-grow: a solid silhouette
+   grown outward on every side. Invisible until an element sets --shadow-color. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	text-shadow:
+		var(--shadow-x) var(--shadow-y) 0 var(--shadow-color),
+		calc(var(--shadow-x) - var(--shadow-grow)) calc(var(--shadow-y) - var(--shadow-grow)) 0
+			var(--shadow-color),
+		calc(var(--shadow-x) - var(--shadow-grow)) calc(var(--shadow-y) + var(--shadow-grow)) 0
+			var(--shadow-color),
+		calc(var(--shadow-x) + var(--shadow-grow)) calc(var(--shadow-y) - var(--shadow-grow)) 0
+			var(--shadow-color),
+		calc(var(--shadow-x) + var(--shadow-grow)) calc(var(--shadow-y) + var(--shadow-grow)) 0
+			var(--shadow-color);
+}
+
+h1 {
+	font-size: var(--step-5);
+	--shadow-color: var(--pink);
+	line-height: 115%;
+
+	/* Dark ground: a deep muted purple silhouette, sampled from the poster reference. */
+	html.dark & {
+		color: var(--ink);
+		--shadow-color: oklch(34% 0.05 307);
+	}
+}
+
+/* Paper grain over the whole page. Absolute, not fixed: a fixed layer with a
+   blend mode forces the compositor to re-blend the full viewport on every
+   scrolled frame (the sidebar only felt smooth because its scroller is
+   narrow); an absolute layer scrolls with the paper as one blended unit. */
+body {
+	position: relative;
+}
+body::before,
+body::after,
+:fullscreen::before,
+:fullscreen::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	min-height: 100vh;
+	z-index: 999999999;
+	pointer-events: none;
+}
+
+/* A fullscreen element leaves the page for the top layer, so it carries its own grain. */
+:fullscreen::before,
+:fullscreen::after {
+	position: fixed;
+}
+
+/* Fiber layer: continuous tooth pressed into everything via overlay. */
+body::before,
+:fullscreen::before {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.3' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0.33 0.33 0.33 0 0 0.33 0.33 0.33 0 0 0.33 0.33 0.33 0 0 0 0 0 0 1'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.5' intercept='-0.25'/%3E%3CfeFuncG type='linear' slope='1.5' intercept='-0.25'/%3E%3CfeFuncB type='linear' slope='1.5' intercept='-0.25'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23grain)'/%3E%3C/svg%3E");
+	mix-blend-mode: var(--grain-fiber-blend);
+	opacity: var(--grain-fiber-opacity);
+}
+
+/* Speck layer: hard-light keys off the noise itself, so its bright flecks
+   punch through dark ink the way paper tooth shows through print. */
+body::after,
+:fullscreen::after {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.3' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0.33 0.33 0.33 0 0 0.33 0.33 0.33 0 0 0.33 0.33 0.33 0 0 0 0 0 0 1'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='2.6' intercept='-0.8'/%3E%3CfeFuncG type='linear' slope='2.6' intercept='-0.8'/%3E%3CfeFuncB type='linear' slope='2.6' intercept='-0.8'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23grain)'/%3E%3C/svg%3E");
+	mix-blend-mode: var(--grain-speck-blend);
+	opacity: var(--grain-speck-opacity);
+}
+
+/* A phone has room for the mug, the page's own name and the two controls that
+   are not text; the section step of the trail and the search field are what get
+   dropped, in that order, before anything can push the document sideways. */
+
+.ico {
+	width: 1em;
+	height: 1em;
+	color: currentColor;
+	flex: none;
+}
+
+.theme-toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: var(--theme-toggle-size);
+	block-size: var(--theme-toggle-size);
+	padding: 0;
+	font-size: 1em;
+	line-height: 1;
+	color: var(--ink);
+	background: none;
+	border: 0;
+	border-radius: 999px;
+	cursor: pointer;
+}
+
+/* The outline markup is emitted by tooling/highlight-mdx.ts. */
+markless-outline { display: contents; }
+
+.on-this-page {
+	position: fixed;
+	right: var(--space-s-l);
+	top: calc(var(--header-height) + var(--space-s));
+	width: 11rem;
+	max-height: calc(100dvh - var(--header-height) - 2 * var(--space-s));
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	scrollbar-width: thin;
+	font-size: 0.875rem;
+	z-index: 10;
+}
+
+.prose .on-this-page-title {
+	margin: 0 0 0.75rem;
+	font-size: 0.65rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.12em;
+	color: color-mix(in srgb, var(--ink) 60%, var(--paper));
+}
+
+.prose .on-this-page-list {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 0;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.on-this-page-link {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	min-height: 2rem;
+	padding: 0.35rem 0.25rem;
+	border-radius: 0.25rem;
+	color: color-mix(in srgb, var(--ink) 70%, var(--paper));
+	text-decoration: none;
+	line-height: 1.4;
+}
+
+.on-this-page-link::before {
+	content: '';
+	flex: none;
+	width: 1rem;
+	height: 2px;
+	border-radius: 2px;
+	background: currentColor;
+	opacity: 0.45;
+	transition: width 280ms ease, opacity 280ms ease;
+}
+
+.on-this-page-item-h3 .on-this-page-link::before { width: 0.5rem; }
+.on-this-page-item-h3 .on-this-page-link { padding-left: 0.75rem; }
+
+.on-this-page-label {
+	min-width: 0;
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.on-this-page .on-this-page-label code { font: inherit; background: none; padding: 0; }
+
+.on-this-page-link:hover,
+.on-this-page-link[aria-current='location'] { color: var(--ink); }
+.on-this-page-link:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.on-this-page-link[aria-current='location']::before { width: 1.5rem; opacity: 1; }
+.on-this-page-link:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+
+.prose :is(h2, h3)[id] { scroll-margin-top: calc(var(--header-height) + var(--space-s)); }
+
+@media (min-width: 70.01rem) and (hover: hover) and (pointer: fine) {
+	.on-this-page[data-outline-ready] .on-this-page-link {
+		min-height: 1.5rem;
+		padding-block: 0;
+		transition: min-height 320ms cubic-bezier(0.2, 0.8, 0.2, 1), gap 280ms ease, padding-block 280ms ease;
+	}
+	.on-this-page[data-outline-ready] .on-this-page-label {
+		height: 0;
+		overflow: hidden;
+		opacity: 0;
+		filter: blur(4px);
+		transform: translateX(-0.35rem);
+		transition: opacity 160ms ease, filter 200ms ease, transform 240ms ease;
+	}
+	.on-this-page[data-outline-ready]:is(:hover, :has(:focus-visible)) .on-this-page-link { min-height: 2rem; gap: 0; padding-block: 0.35rem; }
+	.on-this-page[data-outline-ready]:is(:hover, :has(:focus-visible)) .on-this-page-link::before { width: 0; opacity: 0; }
+	.on-this-page[data-outline-ready]:is(:hover, :has(:focus-visible)) .on-this-page-label {
+		height: auto;
+		overflow: visible;
+		opacity: 1;
+		filter: blur(0);
+		transform: translateX(0);
+		transition-duration: 280ms;
+		transition-delay: min(calc(var(--outline-order) * 18ms), 180ms);
+	}
+}
+
+@media (max-width: 70rem) {
+	.on-this-page {
+		position: static;
+		width: auto;
+		max-width: 68ch;
+		max-height: none;
+		margin: 0 auto var(--space-xs);
+		display: flex;
+		align-items: center;
+		gap: 0.6em;
+		overflow: hidden;
+	}
+	.prose .on-this-page-title { margin: 0; flex: 0 0 auto; }
+	.prose .on-this-page-list {
+		display: flex;
+		gap: 0.4em;
+		overflow-x: auto;
+		scrollbar-width: thin;
+		padding: 2px 2px 0.3rem;
+	}
+	.on-this-page-item { flex: 0 0 auto; max-width: 100%; }
+	.on-this-page-link,
+	.on-this-page-item-h3 .on-this-page-link {
+		min-height: 2.75rem;
+		border: 1px solid var(--code-edge);
+		border-radius: 999px;
+		padding: 0 0.75rem;
+	}
+	.on-this-page-link::before { display: none; }
+	.on-this-page-link[aria-current='location'] {
+		background: var(--yellow);
+		color: var(--on-accent);
+		border-color: currentColor;
+	}
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	html:has(markless-outline) { scroll-behavior: smooth; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.on-this-page .on-this-page-link,
+	.on-this-page .on-this-page-link::before,
+	.on-this-page[data-outline-ready] .on-this-page-link,
+	.on-this-page[data-outline-ready] .on-this-page-label,
+	.on-this-page[data-outline-ready]:is(:hover, :has(:focus-visible)) .on-this-page-label {
+		transition: none;
+	}
+}
+
+/* The phone gets the whole list at once, so the icon steps down there. */
+
+.prose {
+	max-width: 68ch;
+	margin-inline: auto;
+	padding-block: var(--space-m) var(--space-2xl);
+	/* An inline `code` token longer than a phone's column is the one thing in the
+	   prose that can push the document sideways; a fenced block scrolls instead. */
+	overflow-wrap: break-word;
+}
+
+.prose p,
+.prose ul,
+.prose ol {
+	margin-block: var(--space-s);
+}
+
+.prose h2 {
+	font-size: var(--step-3);
+	--shadow-color: var(--purple);
+	margin-top: var(--space-l);
+	margin-bottom: var(--space-s);
+
+	html.dark & {
+		color: var(--ink);
+		--shadow-color: oklch(34% 0.05 307);
+	}
+}
+
+.prose h2:has(+ .keyboard-study) {
+	float: inline-start;
+	margin-block: 0;
+	line-height: 1.3;
+}
+
+.prose h3 {
+	font-size: var(--step-2);
+	--shadow-color: var(--green-soft);
+	margin-top: var(--space-m);
+	margin-bottom: var(--space-xs);
+
+	html.dark & {
+		color: var(--ink);
+		--shadow-color: oklch(34% 0.05 307);
+	}
+}
+
+.prose a {
+	color: var(--ink);
+	text-decoration-color: var(--pink);
+	text-decoration-thickness: 0.12em;
+	text-underline-offset: 0.16em;
+}
+
+.prose code {
+	display: inline-block;
+	background: color-mix(in oklch, var(--ink) 8%, transparent);
+	color: var(--ink);
+	padding: 0 0.3em;
+	font-size: 0.9em;
+	/* Its own line-height, not the prose's, so the chip hugs the word and
+	   neighbouring lines keep their gap. */
+	line-height: 1.3;
+	border-radius: 3px 5px 3px 6px;
+	transform: rotate(-0.8deg);
+	/* A MARKLESS_ error code has no break point and would widen a phone page. */
+	max-width: 100%;
+	overflow-wrap: anywhere;
+}
+
+/* Fenced blocks are monospace; inline code inside a sentence keeps Joy Elia so
+   it still reads as part of the sentence. The block hugs its content: no
+   min-height, no reserved strip, and the highlighter strips the trailing
+   newline so there is no empty last line. */
+.prose pre {
+	background: var(--code-surface);
+	margin-block: var(--space-m);
+	color: var(--ink);
+	padding: var(--space-s);
+	border: 1px solid var(--code-edge);
+	border-radius: 2px;
+	overflow-x: auto;
+	font-family: var(--font-mono);
+	font-size: var(--step--1);
+	line-height: 1.55;
+	tab-size: 2;
+}
+
+.prose pre code {
+	display: block;
+	overflow-wrap: normal;
+	background: none;
+	padding: 0;
+	color: inherit;
+	font-size: inherit;
+	border-radius: 0;
+	transform: none;
+}
+
+/* `* { font-family }` above matches every token span the highlighter emits, and
+   a direct match beats a family inherited from `pre`, so the spans have to be
+   named. The hover doc is prose, not code, and keeps Joy Elia. */
+.prose pre,
+.prose pre code,
+.prose pre code span {
+	font-family: var(--font-mono);
+}
+
+.prose pre .tsrx-tip,
+.prose pre .tsrx-tip span {
+	font-family: 'Joy Elia', system-ui, sans-serif;
+}
+
+/* Joy Elia's ligatures draw `--` as an em dash, which misprints a CLI flag. */
+code,
+code *,
+kbd,
+kbd *,
+pre,
+pre * {
+	font-variant-ligatures: none;
+	font-feature-settings:
+		'liga' 0,
+		'calt' 0;
+}
+
+/* Each span carries its light colour inline and its dark one in `--shiki-dark`;
+   only `!important` outranks an inline colour. The hover doc is not code. */
+html.dark .shiki span:not(.tsrx-tip):not(.tsrx-tip-title):not(.tsrx-tip-body) {
+	color: var(--shiki-dark) !important;
+}
+
+/* ---------------------------------------------------------------------------
+   Playground: the reusable frame every interactive widget sits in. Give it a
+   .playground-controls row and a .playground-output block as needed.
+   --------------------------------------------------------------------------- */
+
+.playground {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-xs);
+	margin-block: var(--space-l);
+	padding: var(--space-s);
+	border: 2px solid var(--ink);
+	border-radius: 2px;
+	background: var(--raised);
+	box-shadow: 4px 4px 0 var(--purple);
+}
+
+.playground-controls {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-xs);
+	align-items: center;
+}
+
+.playground-output,
+.playground-echo p {
+	margin: 0;
+	font-size: var(--step-1);
+}
+
+.playground button {
+	align-self: flex-start;
+	font-size: var(--step-0);
+	padding: 0.3em 0.9em;
+	color: var(--on-accent);
+	background: var(--green-soft);
+	border: 2px solid var(--ink);
+	border-radius: 2px;
+	box-shadow: 3px 3px 0 var(--ink);
+	cursor: pointer;
+}
+
+.playground button:active {
+	transform: translate(3px, 3px);
+	box-shadow: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Code blocks (components/docs/code.tsrx). The result runs in a frame and the
+   problem list is written at run time, so neither carries the component's scope
+   class; the frame's body is a .code-stage too, so a result looks the same
+   before and after the first edit.
+   --------------------------------------------------------------------------- */
+
+.code-stage {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-xs);
+	color: var(--ink);
+	font-family: 'Shantell Sans', system-ui, sans-serif;
+	font-size: var(--step-0);
+}
+
+.code-stage[hidden] {
+	display: none;
+}
+
+.code-stage button {
+	align-self: flex-start;
+	margin: 0 0.5rem 0.5rem 0;
+	padding: 0.35em 1em;
+	border: 1.5px solid var(--ink);
+	border-radius: 6px;
+	background: var(--paper);
+	color: var(--ink);
+	font: inherit;
+	cursor: pointer;
+	transition: background-color 130ms ease;
+}
+
+.code-stage button:hover {
+	background: color-mix(in oklch, var(--ink) var(--hover-wash), var(--paper));
+}
+
+.code-stage button:active {
+	background: color-mix(in srgb, var(--purple) 22%, var(--paper));
+}
+
+.code-stage button:focus-visible {
+	outline: 2px solid var(--ink);
+	outline-offset: 3px;
+}
+
+.code-stage :is(ul, ol) {
+	margin: 0 0 0.5em;
+	padding-left: 1.3em;
+}
+
+.code-stage label {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.45em;
+}
+
+.code-stage input:is([type='checkbox'], [type='radio']) {
+	margin: 0;
+	accent-color: var(--ink);
+}
+
+.code-stage p {
+	margin-block: 0 0.5em;
+}
+
+.code-block[data-code='error'] .code-frame {
+	opacity: 0.5;
+}
+
+.code-frame {
+	display: block;
+	width: 100%;
+	min-height: 4rem;
+	border: 0;
+	background: transparent;
+	color-scheme: normal;
+}
+
+.code-frame[hidden] {
+	display: none;
+}
+
+/* The editor repaints these spans at run time, so they carry no scope class for code-files.tsrx to match. */
+.code-block .highlight span {
+	font-family: var(--font-mono);
+}
+
+.code-problem-head {
+	margin: 0;
+}
+
+.code-problem-where {
+	display: inline;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	font-weight: 700;
+	text-decoration: underline;
+	text-underline-offset: 3px;
+	cursor: pointer;
+}
+
+.code-problem-message {
+	font-family: var(--font-mono);
+	font-size: var(--step--2);
+}
+
+.code-problem-detail {
+	margin-top: 0.25em;
+	font-size: var(--step--2);
+	white-space: pre-line;
+}
+
+.code-problem-detail summary {
+	cursor: pointer;
+	font-family: 'Joy Elia', system-ui, sans-serif;
+	font-size: var(--step--1);
+}
+
+/* text note */
+.callout {
+	margin-block: var(--space-m);
+	padding: var(--space-s);
+	border-left: 4px solid var(--pink);
+	background: color-mix(in srgb, var(--pink) 10%, transparent);
+}
+
+/* `none`, not `contain`: on the root scroller only `none` stops the rubber-band bounce that shows the window behind the paper. */
+html,
+body {
+	overscroll-behavior: none;
+}
+
+html {
+	background: var(--paper);
+}
+
+/* ---------------------------------------------------------------------------
+   Code blocks. Token colours are shiki's built-in github-light theme, written
+   into the markup by tooling/highlight-code.ts. Only the surface is ours: the
+   theme's white slab and its default foreground are dropped there, so the block
+   sits on paper with the page's ink and reads as part of the page.
+   --------------------------------------------------------------------------- */
+
+.prose pre.shiki {
+	position: relative;
+}
+
+/* ---------------------------------------------------------------------------
+   The torn strip: every plain code block in prose sits on a hand-inked strip of
+   paper. tooling/highlight-mdx.ts wraps the block and adds empty pieces; each
+   piece paints a token colour through one of the masks frozen at the end of
+   this file from components/docs/snippet/snippet-ink.ts.
+   --------------------------------------------------------------------------- */
+
+.prose .torn-strip {
+	--sheet: color-mix(in oklch, var(--paper) 35%, white);
+	--torn-shade: var(--ink);
+	--torn-guide: color-mix(in oklch, var(--pink) 55%, transparent);
+	position: relative;
+	margin-block: var(--space-m) var(--space-l);
+	rotate: -0.3deg;
+}
+
+.prose .torn-strip:nth-child(even of .torn-strip) {
+	rotate: 0.3deg;
+}
+
+/* The cast shadow hangs 26px past the right edge; a phone's gutter is narrower. */
+@media (max-width: 48rem) {
+	.prose .torn-strip {
+		margin-inline-end: 10px;
+	}
+}
+
+html.dark .prose .torn-strip {
+	--sheet: color-mix(in oklch, var(--paper) 88%, var(--ink));
+	--torn-shade: color-mix(in oklch, var(--paper) 35%, black);
+	--torn-guide: color-mix(in oklch, var(--pink) 35%, transparent);
+}
+
+.prose .torn-strip > pre {
+	position: relative;
+	margin: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	/* The bottom tear and its hatching eat about 18px, so the code needs more room below than above. */
+	padding: 1.45rem 1.3rem 2.2rem;
+}
+
+.torn-art,
+.torn-art span,
+.torn-art::before,
+.torn-art span::before,
+.torn-art span::after {
+	position: absolute;
+	display: block;
+	pointer-events: none;
+}
+
+.torn-art {
+	inset: 0;
+}
+
+/* Pink construction lines the sides and bottom tear were drawn over. */
+.torn-art::before {
+	content: '';
+	inset: -9px -11.5px -17px;
+	background:
+		linear-gradient(var(--torn-guide), var(--torn-guide)) 10px 0 / 1px 100% no-repeat,
+		linear-gradient(var(--torn-guide), var(--torn-guide)) calc(100% - 9.8px) 0 / 1px 100% no-repeat,
+		linear-gradient(var(--torn-guide), var(--torn-guide)) 0 calc(100% - 18.5px) / 100% 1px no-repeat;
+}
+
+.torn-cast {
+	inset: 6px 0 -5px;
+}
+
+.torn-below,
+.torn-beside,
+.torn-corner {
+	background: var(--torn-shade);
+}
+
+.torn-below {
+	top: 100%;
+	left: 0;
+	width: 100%;
+	height: 26px;
+	mask: var(--torn-below) 0 0 / 1000px 26px repeat-x;
+}
+
+.torn-beside {
+	top: 0;
+	left: 100%;
+	width: 26px;
+	height: 100%;
+	mask: var(--torn-beside) 0 0 / 26px 600px repeat-y;
+}
+
+.torn-corner {
+	top: 100%;
+	left: 100%;
+	width: 26px;
+	height: 26px;
+	mask: var(--torn-corner) 0 0 / 26px 26px no-repeat;
+}
+
+.torn-middle {
+	inset: 15.5px 0 11.5px;
+	background: var(--sheet);
+}
+
+.torn-middle::before,
+.torn-middle::after {
+	content: '';
+	background: var(--ink);
+
+	html.dark & {
+		opacity: 0.6;
+	}
+}
+
+.torn-middle::before {
+	bottom: 0;
+	left: 0;
+	width: 100%;
+	height: 12px;
+	mask: var(--torn-tone-below) 0 0 / 1000px 12px repeat-x;
+}
+
+.torn-middle::after {
+	top: 0;
+	right: 0;
+	width: 12px;
+	height: 100%;
+	mask: var(--torn-tone-beside) 0 0 / 12px 600px repeat-y;
+}
+
+.torn-band {
+	left: -2px;
+	right: -2px;
+}
+
+.torn-band::before,
+.torn-band::after {
+	content: '';
+	inset: 0;
+}
+
+.torn-band::before {
+	background: var(--sheet);
+}
+
+.torn-band::after {
+	background: var(--ink);
+}
+
+.torn-upper {
+	top: 0;
+	height: 16px;
+}
+
+.torn-upper::before {
+	mask: var(--torn-upper-paper) 2px 0 / 1200px 16px repeat-x;
+}
+
+.torn-upper::after {
+	mask: var(--torn-upper-ink) 2px 0 / 1200px 16px repeat-x;
+}
+
+.torn-lower {
+	bottom: -12px;
+	height: 24px;
+}
+
+.torn-lower::before {
+	mask: var(--torn-lower-paper) 2px 0 / 1200px 24px repeat-x;
+}
+
+.torn-lower::after {
+	mask: var(--torn-lower-ink) 2px 0 / 1200px 24px repeat-x;
+}
+
+.torn-ends {
+	inset: 7px -10px -3px;
+	background: var(--ink);
+	opacity: 0.85;
+	mask:
+		var(--torn-left) 0 0 / 20px 100% no-repeat,
+		var(--torn-right) 100% 0 / 20px 100% no-repeat;
+}
+
+/* ---------------------------------------------------------------------------
+   Hover docs on TSRX tokens. No script: the tooltip is a child of the token and
+   CSS shows it on hover and on keyboard focus. The token carries the same text
+   as an aria-label, so a screen reader gets it without the visual box.
+   --------------------------------------------------------------------------- */
+
+.tsrx-hover {
+	position: relative;
+	border-bottom: 1px dashed color-mix(in oklch, currentColor 32%, transparent);
+	cursor: help;
+	outline-offset: 2px;
+}
+
+.tsrx-hover:focus-visible {
+	outline: 2px solid var(--yellow);
+}
+
+/* The doc sits directly above the token it explains, and the block reserves no
+   room for it: a block at rest ends at its last line and does not move when one
+   is pointed at. A `<pre>` that scrolls clips its children, so where the browser
+   supports anchor positioning the box is taken out to the viewport and pinned to
+   the token; without it the box is placed against the token and a token on the
+   first line has its doc clipped by the block's top edge. */
+.tsrx-tip {
+	position: absolute;
+	left: 0;
+	bottom: calc(100% + 0.35em);
+	width: max-content;
+	max-width: min(36ch, calc(100vw - 2 * var(--space-s-l)));
+	z-index: 40;
+	background: var(--paper);
+	color: var(--ink);
+	border: 2px solid var(--ink);
+	box-shadow: 3px 3px 0 var(--purple);
+	font-family: 'Joy Elia';
+	font-size: var(--step--1);
+	line-height: 135%;
+	text-align: left;
+	white-space: normal;
+	user-select: none;
+	/* Hidden by display, not visibility: a hidden fixed anchored box still costs pre-paint on every scroll frame, and the page carries dozens. */
+	display: none;
+}
+
+.tsrx-hover:hover > .tsrx-tip,
+.tsrx-hover:focus > .tsrx-tip,
+.tsrx-hover:focus-visible > .tsrx-tip {
+	display: block;
+}
+
+@supports (anchor-scope: --tsrx-token) {
+	.tsrx-hover {
+		anchor-name: --tsrx-token;
+		/* Scoped to this token's own subtree, so every doc finds its own token
+		   rather than the last one on the page. */
+		anchor-scope: --tsrx-token;
+	}
+
+	.tsrx-tip {
+		position: fixed;
+		position-anchor: --tsrx-token;
+		left: anchor(left);
+		bottom: calc(anchor(top) + 0.35em);
+		top: auto;
+		right: auto;
+	}
+}
+
+.tsrx-tip-title {
+	display: block;
+	padding: 0.15em 0.6em;
+	background: var(--yellow);
+	color: var(--on-accent);
+	border-bottom: 2px solid var(--ink);
+	font-weight: 700;
+}
+
+.tsrx-tip-body {
+	display: block;
+	padding: 0.4em 0.6em 0.5em;
+}
+
+/* A token with no sentence gets a title-only tip rather than an empty padded
+   strip. The panel always draws the element, so the emptiness is decided here. */
+.tsrx-tip-body:empty {
+	display: none;
+}
+
+/* Yellow is reserved for Markless's own API, so a reader can tell it from the names a page made up. */
+.prose code.api {
+	background: var(--mark);
+	color: var(--on-mark);
+	font-weight: 600;
+}
+
+/* A description is split on its backticks and every piece comes back as a
+   `<code>`, because the element cannot be chosen per piece without `@if`. The
+   pieces that were never in backticks give the inline-code look back here, so
+   the ones that were keep `.prose code` exactly as the rest of the page has it. */
+.prose code.api-text {
+	display: inline;
+	padding: 0;
+	background: none;
+	color: inherit;
+	font-size: inherit;
+	border-radius: 0;
+	transform: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Explorer: a widget where clicking a label lights up part of a listed file.
+   --------------------------------------------------------------------------- */
+
+.explorer {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-xs);
+}
+
+.playground .pick {
+	background: var(--paper);
+	font-size: var(--step--1);
+}
+
+.file-lines {
+	display: block;
+	margin: 0;
+	padding: var(--space-xs);
+	background: var(--slab);
+	color: var(--slab-ink);
+	border: 2px solid var(--slab);
+	overflow-x: auto;
+	font-size: var(--step--1);
+	line-height: 150%;
+	white-space: pre;
+}
+
+.file-line {
+	display: block;
+	padding: 0 0.3em;
+	border-left: 3px solid transparent;
+}
+
+.explorer-note {
+	margin: 0;
+	font-size: var(--step--1);
+	min-height: 3em;
+}
+
+/* ---------------------------------------------------------------------------
+   Sprites and mascots. The sprites are the owner's crayon doodles, cut out of
+   `sprites-sheet.png`; each ships twice, once as drawn and once with its dark
+   outline lifted to chalk, and the theme decides which one is painted. The
+   mascots carry their own white outline and read on either ground.
+   --------------------------------------------------------------------------- */
+
+.sprite {
+	display: inline-block;
+	width: var(--sprite-size);
+	height: var(--sprite-size);
+	vertical-align: -0.18em;
+	flex: none;
+	line-height: 1;
+}
+
+.sprite-ink {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+}
+
+.sprite-ink-light {
+	display: var(--sprite-light);
+}
+
+.sprite-ink-dark {
+	display: var(--sprite-dark);
+}
+
+.mascot {
+	display: block;
+	width: var(--mascot-size);
+	height: auto;
+	flex: none;
+}
+
+.mascot.is-hero {
+	float: right;
+	width: var(--mascot-size);
+	margin: 0 0 var(--space-s) var(--space-s);
+	shape-outside: margin-box;
+}
+
+.mascot.is-mark {
+	width: var(--mascot-size);
+}
+
+/* One height for every sticker, so four different silhouettes still line up. */
+.more-from-link .mascot {
+	height: var(--mascot-size);
+	width: auto;
+	object-fit: contain;
+	object-position: bottom;
+}
+
+/* ---------------------------------------------------------------------------
+   Prev/next pager: the same two links on the foot of every page, driven by the
+   flat entry order in nav.ts, with a strip of doodles between them. The dashed
+   rule is the one already proven on .more-from.
+   --------------------------------------------------------------------------- */
+
+.pager {
+	display: flex;
+	gap: var(--space-s);
+	justify-content: space-between;
+	align-items: center;
+	margin-top: var(--space-xl);
+	padding-top: var(--space-m);
+	border-top: 2px dashed var(--code-edge);
+}
+
+/* ---------------------------------------------------------------------------
+   The doodles in the pager react when they are pointed at, each one its own
+   way: a lift, a spin, a heartbeat, a wiggle, a dart and a roll. No script — a
+   hover and a keyframe on the drawing the sprite already ships. Every reaction
+   is under 400ms and stops for a reader who asked for less motion.
+   --------------------------------------------------------------------------- */
+
+/* Each doodle answers to a pointer well before it touches the drawing. The row's
+   gap moves onto the doodles as padding — half of it on each side — so the
+   drawings sit exactly where they did and the spacing looks unchanged, while the
+   box that hears the pointer is a whole gap wider. Vertically there is nothing
+   to collide with, so the ::before reaches half a line above and below. Sized in
+   em rather than px so a doodle's target grows with it. */
+.pager-doodles .sprite {
+	position: relative;
+	padding-inline: 0.225em;
+}
+
+.pager-doodles .sprite::before {
+	content: '';
+	position: absolute;
+	inset-block: -0.5em;
+	inset-inline: 0;
+}
+
+/* Yellow crayon on paper is nearly the paper, so every doodle in the strip is
+   given one line of ink under it. It is a shadow rather than an outline, so the
+   drawing keeps its own edge. */
+.pager-doodles .sprite img {
+	transition: transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+	filter: drop-shadow(0 1px 0 color-mix(in oklch, var(--ink) 35%, transparent))
+		drop-shadow(0 0 1px color-mix(in oklch, var(--ink) 20%, transparent));
+}
+
+/* 1 crown: tilts and lifts, landing with a small bounce. */
+.pager-doodles .sprite:nth-child(2):hover img {
+	transform: rotate(-12deg) translateY(-5px);
+}
+
+/* 2 sparkle: turns over and grows. */
+.pager-doodles .sprite:nth-child(3):hover img {
+	transform: rotate(180deg) scale(1.25);
+}
+
+/* 3 heart: one beat. */
+@keyframes doodle-heartbeat {
+	0% {
+		transform: scale(1);
+	}
+	25% {
+		transform: scale(1.3);
+	}
+	45% {
+		transform: scale(1);
+	}
+	65% {
+		transform: scale(1.18);
+	}
+	100% {
+		transform: scale(1);
+	}
+}
+
+.pager-doodles .sprite:nth-child(4):hover img {
+	animation: doodle-heartbeat 380ms ease-in-out;
+}
+
+/* 4 squiggle: wiggles. */
+@keyframes doodle-wiggle {
+	0%,
+	100% {
+		transform: skewX(0deg);
+	}
+	25% {
+		transform: skewX(-12deg) rotate(-3deg);
+	}
+	75% {
+		transform: skewX(12deg) rotate(3deg);
+	}
+}
+
+.pager-doodles .sprite:nth-child(5):hover img {
+	animation: doodle-wiggle 360ms ease-in-out;
+}
+
+/* 5 sun: one slow turn, growing a little as it goes round. */
+@keyframes doodle-sun-turn {
+	0% {
+		transform: rotate(0deg) scale(1);
+	}
+	50% {
+		transform: rotate(180deg) scale(1.12);
+	}
+	100% {
+		transform: rotate(360deg) scale(1);
+	}
+}
+
+.pager-doodles .sprite:nth-child(6):hover img {
+	animation: doodle-sun-turn 600ms ease-in-out;
+}
+
+/* 6 flower: half a turn and a little bigger, sprung there and sprung back. The
+   spring is the row's own transition easing, so leaving it undoes the turn. */
+.pager-doodles .sprite:nth-child(7):hover img {
+	transform: rotate(180deg) scale(1.15);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.pager-doodles .sprite img {
+		transition: none;
+	}
+	.pager-doodles .sprite:hover img {
+		animation: none;
+		transform: none;
+		filter: none;
+	}
+}
+
+/* ---------------------------------------------------------------------------
+   Batch-2 demos: the name echo, the draft panels, the sortable rows. Each one
+   is inside a `.playground` frame, so these rules only dress the pieces the
+   frame does not already cover: text fields, the row list and its marker.
+   --------------------------------------------------------------------------- */
+
+/* The two teaching demos hand the frame a plain <label> and a plain <p>: the
+   site's framing classes live on the .playground-echo wrapper, not in the file
+   the page prints. */
+.playground label {
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
+	flex-wrap: wrap;
+	font-size: var(--step-0);
+}
+
+.playground input[type='text'],
+.playground input:not([type]) {
+	font: inherit;
+	font-size: var(--step-0);
+	padding: 0.25em 0.5em;
+	color: var(--ink);
+	background: var(--paper);
+	border: 2px solid var(--ink);
+	border-radius: 2px;
+	min-width: 12rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Stickers. The owner's die-cut sheet, cut by tooling/cut-sprites.ts. Each one
+   carries its own white border and printed shadow, so unlike a crayon sprite it
+   needs no dark twin. They are the accents with depth: one at the corner of the
+   landing hero, at most one on a callout, two in the footer strip, and the
+   heart under the rail.
+   --------------------------------------------------------------------------- */
+
+.sticker {
+	display: inline-block;
+	width: var(--sticker-size);
+	height: auto;
+	flex: none;
+	vertical-align: -0.25em;
+}
+
+/* Taped on above the landing title, tilted the way a sticker lands. It sits in
+   the flow rather than over a corner: the header is directly above the top of
+   the prose column and the mascot already floats into its right. */
+.sticker.is-hero {
+	display: block;
+	margin: 0 0 -0.9rem -0.5rem;
+	rotate: -9deg;
+}
+
+.callout {
+	position: relative;
+}
+
+/* A callout's corner sticker. One rule per sticker a page has asked for; a
+   callout that names none carries `data-sticker=""` and paints nothing. */
+.callout[data-sticker='spring']::after,
+.callout[data-sticker='map']::after,
+.callout[data-sticker='cloud']::after,
+.callout[data-sticker='scribble']::after {
+	content: '';
+	position: absolute;
+	right: -1rem;
+	top: -1.4rem;
+	width: 3.6rem;
+	height: 3.6rem;
+	rotate: 9deg;
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: contain;
+	pointer-events: none;
+}
+
+.callout[data-sticker='spring']::after {
+	background-image: url('/stickers/spring.png');
+}
+
+.callout[data-sticker='map']::after {
+	background-image: url('/stickers/map.png');
+}
+
+.callout[data-sticker='cloud']::after {
+	background-image: url('/stickers/cloud.png');
+}
+
+.callout[data-sticker='scribble']::after {
+	background-image: url('/stickers/scribble.png');
+}
+
+.pager-doodles .sticker {
+	transition:
+		rotate 220ms ease-out,
+		translate 220ms ease-out;
+}
+
+.pager-doodles .sticker:hover {
+	rotate: -7deg;
+	translate: 0 -0.25rem;
+}
+
+@media (min-width: 70.01rem) {
+	@supports (position-anchor: --on-this-page) {
+		.on-this-page {
+			anchor-name: --on-this-page;
+			max-height: calc(100vh - var(--header-height) - 2 * var(--space-s) - 12rem);
+		}
+	}
+}
+
+.like-burst-piece .sprite-ink-light {
+	display: var(--sprite-light);
+}
+
+.like-burst-piece .sprite-ink-dark {
+	display: var(--sprite-dark);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.like-heart-image,
+	.like-burst-piece,
+	.like-heart-plus,
+	.pager-doodles .sticker {
+		transition-duration: 1ms;
+	}
+}
+
+/* The props table. `display: block` is what lets a table scroll inside its own
+   column instead of pushing the whole document sideways on a phone. */
+.prose table {
+	display: block;
+	width: 100%;
+	overflow-x: auto;
+	margin-block: var(--space-m);
+	border-collapse: collapse;
+	font-size: var(--step--1);
+}
+
+.prose th,
+.prose td {
+	padding: 0.4em 0.7em;
+	border-bottom: 1px solid var(--code-edge);
+	text-align: left;
+	vertical-align: top;
+}
+
+.prose th {
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	font-size: var(--step--2);
+	opacity: 0.75;
+}
+
+.prose td:first-child {
+	white-space: nowrap;
+}
+
+/* torn-strip art: written by components/docs/snippet/snippet.test.ts from snippet-ink.ts; refresh with `vp test -u`. */
+.torn-strip {
+	--torn-upper-paper: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='16' viewBox='0 0 1200 16'%3E%3Cpath d='m-4 6.3l2.6-.4 1.2 .3 1.6 0 2.6 .1 1.2-.5 2.1 .4 1.7 .1 2.9-.2 1.4-.3 3 .6 3.4-.3 4.2-.4 3.8 .3 1.7 0 5.1 .4 1.6-.4 2.7 .1 1.1-.7 1.3 0 5.7 .5 4.9 .2 2-.9 3.6 .5 2.2 .3 4.5-.7 1.2 .7 3.9-.8 6.2 .5 3.4-.2 1.9 .3 1.3 .3 1-.9 1.9 .2 1.4-.1 1.7 .9 1.9-.9 1.2 .2 4.2 .7 3.4-.5 1.7-.3 1.1 .5 2.2-.2 1.2 1.4 1.1-.8 1.4-1.1 1.1 1.3 1 1.1 1.3-.5 1.5 .3 1.1-1.1 1.3-1 1.4 1.3 6 .3 2.9-.9 4.9-1 3.1 .9 4.4-.1 2.4 1 2-1.3 1.2 .1 1.3-.3 3.3 .6 1.3-.5 2.4 0 1.1 .4 1 .3 1.9-.4 3.4-.2 2 .2 4-.3 1.7 .8 3.8-.1 2.9-.5 2.1-.2 1.2 .9 2.5-.3 1-.5 2.3 2.2 4.4-1.9 1.1 1.2 5.2-.9 1.4 .7 1-.4 2.7 .5 2.5-.5 4.6-.1 1 .9 1.3-.3 2.3-.7 2 .7 3.3-.8 1.7 .8 4.9-.9 1.5 .3 7.1-.4 1.3-.2 3 .5 1-.4 2.3 .4 2.4-.6 3.5-.3 1.4 .8 2.3-.8 1.2-.2 2.7 .5 7.4-.5 1.2-.1 1.6 .5 1.9 .2 3.8-.6 1.1 .3 1.1-.3 6.1 .2 3.3-.1 4.7 .7 2.2-.1 5.4 .1 5.2-.2 1.2 .5 1.5-.3 3-.1 1.8 .5 1.6-.5 1.1 .5 1.3 0 1.9-.3 3.1 0 2.9 .4 2 0 2.3-.4 6.4-.1 2.9 .2 2.6-.5 1.2 .2 1.1-.2 5.7-.1 3.2 1 2.1-1.3 3.1 .7 2 1.5 2.3-2.2 1 0 1.3 .4 1.6-.3 1.4-.3 1.3 .6 7-.2 6.4-.6 1.1-.1 1 .2 1.6 0 4.7 .4 1.7 .1 3.1 .2 3.4 2.3 4.3-.7 1.1-.8 6.8-.1 1.9 .3 3.9 .3 2.1 0 4 .1 3.3 .9 1.6-.3 5.5-1 1.8 1 2.2-.5 3.5-.1 3.1 .1 1.1-.3 3.4 .4 2.3 0 3.6-.3 5.4 .2 2-.6 2 .4 2.2 .3 3.7 1.5 1.2 .6 3.1 3 2.2-2.7 1-1.2 1.5-1.2 1-.2 5.9-.4 1.5 2.6 1.2-1.7 3.9-1.7 1.6-.1 5 .2 3.4 .3 1.6 1.5 1.7-.4 5.3-1 2.3 .2 1.3 1.9 6.1-1.6 2 .4 3.5 0 4.2 .7 4.1-.6 4.1 0 3.2-.8 1.2 .3 5.6-.1 6.2-.2 2-.8 1.1 .1 1.7 .9 2.1-.3 1.4-.6 3-.1 3.2 .1 1.5-.1 2.4-.7 1.5 0 5.5 .5 4.3 0 1.7-.4 1 .5 1.5-.6 5.5-.2 1.8 .9 2.4-.8 3.9 .9 2-.6 1.1-.4 2 1.6 3.2 .2 3.4-.1 3.7-1.1 1.2 .1 1.3 .4 3.3-.4 1.1 .3 2.2-.6 1.8 1.3 4.3-1 2.5-.5 1.2 .8 1.9-.5 4.4 .4 3.4-.6 1.1 1 6.1-.5 1.1-.1 1.8 .3 1.9-1 1.3 .8 5.2 0 4.4-.3 6.8-.2 1.2 1.2 3.6-.8 1.7 0 1.1-.1 5.4-.4 3.6 .5 2.3 .6 6.5-.4 1.7-.8 2.7 .1 1.4-.3 2.4 1 3.2-.4 1.6 .6 3.2-.9 1.3 .1 1.3-.1 1.1 .4 2.7 0 2 .2 1.3-1.1 1.3 .7 1.2 .3 4.3 .1 1.5-.6 2.3 1.4 1.3-1.8 4.1 .1 3.3 .6 2.3 .1 1.8-.8 1.1 .3 2.2 3.2 1.3-.8 5.5-1.6 4.9 .3 2-.9 2.8 1 1.9-.7 4.5 .8 1.3-.8 1 .4 1.9 .3 3.4-.1 2.3 0 1.1 .1 6.6 .1 1.1-.3 5.6 0 1.8 .8 3-.4 5.3-.6 1.1 .8 2.9-.7 2.5 .3 1.6 .1 3.7 .6 1.1-1.2 1.8 .8 1.6-.4 4.2 .3 2-.3 3.2-.5 3.2 .7 1.6-.4 1.1-.2 3 .7 2.6-.3 5.6-.2 5.2 .2 1.1-.3 1.3 0 3.6-.1 2.7 0 7.3 .6 1.6-.3 2.1 0 2.5-.3 3.8 .7 7-.1 1.7-.1 2.2-.5 3.4 .8 1-.6 5.1 .4 1.5-.5 2.8 .1 1.7 .1 2.1-.1 2-.2 4.2 .5 3-.2 2.4-.4 3.2 .5 1-.1 1.2-.5 2.3 .3 2.6-.2 1.8 .1 2.5 .2 3.8 .1 3.4-.1 3.2-.3 1.2 0 2.9-.5 1.7 .6 4-.5 2.6 2.8 1.1-1.9 7.1 .3 2.6-.8 5.1 .9 2.2 .3 1.7 0 2.2-.1 2.5 0 2.4-.4 1.2-.1 1.6 .2 4.1 .1 1.2 .8 3.1-.3 1.8 0 2.1-.5 3.4 .3 1.5 .4 1.5-.2 1.9 1 3.1 2.2 1.3-2.6 5.7-1.5 4.7 .4 1.4-.6 1.5 .1 1.6-.3 1.3 0 1-.3 1.2 .1 1.1-.4 3.5 .4 2.2 .2 4.9-.6 3.3 0 1.8 .3 1.5 .4 3.3 .6 6.7-1 1-.1 1.5 .3 1.6-.4 2.6 .5 2.9-.6 4.2 .5 2.5 .1 1.1-.3 3.7-.2 1.2 .5 1-.3 1.4-.2 2.8 0 1.2 .5 1.9-.4 2.6 0 3.5 .5 1.4-.3 6.6-.1 3 .8 1.1-.5 1.3 .1 1.9-.5 1.4 .6 1-.5 3.9 .1 2.2 0 4.4 .1 3 1 1.4-.5 1.1 .1 2.3 .2 2.5-.2 1.3-.1 1.3 0 4.8 .5 5.1 .2 1.8-.1 1.9-.7 1.4 .2 5.7 .7 3.6-.8 6.9 .5 2.7 0 2.5-.7 1 .7 4.3-.7 1.5 .4 1.4 .1 5.1 .2 1 .1 6.1-.3 2.6 .3 5 0 1.2-.1 5.7-.2 .6-.3 0 10-1208 0z'/%3E%3C/svg%3E");
+	--torn-upper-ink: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='16' viewBox='0 0 1200 16'%3E%3Cpath fill-opacity='0.7' d='m-3.9 6.7l2.5-.5 2.5 .4 2.6 0 2.5-.3 2.6 .3 2.6-.2 2.6-.1 2.5 .4 2.7-.2 2.6-.2 2.5-.2 2.6 .3 2.6-.1 2.6 .3 2.6 .1 2.6-.2 2.4-.6 2.5-.1 2.6 .2 2.6 .3 2.6 .1 2.6-.3 2.4-.5 2.5 .4 2.6 .1 2.6-.3 2.4 .3 2.6-.3 2.5-.2 2.6 .1 2.6 .2 2.6-.1 2.6 .2 2.3-.4 2.5 0 2.5 .8 2.4-.8 2.5 .5 2.6 .3 2.6-.2 2.5-.4 2.4 .3 2.1 1.3 2-1.5 1.6 1.3 2.4 .2 2.2-.6 1.9-.8 2.2 1 2.7 .1 2.6 0 2.5-.8 2.6-.5 2.4-.3 2.5 .6 2.6 .1 2.6 .2 2.4 .5 2.3-1.1 2.5-.1 2.6 .5 2.5-.5 2.5 .4 2.6-.1 2.5-.2 2.6 .2 2.6-.2 2.5 .3 2.6 .4 2.6-.1 2.5-.5 2.5 .1 2.4 .4 2.3-.2 1.9 1.7 2.5-1 2.2-.5 2.2 .6 2.6-.4 2.4 .4 2.5-.1 2.6 0 2.6-.2 2.5-.1 2.3 .7 2.5-.7 2.5 .4 2.5-.4 2.4 .5 2.6-.4 2.5-.5 2.6 .3 2.6-.1 2.6-.2 2.5-.2 2.6 .4 2.5-.1 2.6-.3 2.5-.3 2.5 .4 2.4-.4 2.6 0 2.5 .2 2.7-.1 2.6-.1 2.5-.3 2.5 .5 2.7-.1 2.5-.1 2.5-.2 2.6 .1 2.6 .1 2.6 0 2.6 .2 2.5 .3 2.7 .1 2.6-.1 2.6 .1 2.6 0 2.5-.1 2.5 .3 2.6-.1 2.6 .3 2.4-.2 2.6 .2 2.6-.2 2.5 .1 2.6 .2 2.6-.2 2.6-.2 2.6-.1 2.6 0 2.6 .2 2.6-.6 2.5 0 2.6 0 2.6-.1 2.5 .7 2.3-.6 2.3 0 2.3 .9 2.2 .1 2-1.4 2.4 .2 2.5-.3 2.5 .5 2.7-.1 2.6-.1 2.6-.2 2.6-.2 2.5-.2 2.6 .1 2.6 .2 2.6 .3 2.5 .2 2.4 .5 2.2 1.5 2.6 0 2.6-.5 2.3-.7 2.6 0 2.6-.1 2.5 .5 2.6 .1 2.7 0 2.5 .1 2.6 .3 2.5 .7 2.6-.6 2.6-.4 2.4-.1 2.4 .4 2.6-.2 2.6 0 2.6 0 2.5-.1 2.6 .2 2.6-.1 2.6-.2 2.6 .1 2.6 .1 2.5-.5 2.5 .4 2.5 .6 2.3 .9 2.1 1.5 2 1.9 1.8-1.3 1.7-2 1.9-1.5 2.6-.3 2.5-.2 1.9 .9 1.5 1 2.1-1.5 2.3-1 2.5-.3 2.6 0 2.6 .2 2.5 .2 2 1.4 2.7-.5 2.5-.5 2.5-.2 2 1.2 2.3 .5 2.5-.7 2.5-.4 2.6 .3 2.5 0 2.6 .5 2.6 0 2.6-.3 2.6-.1 2.6-.2 2.5-.5 2.5 .2 2.7 0 2.6-.1 2.6 0 2.6-.2 2.4-.7 2.3 1 2.6-.6 2.5-.4 2.6 0 2.6 .1 2.6-.6 2.5-.2 2.5 .2 2.6 .4 2.7 0 2.5-.2 2.5 0 2.5-.5 2.6 0 2.4 .6 2.5-.4 2.4 .2 2.7 .4 2.3-.8 2 1.4 2.7 .3 2.7-.1 2.6-.4 2.4-.7 2.5 .5 2.6-.3 2.5 0 2.4 .1 2.3 .4 2.6-.5 2.5-.6 2.3 .6 2.6-.3 2.6 .3 2.5-.3 2.2 .6 2.6 0 2.6-.2 2.6-.1 2.4-.3 2.2 .4 2.7-.1 2.6 0 2.6-.2 2.6-.1 2.6-.1 2.5 0 2.1 1 2.7-.5 2.5-.2 2.6-.2 2.6-.1 2.5 0 2.6 .4 2.5 .5 2.7-.2 2.6-.2 2.5-.7 2.4 .1 2.5 .1 2.5 .5 2.6-.3 2.5 .2 2.5-.4 2.5-.1 2.5 .4 2.7 .1 2.1-.7 2.5 .6 2.7 .1 2.4-.6 2.3 1.4 1.8-1.8 2.4 .1 2.6 .3 2.6 .4 2.6-.4 2 .2 1.5 2.1 2.2-.1 2.6-.6 2.4-.8 2.5 0 2.7 .3 2.3-.9 2.4 .9 2.5-.6 2.6 .5 2.4-.4 2.4 .3 2.6 .1 2.6 0 2.6 .1 2.6 0 2.6 .1 2.6-.3 2.5 0 2.6 0 2.4 .6 2.7-.3 2.6-.3 2.5-.3 2.3 .6 2.5-.4 2.6 .3 2.6 .4 2.4-.2 2.1-.1 2.5-.2 2.6 .2 2.6-.2 2.6-.5 2.5 .3 2.5 .2 2.5-.3 2.6 .5 2.6-.2 2.6-.1 2.6-.1 2.5 .2 2.7 .1 2.5-.4 2.6 0 2.6 0 2.6 .1 2.6 .1 2.6 .2 2.6-.2 2.5-.1 2.6 0 2.5 .4 2.7 0 2.6 0 2.6-.1 2.5-.4 2.5 .1 2.5 .1 2.5-.1 2.6 .2 2.5-.4 2.6 .2 2.6-.1 2.6-.2 2.5 .3 2.7 .2 2.6-.3 2.5-.2 2.6 .4 2.5-.6 2.5 .3 2.6-.1 2.6 .2 2.6 .1 2.6 0 2.6 0 2.6-.3 2.6-.1 2.5-.4 2.5 .5 2.5-.4 1.9 1 1.9 1.4 1.8-1.5 2.4 0 2.7 .1 2.5-.4 2.5 0 2.6 .3 2.5 .5 2.7 .1 2.6-.2 2.6 0 2.5-.4 2.6 .2 2.6 .1 2.3 .8 2.7-.2 2.5-.2 2.6-.3 2.5 .3 2.5 .2 2.3 .9 2.2 1.5 1.9-.6 1.8-1.6 2.4-.6 2.5-.4 2.5 .1 2.6-.3 2.5-.1 2.6-.4 2.5-.2 2.5 0 2.6 .2 2.6-.1 2.6-.3 2.5-.1 2.6 .2 2.5 .4 2.6 .6 2.6-.3 2.6-.4 2.5-.3 2.6 .1 2.5 0 2.6-.1 2.5-.2 2.6 .4 2.6 .1 2.6-.3 2.6-.2 2.4 .2 2.6-.2 2.5 .5 2.6-.4 2.6 .1 2.6 .4 2.5-.3 2.6-.1 2.6 0 2.5 .6 2.5-.2 2.5-.4 2.4 .3 2.5-.2 2.6 .1 2.6 0 2.6 .1 2.5 .6 2.4-.1 2.6 .2 2.6 0 2.6-.2 2.6 .3 2.6 .2 2.6 .1 2.6 .1 2.6-.2 2.4-.5 2.6 .4 2.6 .2 2.6-.1 2.5-.4 2.6 .1 2.6 .2 2.6 .1 2.6-.4 2.3 .4 2.6-.4 2.5 0 2.6 .2 2.6 .2 2.6 .1 2.6-.1 2.6-.2 2.6 .2 2.6 .1 2.6 .1 2.6-.2 2.6-.1 2.6-.1 .7-.3-.2-.6-.6 .3-2.5 0-2.7 .1-2.5 .1-2.6 0-2.6-.1-2.6-.1-2.6 .1-2.6 .1-2.6-.2-2.6 0-2.6-.2-2.6-.1-2.5 .5-2.4-.4-2.5 .4-2.6-.1-2.6-.1-2.6-.3-2.6 .4-2.5 .3-2.5-.4-2.7-.3-2.5 .4-2.5 .2-2.6-.1-2.6-.1-2.6-.3-2.6-.2-2.6 .2-2.6 .2-2.5-.3-2.5 .1-2.5-.7-2.6 0-2.6 0-2.6 0-2.5 .2-2.4-.3-2.5 .3-2.4 .2-2.6-.5-2.6 .1-2.6 0-2.5 .3-2.6-.3-2.6-.1-2.5 .3-2.6-.4-2.6 .2-2.4-.3-2.7 .2-2.5 .4-2.6-.2-2.6-.3-2.5 .1-2.6 .1-2.5 0-2.6-.1-2.6 .4-2.5 .4-2.6 .2-2.5-.5-2.5-.5-2.7-.2-2.6 0-2.6 .4-2.5 0-2.6-.3-2.6 0-2.5 .3-2.6 .2-2.5 .2-2.5 .3-2.6-.3-2.6 .5-2.6 .8-1.8 1.6-1.3 .5-2.1-1.4-2.4-1-2.6-.3-2.6-.2-2.6 .3-2.6 .3-2.5 .2-2.3-.9-2.7-.1-2.6 0-2.6 .4-2.5 0-2.6 .2-2.6-.2-2.6-.3-2.5-.5-2.6 .1-2.6 .4-2.5-.1-2.7-.2-1.7 1.6-1.4-1.3-2.2-1.1-2.6 .3-2.5-.5-2.6 .4-2.5 .2-2.6 .1-2.6 .1-2.6 0-2.6-.2-2.6-.1-2.6 .2-2.6-.3-2.4 .6-2.6-.4-2.6 .2-2.6 .2-2.5-.1-2.6-.2-2.6 .1-2.6 0-2.6-.1-2.5 .5-2.6-.2-2.5 .1-2.4-.1-2.6-.2-2.6 .4-2.5 0-2.6 0-2.6 0-2.6-.5-2.6 0-2.6 .1-2.5 .3-2.6-.3-2.6-.3-2.6 0-2.6 0-2.6 .2-2.6 .2-2.5-.1-2.6-.1-2.7 .2-2.6 0-2.5 .3-2.5-.6-2.6 .4-2.5-.3-2.6-.1-2.6 .4-2.5 .2-2.6-.2-2.5 .2-2.2 0-2.3 .3-2.5-.4-2.7-.2-2.5 .3-2.3-.5-2.6 .3-2.6 .3-2.5 .3-2.4-.8-2.7 0-2.6 .1-2.6 .1-2.5 0-2.6 0-2.6-.1-2.6 .1-2.6-.1-2.5-.4-2.3 .4-2.6-.4-2.4 .4-2.5-.9-2.4 .9-2.5-.1-2.7-.1-2.6 .7-2.4 .8-1.7 .2-1.4-2.2-2.6-.3-2.5 .3-2.5-.4-2.6-.2-2.8-.1-1.6 1.7-2.1-1.2-2.6 .4-2.5 0-2.6-.6-2.2 .6-2.5-.1-2.5-.2-2.7-.2-2.5 .5-2.4-.1-2.6 .1-2.4-.5-2.5-.1-2.7-.1-2.4 .9-2.6 .2-2.5 0-2.5-.4-2.6-.3-2.6-.1-2.7 .2-2.5 .2-2.7 .3-2.4 .5-2-1.2-2.8 .1-2.6 .1-2.6 .2-2.5 .1-2.6 0-2.6 0-2.3-.3-2.5 .2-2.6 .3-2.5 .2-2.5 0-2.3-.6-2.6 .3-2.5-.2-2.6 .1-2.3-.5-2.6 .6-2.5 .6-2.3-.6-2.3 0-2.6-.1-2.6 .3-2.5-.5-2.6 .8-2.5 .3-2.5 0-2.5-.1-2.1-1.6-2.6 .8-2.5-.2-2.5-.3-2.4 .2-2.5-.5-2.6 .1-2.6 .3-2.4 .1-2.6 .2-2.5-.1-2.6-.1-2.6-.3-2.7 .2-2.5 .5-2.5 .1-2.7 0-2.5 .4-2.4 .6-2.4-1.1-2.5 .8-2.6 .1-2.6 .2-2.5-.1-2.6 .1-2.6-.3-2.6 .7-2.5 .2-2.6 .1-2.6 .3-2.5-.1-2.6-.3-2.6 0-2.6-.3-2.6 .4-2.5 .6-2-.3-2.1-1.2-2.6 .1-2.6 .5-2.5 .5-1.9-1.3-2.7-.3-2.6-.1-2.6-.1-2.6 .3-2.5 1-1.8 1.6-1.3-.9-2-1-2.7 .2-2.6 .3-2.1 1.6-1.7 2-1.5 1.1-1.7-1.8-2.2-1.4-2.4-1-2.5-.7-2.6-.5-2.5 .5-2.6-.1-2.6 0-2.6 .1-2.6 .1-2.6-.2-2.5 .1-2.6-.1-2.6 .1-2.6 .2-2.4-.4-2.5-.1-2.6 .5-2.5 .5-2.4-.6-2.6-.3-2.6-.1-2.6 0-2.6-.2-2.6-.3-2.6 0-2.6 .1-2.5 .6-2.5 .5-2.3 0-2.1-1.5-2.5-.6-2.7-.2-2.6-.2-2.6-.1-2.6-.2-2.6 .2-2.6 .3-2.6 .2-2.5 .1-2.6 0-2.5-.3-2.6 .3-2.6-.3-2 1.4-1.8 0-2.4-1.1-2.5 .2-2.2 .5-2.5-.7-2.6 0-2.6 .1-2.6 0-2.5 .4-2.6-.2-2.6 .1-2.6 0-2.6 .3-2.6 .1-2.5-.3-2.6-.2-2.6 .2-2.6 0-2.4 .1-2.5-.4-2.6 .1-2.5-.3-2.6 .1-2.6 .2-2.6 0-2.6-.1-2.6 0-2.5-.4-2.7-.3-2.6 .1-2.6-.1-2.6 0-2.5 .1-2.6 .3-2.5 .1-2.6-.5-2.6 .1-2.6 .2-2.6 .3-2.5-.3-2.6 .2-2.4 .3-2.5-.4-2.6 .4-2.5 .3-2.5 .1-2.6-.4-2.6 .2-2.5 .2-2.6 .1-2.6-.2-2.6 .4-2.5 .4-2.4-.5-2.5 .5-2.5-.5-2.5 .8-2.2-.9-2.7 .1-2.5 .3-2.6-.1-2.5 .1-2.4-.4-2.6 .5-2.2-.6-2.3 .4-2.3 1.1-1.8-1.8-2.5 .2-2.4-.4-2.5-.1-2.6 .4-2.5 .1-2.5-.3-2.6-.2-2.6 .1-2.6-.1-2.6 .1-2.4 .2-2.6-.5-2.5 .4-2.6-.3-2.6 .1-2.3 .9-2.2-.5-2.7-.2-2.5 0-2.5-.7-2.7 .4-2.5 .5-2.5 .7-2.5 .1-2.5-.2-2.3-.9-2.2 .8-2.1 .6-2-.3-1.9-1.3-2.1 1.6-1.7-1.4-2.7-.2-2.6 .3-2.5 .4-2.5-.4-2.6-.4-2.4 .8-2.4-.8-2.6 0-2.3 .4-2.6-.2-2.6 .1-2.5-.2-2.7-.2-2.6 .2-2.5 .4-2.4-.3-2.6 .3-2.5-.2-2.6-.4-2.5 .5-2.5 .1-2.6-.1-2.6-.2-2.6-.2-2.6 .1-2.4 .4-2.5 .4-2.6-.1-2.6-.2-2.6-.1-2.6-.2-2.6 .2-2.6 .2-2.5 .2-2.6-.4-2.6 .2-2.6 .1-2.6-.2-2.5 .2-2.6-.1-2.5-.3-2.7 .4z'/%3E%3Cpath fill-opacity='0.45' d='m-3.4 5.7l3-.4 2.9 .2 3-.3 2.9 .3 3-.1 3-.2 2.9 .4 3-.2 3-.3 3 .1 3 .1 3 .2 3 .2 3-.3 2.7-.6 3 .1 3 .3 3 .2 3-.2 2.8-.5 2.9 .4 3 0 3-.4 2.8 .3 2.9-.4 3 .2 3 .2 3-.2 3 .6 2.7-.7 2.8 .5 2.8-.5 2.9 .4 3 .3 3-.4 2.8 .2 2.6 .7 2.3-.8 2 1.1 2.7 .3 2.3-1.2 2.3 .6 3 .2 3 .1 2.9-.8 2.9-.6 2.9-.1 2.9 .6 3-.1 2.9 .9 2.6-1.2 2.9-.1 3 .3 2.9-.3 2.9 .6 3-.5 2.9 .1 3-.1 2.9 .3 3 .3 3-.3 2.9-.4 2.7 .7 2.8-.5 2.2 2 2.8-1.2 2.5 .2 2.8-.1 2.9-.3 2.8 .3 3 .1 3-.3 2.9 0 2.7 .6 2.8-.5 2.9 0 2.9 .2 2.9-.2 2.9-.4 3 .2 3-.2 3-.2 2.9 .2 2.9 0 2.9-.4 3-.3 2.8 .5 2.9-.7 2.9 .5 3-.2 3-.2 3-.1 2.9 .5 3-.4 2.9-.1 3 0 3 .1 3-.1 3 .4 3 .3 3-.1 3 .1 3-.1 3-.1 2.8 .3 3-.1 2.9 .1 2.9 .4 3-.3 2.9 .1 3 .3 3-.3 3-.2 3 0 3 .1 3-.4 2.9 0 3-.1 2.9 .2 2.9 .7 2.6-1.1 2.8 .8 2.4 .6 2.3-1.6 2.9 .2 1.7-.3-.1-.3-1.6 .3-3-.1-2.3 1.5-2.2-.5-2.9-1-2.6 1.1-2.8-.7-3-.2-3 .1-3 .1-2.9 .4-3-.2-3 .1-3 .1-3 .3-2.9-.3-3.1-.1-2.9 .3-2.9-.3-2.9-.1-3 .1-2.8-.3-3 .2-3 0-3 0-3 .1-3-.4-3-.4-3 .1-3-.1-3 0-2.9 .1-2.9 .4-3-.5-3 .1-3 .2-3 .2-2.9-.4-2.9 .7-2.8-.6-3 .4-2.9 .3-2.9 0-2.9-.3-3 .3-3 .2-3-.2-2.9 .5-2.9 .1-2.9-.1-2.9-.1-2.8 .4-2.6-.6-3.1 .1-2.9 .3-3-.1-2.8-.3-2.9 .3-2.8 .2-2.5-.2-2.7 1.1-2.2-1.9-2.9 .5-2.7-.8-3 .4-2.9 .3-2.9-.3-3-.3-3 .1-3 0-2.9 .4-2.9-.6-2.9 .3-3-.3-3 0-2.5 1.2-2.8-.8-3 .1-3-.7-2.9 .2-3 .6-2.8 .8-3-.1-3-.2-2.3-.5-2.4 1.2-2.5-.4-2.1-1.1-2.3 .8-2.5-.7-2.9-.2-3 .5-2.9-.3-3-.5-2.8 .5-2.8-.5-2.7 .7-3-.5-3 .1-3-.2-3-.2-2.9 .4-2.8-.3-3 .4-3 0-2.9-.4-2.9 .5-2.9 .1-3-.1-3-.3-3-.2-2.8 .7-2.9 .3-3-.1-3-.2-3-.1-3-.1-3 .3-3 .2-2.9-.4-3 .3-3 0-2.9-.3-3 .3-3-.2-2.9 .3zm363.2-.7l3-.1 3-.2 3-.1 2.9-.3 3-.2 3 .2 3 .3 3 .2 2.9 .3 2.5 1.7 2.9 .1 2.8-.8 2.9-.3 3-.1 3 .2 2.9 .3 3 0 3 .1 3 .5 2.9 .2 3-.6 2.9-.4 2.7 .7 3-.3 3 0 2.9-.2 3 .4 3-.1 3-.2 3 0 3 .1 2.8-.3 3 .4 2.8 1.1 2.6 1.4 2.1 2.1 2-1.3 2-2.2 2.6-1.3 2.9-.2 2.8 .2 1.6 2 2.2-1.9 2.7-1.2 3-.1 3 .1 2.9 .2 2.5 1.5 3-.5 2.9-.5 2.9-.1 2.1 1.9 2.9-.7 2.9-.8 2.9 .3 2.9 0-.1-.2-2.7 0-3-.4-2.9 .8-2.9 .7-2-1.9-3 .1-3 .5-2.8 .4-2.5-1.4-3-.2-3-.1-3 .1-2.8 1.2-2.1 1.9-1.5-2-2.9-.2-3 .2-2.6 1.4-2 2.3-1.8 1.2-2.1-2.1-2.6-1.4-2.9-1.1-2.9-.5-2.9 .2-3 .1-3-.1-3 .2-3 0-3-.4-2.9 .3-3 0-3 .3-2.7-.7-3 .5-2.9 .5-2.9-.1-2.9-.5-3-.2-3 0-3-.3-3-.2-3 0-3 .3-2.8 .9-2.7-.1-2.5-1.8-3-.3-3-.2-3-.2-3-.1-3 .1-3 .3-3 .2-2.9 .1-3.1-.1zm161.3 2.2l3-.3 2.9-.2 3-.2 2.9-.5 3 .1 3 0 3-.1 3-.1 2.8-.9 2.8 1 2.9-.7 2.9-.2 3 0 3-.3 2.9-.5 3 .3 3 .3 3 0 3-.3 2.8-.3 3-.1 2.8 .5 2.8-.3 2.9 .4 2.9-.1 2.6 .3 2.8 .9 3 0 3-.4 2.9-.7 2.9 .4 3-.2 2.8-.5 2.6 1.2 3-.7 2.9-.7 2.6 .5 3 0 3 0 2.8-.1 2.7 .6 3-.2 3-.1 2.8-.7 2.7 .7 3 0 3-.2 3-.1 3-.1 3-.1 2.5 .9 3-.5 2.9-.2 3-.2 3 0 3 .4 2.9 .4 3-.2 3-.4 2.8-.4 2.9 0 2.9 .6 2.9 0 2.9-.3 2.9-.2 2.9 .4 3.1 .1 2.5-.7 2.9 .7 3 0 2.7 0 2.3-.3 2.6-.6 3 .3 3 .4 2.8-.5 2.3 1.2 1.9 1.8 2.8-1.1 2.9-.8 2.9 0 3 0 2.7-.5 2.8 .3 2.9 .1 2.9 .1 2.7 0 3 .1 3 0 3 .1 3 0 3-.1 3-.1 3 0 2.8 .7 3-.4 3-.3 2.7 .6 2.9-.7 3 .3 3 .4 2.5-.7 2.7 .4 3-.1 3 .1 2.9-.6 2.9 .1 3 .2 2.9-.1 2.9 .3 3-.2 3-.1 3 0 3 .2 3-.3 3-.1 3 0 2.9 .2 3 .3 3-.3 3-.1 2.9 .2 3 .3 3 0 3-.1 3-.2 2.9 .1 2.8-.3 2.9 .3 3-.1 2.9-.1 3 0 3-.2 3 .3 3 0 3-.3 2.9 .2 3-.3 2.9 .2 3-.2 2.9 .2 3.1 .1 3 0 3-.2 3-.2 2.9-.4 2.9 .5 2.9-.4 2 2 1.8-.9 2.8-.1 3 .1 3-.4 2.9 0 2.9 .5 3 .4 3-.1 3 0 3-.4 3 .1 3 0 2.7 .8 3-.2 2.9-.5 3 .2 2.9 .2 2.6 1.3 2.6 1.7 1.5-2.3 2.8-.8 2.9-.8 3 .3 2.9-.5 2.9-.1 3-.4 2.9-.2 2.9 .4 3 0 3-.3 3-.1 2.9 .3 3 .6 3 .2 2.9-.4 3-.5 2.9 0 3 .3 2.9-.5 3 .3 3 .2 2.9-.3 2.9-.2-.1-.3-2.8 .2-2.9 .3-3-.2-3-.3-2.9 .5-3-.3-2.9 0-3 .4-3 .5-2.9-.1-2.9-.7-3-.3-3 .1-3 .3-3 0-2.9-.3-3 .2-2.9 .3-3 .2-2.8 .4-3-.2-2.9 .8-2.9 .8-1.5 2.3-2.4-1.6-2.6-1.4-3-.3-3-.3-2.9 .5-3 .2-2.7-.7-3-.1-3-.1-3 .4-3 0-3 .2-2.9-.4-3-.5-3 0-2.9 .4-3-.1-2.9 .1-1.6 .9-2-2.1-3 .4-2.9-.5-3 .5-3 .2-3 .1-2.9 .1-3-.1-3-.2-3 .2-3-.1-2.9 .2-2.9-.2-3 .4-3-.1-3-.3-3 .2-3-.1-2.9 .1-2.9 .1-3-.2-2.8 .2-2.9-.1-3 .3-3 .1-3 0-2.9-.4-3 0-3 0-3 .2-2.9-.2-3-.2-3 0-3 .1-3 .3-3-.1-3-.1-3 .1-3 .2-2.9-.2-2.9 0-2.9-.1-3-.2-3 .5-2.9 0-3 .1-2.7-.3-2.5 .6-3-.4-3-.3-2.9 .7-2.7-.7-3 .3-3 .4-2.8-.7-3 0-3 .1-3 .2-3-.1-3-.1-3 .1-2.9-.1-2.8 0-2.8-.2-3 0-2.8-.4-2.8 .5-2.9-.1-3 .2-2.9 .8-2.7 1.1-1.7-1.8-2.4-1.2-2.9 .5-3-.4-3-.3-2.7 .5-2.2 .4-2.7 0-3 0-2.9-.7-2.6 .6-3 0-2.9-.4-2.9 .3-2.9 .3-2.9 0-2.9-.6-2.9 0-2.9 .3-2.9 .5-3 .2-2.9-.4-3-.4-3-.1-3 .2-3 .2-2.9 .5-2.5-.9-3 .1-3 0-3 .2-3 .1-3 .1-2.7-.7-2.8 .6-3 .2-3 .2-2.7-.5-2.8 .1-3 0-2.9 0-2.7-.5-3 .7-2.9 .6-2.5-1.1-3 .3-2.9 .3-3-.5-2.9 .7-2.9 .5-3-.1-2.7-.8-2.7-.3-2.9 0-2.9-.3-2.7 .3-2.9-.5-3 .1-2.9 .3-2.9 .3-3 0-3-.3-3-.3-2.9 .5-3 .3-3-.1-2.9 .3-2.9 .8-2.8-1.1-2.8 .9-3 .1-3 .1-3 0-3-.2-2.9 .5-3 .2-3 .2-3 .4zm556.1-2.3l3-.5 2.9 .3 3-.1 2.9 .1 3 .2 3-.3 3 .1 2.9 .4 2.9-.2 2.9-.3 2.7 .1 3 0 3 .1 3 0 2.9 .5 2.8 .1 3 .3 3-.3 3 0 3 .3 3 .2 3 .1 2.9-.3 2.9-.3 3 .4 3 .2 2.9-.6 3 .2 3 .1 1.1 .2 0-.3-1.1-.1-3-.3-3-.1-3 .6-2.9-.2-3-.3-2.9 .3-2.9 .2-3-.1-3-.2-3-.3-3 0-3 .2-3-.2-2.8-.1-2.9-.5-3-.1-3 0-3-.1-2.7 0-3 .4-2.8-.1-2.9-.3-3 .1-3 .3-2.9-.3-3-.2-3 .2-2.9-.2-3 .4zm89.4 1l2.8-.5 2.8 .1 3-.1 3 .3 3 .1 3 0 3 0 2.9-.1 3 .3 3 0 3-.2 3-.1 2.5-.3 0-.4-2.5 .4-3 .1-3 .1-3 0-2.9-.2-3.1 0-2.9 .2-3-.1-3-.2-3-.3-3 .3-2.8-.2-2.9 .4z'/%3E%3C/svg%3E");
+	--torn-lower-paper: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='24' viewBox='0 0 1200 24'%3E%3Cpath d='m-4 0l1208 0 0 8-.2-2-1.7-1.4-2.2 .1-1.3 .1-3.3 .1-1.2 .9-3.7-.1-1.3 .8-2.4-.1-1.1-.5-1.1 .2-2.8-.6-1.2-.7-2.8 1.2-1-.3-1.5 .7-2 .2-2.5 0-2.1-2.5-2.2-1-1 2.2-1.1 .6-1.2 1-2.9-1.4-2 .3-4.3 0-4.1 1-1.2-.1-2.4-1-2.2 .5-5.4 .9-2.6-1.5-1.1 .9-1.3-.4-1.8-.1-3.3 1.5-5.5 0-1.2-1.7-3.8 1.8-1.6 .1-1.6-1.3-2.1 .9-1.2-.7-1.3 .7-3.6 0-1-.3-1.8 .1-1.1-.8-1.2 1.7-4.2-1.1-2.1-.8-4.5 .6-3.5 .8-2.7 .4-2.4-.8-2.9 .5-2.7-1.8-5.7-2.8-2.6-1.5-1.4 1.9-1.3 .4-1.3 .2-2.1 1.7-1.9-.1-5.3-.5-2.4 .6-4.6-2.2-3.4 2.4-4.4 .4-1.6-.3-4-2.1-6 1.9-2.1 1.4-3.5-1.2-5 1.3-4.5-.2-1.7 0-1.6 1.2-1.5-.5-3.9 .4-5.1-1.3-2 2-1.7-.7-4.9-.6-2.7 .9-1.8-1.4-3.1 1.5-1.7-.7-3.1 0-1.5 .4-5.5 1.2-1-1.1-4.2 1-2.5-.9-1.2 1.3-1.6-.3-1.9 .5-7-2.3-1 1.5-1 .8-5.8-.8-1.3 .2-1.1 .2-5.2 .1-3.3 .2-2.2-1-1-.4-1.1 .1-4.9 .5-4.3 .6-5.6 .2-6.1-2.4-1.6 .9-1.6 0-2.3 .8-2.5 .2-4-2-4.7-.3-5.2 2.1-1.3 .3-4.4-2.2-2.3 2.2-2.5-.3-1.1 .5-2.9-1-3.3-1.5-1 2.3-1.6 .1-4.4-1.8-5.5-1.9-2 3.7-4.6-.9-1.1 .8-2-.7-1.7 .6-4.7-.4-5.8 .8-7.1-.3-1.8-.3-1.9 .6-2.4-.1-3.8-.3-1.2-.6-3.7-3.2-3.3-3.2-4.3 1.1-2.7 .8-2.7 2-3.4 1.4-1.8-.1-1-.1-5-.5-4-.3-1.3-1.1-1.9 .8-4.8 .1-4.5 .8-2.8-.6-1.9 .4-2.7-.5-1.7 .7-1.9-1.4-4.3 1.3-2-.9-1.9 .1-1.2 .2-1 .9-1.2 .8-1.7-.4-1-.7-2.2 1.1-1.5-.6-5.3-.4-2.3 .6-3.6-1.7-6.3 2.3-1.9-1.4-3.2 1.2-1.1-.5-3.5 .8-2.9-.2-6.5-1.8-4.2-.2-1.9 1.7-4.1 .6-1.7 .2-5 .6-1.8 .3-5.8-1-1.2 .4-1.6 0-3.7-1.6-1.6 1.5-1.4-.4-2.2 1.3-4.6-.2-1.8-.2-1.2-.4-1.4-1.6-2-.6-2.2 2.1-3.6 .6-2.2 0-3.5 .1-2.7-.3-1.6 .1-2.5-1.4-3.5 2.1-4.4-.1-1.1-.7-7.6 .4-3.5 .2-1.7-1.1-1.5 .8-5.8-.8-1.7 .4-1.2 .1-1.2-.8-1.6 .4-3.8-1-2-.9-4.7-1.8-2.5 3.3-5-.8-3.1-.4-3.1 .9-1.6-.1-1.7-.5-3.6 .1-3.4 0-1.1-.3-3.5 .5-6-.8-2.6 1-1.1-.2-2.8-.1-5-.2-3.9-.1-2.4 .4-2.2-.5-1.7 0-1 0-2.2-.2-2.5-.1-2.3 .6-3.7-.5-1.7-.1-2.3 .1-1.5-.1-6.5-.3-3.8 .6-5.7-.2-1.2-.1-1.3-.3-1.7 .4-5.2-.3-2.2-.7-3.2 .3-1.8-1.4-1.3-.5-2.4-1.5-1.9-2-1 .4-1.8 .6-1.6 .3-1.3 .4-3.9 2.6-1.2 1.1-1.4-1-1.1 1-2.5-.4-2.4-.8-3.4 .8-1.3-1.7-1 2.2-2.8-.3-1.4-.5-5.2 .3-2.2 1.3-1.1-2.6-6.7 2.6-2.4 .3-6.4 .9-1-1-2.1 1.2-2.2-.1-2.2 .1-3.7-.1-2.6-.2-5.4 .1-3-.5-6.2-.6-2.3-.4-1.1 .2-6.1 .8-3.7-.1-1-.3-2.8 .2-5.3-2.2-1.2-.6-3.8 1.5-1.5 .5-1.1-.3-3.8-.2-1.7 .4-1.1-.4-3 1.1-1.7-.9-3.2 .3-4.9 .1-1.1 .5-1.9 .1-2.8-.4-1.9 .5-1.1 .1-1.6-.5-3.2 .2-3.4-.1-1.8 .6-1.6-.5-4.4 0-4.4 .6-5.8 0-5.2 .2-3.1-.5-4.1 .5-1.2-.8-2.7 .2-1 .1-4.2-.4-1.1 .3-2 .5-3.9 0-3.8-.6-4.1 0-1.2-.2-1.4-.3-2.7 .5-5.2-1.3-5.1 .7-1.7-.6-3.5-.2-3.2 0-2.1 .2-3.5-.5-5 1.3-1.4 .1-1.1-.8-1.3 .1-2.8 .1-2.7 .3-1.5-1.4-3.6 1.4-2.3 .3-1.8 .8-2.9 .3-1.2-.3-1.7-.4-1.5 1-1.1-.1-1.3-.5-3.8-.6-3.4-2.1-4 2.8-2.7 0-4.9-2.1-1.8 2.3-2.7-1.8-1.4-1-2.3-3.7-2.4 .5-3.2 3.2-2 .8-5 1.3-4.2 .2-3-.1-3.8-1.3-2.2 1.7-3.5-.5-3.7 .8-3.3-.1-1.9 .1-3.3-1.5-2 .1-1.3 .4-1.1 .1-1.1 0-1.9-.6-2.7 .2-3.2-1-1.2 1.3-5.7-1-3.4-.4-1.2 .8-4.1-1.6-3.5 1-2 .4-4.5-1.6-2.9-1.2-1.1 2.5-1-1.5-1 1.1-3.1 0-1-.8-2.2-.5-1.2-2.7-1.3-.5-1.6-1.5-1.8 6.2-5.2-1.5-1.6 1.5-1.4-1.2-3.7-2.3-4.8 .9-1.8 .2-2.2 .8-2.8 0-1.4 .3-3 1.4-1.4-.2-1.3-.9-2-.6-1.4-1.4-2.1 2.7-1.2-.2-1.2 .4-1.6-1.6-1.2-1.7-2.1 1.8-2.9 1.4-2.2-.7-1.5-.5-3.8-.9-1.4 1.9-3-.8-1.8 1-4.7-.3-2.7-.9-1.8 1.9-6.7-.1-2.1-.2-2.8 .6-5.5 0-5.9-1.8-1.4 1.2-4.3-1.4z'/%3E%3C/svg%3E");
+	--torn-lower-ink: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='24' viewBox='0 0 1200 24'%3E%3Cpath d='m-4.1 5.8l2.5 .8 2.4 .2 2.2-.3 2.5 .6 2.5 .7 2.7 0 2.6 0 2.5-.5 2.6 .1 2.6 .1 2.7 0 2.2-1 1.9-.5 2.5 .6 2.7 .1 2.4-.6 2.5 .3 1.9-1.2 2.1-.1 2.4 .8 2.6 .8 2.6-.6 2.2-1.4 1.3-.2 1.6 2 2.8 .2 2-1.4 1.3-.3 2.2 1.1 2.5 1.2 2.6-.9 2.4-.7 2.6-.1 2.5-.8 2.5-.2 2.5-.5 2.2 .2 2 1.2 2.4 1.7 2.1-1.4 2.3 .8 2.9 .3 .9-2.9 .6-2.3 .7 .4 1.7 1.3 1.4 2.2 2.6 1 2.7 .4 2.1-1 1.5 .7 1.3-1.4 2 .9 2.6 .8 2.6 .6 2.7-.5 2.3-.7 2.4 .9 2.4 .2 2.5-.1 2.5 .4 2.6 .5 2.5-.1 2-.6 2.5 .6 2.6 0 2.6 .5 2.5-.5 2.4 0 2.3 1.1 2.7 .1 2.7 .1 2.5-.6 2.5-.1 2.7 .2 2-1.6 2.2 .8 2.6 .6 2.7-.1 2.6-.2 2.6-.4 2.5-.7 2.5-1 2-1.7 1.8-1.6 2-.1 1.3 2.1 1.7 2 2.4 1.5 2-.5 1.8-.7 2.3 1 2.6 .5 2.6-.6 2.1-1.4 2-.1 2.2 1.3 2.6 .5 2.5 .7 2.4-.5 2.5 .2 2.6 0 2.5-.7 2.5-.6 2.4-.8 2.2 .2 2.4 .4 2.6-.1 2.5-.1 2.4 .7 2.6-.7 2.4-.6 2.5 .3 2.6 0 2.6-.1 2.6 .1 2.6 .4 2.5 .1 2.6-.3 2.5 .3 2.5 .6 2.6 .1 2.5 0 2.6 .3 2.6 0 2.6 .4 2.6 .3 2.7 0 2.5-.6 2.5-.1 2.6 .2 2.5-.2 2.3 .8 2.7-.3 2.5-.1 2.6 .3 2.6-.2 2.6 .1 2.6-.2 2.6 .1 2.6-.4 2.6-.3 2.5 .1 2.6 .4 2.5-.6 2.6 .1 2.6-.1 2.5 .4 2.6-.4 2.5 .1 2.6 .1 2.5-.6 2.6 0 2.5-.3 2.5 .4 2.5-.1 2.5-.1 2.5-.3 2.6 .1 2.6 0 2.5-1 2.1-.5 2.3 1.1 2.4 .9 2.6 .5 2.6 .3 2.6 0 2.6-.2 2.6-.3 2.6-.4 2.5 .2 2.5 .2 2.6 .3 2.6 .4 2.6 .3 2.6-.1 2.6 0 2.6 .3 2.6 .1 2.6-.3 2.6 0 2.1-.7 2.4 .3 2.6-.3 2.6-.4 2.6-.5 2.4-.9 2.3-.9 1.5 .7 1.8 .8 2.5-.8 2.5-.1 2.5 .2 2.7 .4 1.3-1.9 1.4 1.4 2.6-.6 2.4 .4 2.7 .6 2.1-.7 2-.1 2.3-1.5 2.1-1.4 2.5-.6 2.3-.8 1.8 1.2 2.1 1.5 2.3 1.2 2.3 1.2 2.6-.2 2.5 .7 2.6 .1 2.6 .1 2.5-.1 2.6 .2 2.6 .2 2.7-.1 2.5-.5 2.6 0 2.6 .1 2.6 .2 2.5 0 2.6 .1 2.6 .3 2.6-.4 2.5 .1 2.6 .2 2.6-.1 2.6 .5 2.6-.3 2.5 .1 2.6 0 2.6 .2 2.6 0 2.7 .1 2.4-.7 2.4 .4 2.7 .3 2.6-.2 2.5 .2 2.6 0 2.6 0 2.5 .1 2.7 .4 2.5-.6 2.5-.1 2.5 .4 2.8 .4 2.2-1.3 1.3-1.9 2.1 1.1 2.4 .9 2.5 .9 2.6 .8 2.5-.1 2.4 .6 2.6-.3 2.5 .4 2.6 .1 2.2 .2 2.6 .2 2.6-.2 2.6-.2 2.5-.1 2.4 .6 2.7 .2 2.7-.5 2.1-1.3 2 .5 2.5 .4 2.7 .3 2.6-.1 2.6 0 2.7-.4 2.4-1 1.8-1.2 1.9 1.2 2.3 1.2 2.7 .2 2.7 .2 2.4-.8 2.5-.2 1.8-1.1 2.2 1.1 2.7 .1 2.5 0 2.5 .4 2.7 .1 2.6-.3 2.6-.3 2.6-.2 2.6-.6 2.4-.9 2.1-.8 2.5 .1 2.4 .6 2.5 .7 2.6 .7 2.7-.1 2.6-.5 2.4 .1 2.3-.9 2.1 1.4 2.7-1.1 2.3-.8 2.2 .1 2.4 1.1 2.7-.5 2.5 .3 2.6 .1 2.4 .1 2.3 .2 2.6-.3 2.2-1.2 2.3-.2 2.4 .7 2.6-.7 2.2 .3 2.3 0 2.6 .2 2.5-.1 2.6 .4 2.6-.4 2.5-.4 2.7-.1 2.4-.4 2.1 .6 2.5 .3 2.6 .2 2.6 .2 2.6 .4 2.6-.4 2.5-1 2.1-1.5 2.3-1 2.5-.7 2.3-.5 1.9 1.2 1.8 1.8 2 1.7 2.1 1.7 2.6 .5 2.7 .2 2.5-.1 2.5-.2 2.6 .2 2.6 .2 2.6 0 2.7-.4 2.5-.3 2.5 .2 2.6 .2 2.6-.2 2.2-.4 2.5 .5 2.6-.1 1.3-2.4 1.5-.4 2.3 .9 2.4 .9 2.5 .9 2.8 .4 1.3-2 1.8 .6 2.5 1.1 2.5 .1 2.8 .2 1.9-1.7 1.9 .1 2.3 1.3 2.7-.4 2.4-1 2.4-.8 2.5 .1 2.4 .4 2.3 1.2 2.6 .5 2.6-.6 2.5-.3 2.2-.6 2.3 1 2.5 1 2.6 .1 2.7-.1 2.6-.1 2.6-.4 2.6-.1 2.4-.4 2.4 .6 2.5 .7 2.7-.1 2.6-.1 2.6 0 2.5-.4 2.5 .3 2.8 .3 2-1.6 1.8 0 2.4 .7 2.6 .7 2.6-.4 2.2-.5 2.2 .2 2.6-.2 2.4-.4 2.2 .6 2.6-.6 2.5-.5 2.5-.2 2.5 .5 2.4-.7 2.1 .2 2.4 .1 2.5-.2 2.5 .4 2.7 .8 1.9-1.6 2.1 .2 2.6 .8 2.6-.1 2.7-.1 2.2-.7 2.4 0 2.6-.1 2.7-.2 2.4-.6 2.4 .3 2.6 .3 2.3-1.4 2.4-.8 2.4-.7 2.1 .6 2.3 1.3 2.7 .2 2.8-.2 2.4-1.2 1.9-1.2 2 1.1 2.6 .9 2.6-.6 2.5 .4 2.7 .3 2.6-.6 2.3-1.3 2.1-1.2 1.6-.6 2 1.3 2.4 1.1 2.3 1.1 2.3 1.5 2.5 .3 2.5 .1 2.6 .2 2.7-.4 2.5-.6 2.5-.4 2.4 .1 2.4 .9 2.8 .6 1.8-1.4 2.1 .7 2.6 .2 2.7 0 2.3-.3 2.2-.7 2.1 1.3 2.7-.7 2.1-1.1 1.5 1.7 2.8-.1 2.8 .1 2.4-1.2 2.4-.2 2.1-.3 2.2 .8 2.7 .2 2.6-.5 2.4-.4 2.4 .5 2.6 .2 2.6-.5 2.5-.4 2.6 0 2.4 0 2.5 1.2 2.5-1.6 .9-2.1 1.7 1 1.8 1.9 2.7 .5 2.6-.2 2.6-.3 2.2-1.1 2.2 .7 2.6 .4 2.5 .5 2.6-.5 2.5-.3 2.5-.5 2.4-.3 2.6-.2 2.2 0 1.1 1.7 .1 1 1.2-.2-.1-1.4-1.8-2.2-2.7-.2-2.7 0-2.6 .4-2.4 .6-2.5 .2-2.4 .4-2.3-.4-2.5-.2-2.6-.7-2.5 .9-2.3 .4-2.5 .2-2.1-.3-1.6-2-2.9-1-1.4 2.5-1.7 1.1-2.2-1-2.7 0-2.6 .1-2.6 .1-2.5 .7-2.4-.2-2.5-.7-2.6 .6-2.5 .4-2.3 0-2.3-1-2.5 .3-2.5 .4-2.4 1-2.5 .1-2.3-.1-1.9-1.6-2.6 1.2-2.2 .6-2.1-1.3-2.5 .8-2.2 .1-2.5 0-2.5-.2-2.5-.7-1.8 1.5-2.3-.7-2.5-.9-2.7 .1-2.6 .4-2.6 .5-2.4 .5-2.5-.4-2.5 0-2.2-.3-2.1-1.3-2.4-1.3-2.3-1.2-2.4-1.2-2.2 .8-2.3 1.1-2.2 1.1-2.2 .5-2.5-.2-2.6-.2-2.5 .4-2.2-.9-2.6-1.2-2.4 1.5-2.2 .9-2.4 .3-2.4-.1-2.2-1.3-2.6-.7-2.6 .8-2.6 .8-2 1.3-2.2-.7-2.7-.1-2.5 .8-2.5 .3-2.6-.4-2.7 .1-2.1 1-2.5-.1-2.5 .1-2.5-.5-2.7-.4-1.8 1.7-2.2-.6-2.7-.3-2.5 .2-2.3 0-2.3-.4-2.3 .9-2.4-.5-2.7 .1-2.6 .6-2.4 .6-2.2-.8-2.5 .5-2.5 .2-2.3-.1-2.2 .5-2.4 .3-2.3-.9-2.6-.9-2.4 .4-1.9 1.4-2.3-.5-2.7-.4-2.6 .3-2.6 .2-2.6 0-2.5 .2-2.3-.8-2.6-.3-2.7 .1-2.6 .4-2.5 .3-2.6 .3-2.6 .1-2.4-.2-2.4-.9-2.5-.9-2.4 .6-2.5 .4-2.5 .7-2.3-.4-2.4-1.2-2.5-.5-2.7-.2-2.5 .9-2.4 1-2.3 .2-2.3-1.1-2.4-.2-2 1.5-2.3-.1-2.4-.4-2.3-.8-2.6-.9-1.3 2.3-2.1-.5-2.3-1.1-2.5-.9-2.6-.8-2.3 .7-1.2 2.3-1.9-.2-2.6-.5-2.4 .4-2.4 .3-2.5-.2-2.7 0-2.6 .3-2.5 .3-2.6 0-2.6-.1-2.6-.1-2.5 .2-2.5 .2-2.6-.3-2.4-.4-1.9-1.6-2-1.7-1.9-1.8-2.1-1.5-2.7 .6-2.6 .7-2.4 1-2.1 1.6-2.2 1-2.5 .2-2.5-.3-2.6-.3-2.6-.1-2.5-.3-2.2-.6-2.5 .5-2.6 .1-2.6 .2-2.5 .5-2.5-.6-2.6 .3-2.6-.4-2.2 0-2.4-.4-2.5 .7-2.3-.7-2.8 0-2.1 1.4-2.3 0-2.3 0-2.4-.1-2.5-.3-2.7-.1-2.4 .5-2.3-1.1-2.7 0-2.5 1-2.2 .7-2.1-1.2-2.6 .9-2.3-.1-2.6 .7-2.4-.2-2.5-.4-2.5-.7-2.6-.7-2.7-.2-2.4 1-2.2 .9-2.6 .3-2.5 .5-2.6 .3-2.5 .3-2.5-.3-2.6-.4-2.6 .1-2.4-.3-2.5-1-2.2 1.1-2.3 .3-2.3 .8-2.5-.2-2.5-.2-2-1.2-2.5-1.3-2.3 1.4-2.2 .9-2.4 .2-2.6 0-2.6 .2-2.5-.4-2.4-.3-2.5-.6-2.3 1.3-2.4 .3-2.4 .1-2.4-.8-2.7 .2-2.6 0-2.6 .1-2.4-.2-2.3-.1-2.5-.1-2.7-.4-2.5 .2-2.4-.3-2.5-.1-2.4-.5-2.3-1.1-2.4-.9-2.8-.8-1.9 2-1.6 1-2.4-.4-2.6-.3-2.7-.2-2.5 .7-2.5-.3-2.6-.2-2.6 .1-2.6 0-2.5 0-2.6 .1-2.5-.3-2.7-.2-2.5 .8-2.5 0-2.5-.1-2.6 0-2.6-.2-2.7 0-2.5 .4-2.5-.5-2.7-.1-2.5-.1-2.7 0-2.5 .4-2.5-.3-2.6-.2-2.6-.1-2.6-.1-2.6-.1-2.6 0-2.6 .4-2.6 0-2.5 0-2.6-.3-2.6 .1-2.6 0-2.5-.2-2.5-.6-2.6 .2-2-1.2-2.3-1.2-2.1-1.4-2.1-1.3-2.6 .7-2.6 .7-2.3 1.4-2 1.5-1.9 .1-2.1 .6-2.4-.5-2.6-.4-2.4 .7-1.7-1.5-1.4 1.9-2.4-.3-2.6-.4-2.7 .2-2.3 .7-1.4-.7-1.9-.9-2.6 .9-2.4 1-2.4 .5-2.6 .3-2.5 .4-2.4-.4-2.2 .6-2.5 .1-2.6 .1-2.6-.1-2.6-.1-2.6 0-2.6 0-2.5-.2-2.6-.3-2.6-.3-2.5-.3-2.7-.4-2.6 .4-2.6 .4-2.5 .1-2.6-.1-2.5-.2-2.4-.2-2.3-1-2.6-1.1-2.5 .4-2.4 .9-2.4 .1-2.6-.2-2.6 .4-2.5 .1-2.3 .3-2.5-.4-2.6 .1-2.7 .1-2.5 .6-2.5 .1-2.6-.3-2.5 .4-2.5-.4-2.6 .2-2.6-.1-2.5 .5-2.5-.5-2.6 .1-2.7 .3-2.5 .2-2.6 .1-2.6-.1-2.6 .2-2.6 0-2.5-.4-2.7 0-2.5 .4-2.3-.7-2.6 .2-2.6-.3-2.6 .2-2.6 .4-2.5 0-2.5-.2-2.6-.2-2.6-.1-2.6-.2-2.6 .1-2.5-.2-2.5-.6-2.6-.1-2.6 .4-2.5-.3-2.6-.2-2.6-.1-2.6 .1-2.5 0-2.6-.5-2.6 .8-2.4 .6-2.3-.8-2.6 .3-2.6 .1-2.3-.5-2.4-.2-2.4 .9-2.6 .5-2.4 .6-2.5 .1-2.5-.3-2.3 .5-2.5-.6-2.5-.4-2.2-1.4-2.4 .1-2.2 1.5-2.3 .5-2.3-.6-2.5-1.1-2.1 .8-1.6 .5-2-1.3-1.7-1.9-1.4-2.4-2.8 .1-2 1.8-1.8 1.7-2.4 .8-2.5 .7-2.5 .5-2.5 0-2.6-.1-2.4-.4-2.7-.9-2.1 1.6-2.4-.3-2.6 .2-2.5 .4-2.5-.1-2.5 0-2.4-1-2.7-.4-2.5 .6-2.4-.4-2.6-.1-2.5-.5-2.3 .4-2.2 .1-2.5-.5-2.6-.3-2.6 .1-2.2-.1-2.5-1-2.7 .7-2.4 .5-2.3-.5-2.3-1-2.8-1-1.4 1.7-1.3-.8-2.2 1.1-2.2-.5-2.2-.6-1.1-2.1-2.1-1.8-2.2 .2-.9 2.7-.6 2-1.7-.4-2.7-.6-2 1.2-1.6-1.5-2.4-1.4-2.7-.3-2.6 .4-2.6 .5-2.4 .8-2.6 0-2.6 .9-2.1 .6-2.1-.9-2.5-1.1-2.1 .2-1.7 1.6-1.9-.2-1.8-1.9-2.1 .1-2.2 1.4-2.2 .6-2.3-.7-2.6-.6-2.4 .1-1.8 1.1-2.5-.4-2.4 .8-2.5-.2-2.5-.5-2.3 .3-2.1 1.1-2.5-.1-2.6 0-2.6-.2-2.6 .5-2.5 .1-2.6-.1-2.4-.6-2.6-.8-2.3 .4-2.3-.1-2.4-.8z'/%3E%3Cpath fill-opacity='0.7' d='m-3.5 6.6l3 .9 2.5-.4 2.8 .5 2.8 .9 3.1 .1 3 0 2.9-.6 3 .2 3 .1 3-.1 2.1-1.5 2.8 .7 3.1 .2 2.7-.9 3 .8 1.9-1.9 2.8 .8 2.9 .9 2.9-.4 2.5-1.7 1.8 .5 2.1 2 2.9-.8 1.7-1.7 2.4 1.4 2.8 1.3 2.9-1 2.8-.7 2.9-.3 2.9-.7 3-.5 2.7 .1 2.5 1.5 2.4 1.1 2.6-.5 2.9 .7 1.6-1.9 .9-2.8 1.3-.2 2.1 1.8 1.8 2 2.8 1.2 2.8-.4 2 .6 1.4-2.2 2.6 1.2 2.9 .9 2.9 .2 2.9-.8 2.8 .6 2.8 .6 2.8-.5 3 .5 3 .6 2.3-1.1 2.8 .9 3-.1 2.9 .6 1.3-.1 0-.6-1.2 .2-2.9-.7-3 .1-2.9-.9-2.4 1.2-2.9-.5-3-.4-2.8 .2-2.7-.7-2.9-.2-2.9 .7-2.8-.3-2.8-1-3-1.1-1.4 2.2-1.7-.6-2.9 .3-2.6-.9-1.8-2-2.1-2-1.8 .4-.9 2.9-1.4 1.6-2.8-.9-2.5 .7-2.2-1.1-2.6-1.5-3 0-2.9 .5-2.9 .7-3 .3-2.9 .6-2.7 1-2.6-1.2-2.6-1.6-2 1.8-2.4 .7-2.1-1.8-2.1-.4-2.5 1.6-2.7 .2-2.8-.8-3.1-.8-2 1.8-2.8-.7-2.8 1-2.9-.3-3-.8-2.2 1.6-2.8 .1-3 0-3-.2-2.9 .6-3-.1-2.9-.2-2.9-.8-2.9-.6-2.5 .6-2.8-.8zm153 2l2.9 .3 2.8 1.1 3 .1 3-.2 2.9-.5 3.1 .5 2.3-1.7 2.7 1 3 .3 3.1-.1 2.9-.3 3-.8 2.8-.9 2.3-2 2.3-1.6 2.1 .8 1.6 2.5 2.5 1.8 2.4 .3 2.1-1 2.7 1.1 3 .5 2.7-1.3 2.4-1.4 2.5 1.5 2.9 .8 2.9 .8 2.7-.9 2.9 .7 3.1-.3 2.8-.9 2.8-.8 2.6 .1 2.7 .4 3-.1 2.8 .5 2.9-.4 2.9-.9 2.9 .2 3 0 3 .1 3 .1 2.9 .6 3-.4 2.9 0 2.9 .7 3 .1 2.9 .1 3 .2 3 .1 3 .5 3 0 3-.6 2.9 0 3 0 2.9 0 2.7 .4 3-.1 3 .3 3-.1 3-.1 3 0 3-.2 3-.4 2.9 .1 3 .5 2.9-.6 3 0 2.9 0 3 .2 2.9-.1 3 0 2.9-.6 3-.1 2.9-.3 2.8 .7 2.9-.7 2.9-.1 3 .1 2.9-.2 2.7-1.2 2.7 .5 2.7 1.2 2.9 .7 3 .2 3 0 3-.2 3-.4 2.9-.1 2.9 .4 3 .3 3 .4 3 .2 3-.1 3 .1 3 .2 3-.1 3-.1 2.4-.4 2.9 .1 2.9-.4 3-.5 2.9-1 2.7-1 1.9 .9 2.1 .3 .9-.4-.3-.5-.6 .3-2-.2-2-.9-2.9 1.1-2.8 1-2.9 .4-3 .4-2.8 0-2.5 .4-2.9 .1-3 .1-3-.1-3-.2-3 .1-2.9-.2-3-.4-3-.4-3-.3-3 0-3 .4-2.9 .4-3-.1-2.9-.2-2.8-.7-2.8-1.1-2.8-.6-2.8 1.2-2.8 .2-3-.2-3 .2-2.8 .6-2.7-.6-3.1 .2-3 .1-2.8 .6-3-.1-2.9 .1-3-.2-2.9 .1-3.1 0-2.8 .5-2.9-.5-3.1 .1-2.9 .5-3 .2-3 0-3 0-3 .1-3-.4-2.9 .2-2.8-.5-2.9 .1-3-.2-3 0-2.9 .6-3 0-3-.3-2.9-.3-3-.1-3-.1-2.9-.1-2.9-.7-3 0-3 .4-2.9-.6-3-.2-3 .2-3 0-2.9-.2-2.9 .7-2.9 .4-2.7-.7-3 .2-2.8-.5-2.6 0-2.9 .9-2.8 .9-2.9 .3-3-.5-2.7 .7-2.8-.7-2.9-.7-2.6-1.6-2.6 1.5-2.5 1.2-2.8-.5-2.9-1.1-2.2 1-2.1-.2-2.4-1.7-1.6-2.6-2.5-.9-2.4 1.7-2.3 1.9-2.7 1-2.9 .8-3 .2-2.9 0-2.9-.4-3-1-2.4 1.7-2.9-.5-2.9 .6-3 .2-2.9 0-2.8-1-2.9-.3zm306.5-1.3l3 .7 1.9-1.5 1.7 1.1 2.9-.7 2.9 .7 2.8 0 2.4 .2 2.4-1.9 2.5-1.6 2.9-.7 2.7-.9 2 2 2.6 1.5 2.5 1.7 3-.1 2.9 .6 3.1 .2 2.9-.1 2.9 .2 3.1 .1 3 .1 2.9-.5 3-.1 3 .2 3 .1 3 0 3 .3 2.9-.2 3-.1 2.9 .2 3 .2 3 .1 3-.1 3 .2 3 .1 3 0 2.9-.2 2.9-.4 2.9 .4 3 0 3-.1 3 .1 2.9-.1 3 .4 3-.2 2.9-.4 2.9 .4 3 .5 2.4-1.3 1.9-1.5 2.7 1 2.7 1.2 3 .8 2.9 .1 2.8 .6 2.9-.2 3 .4 2.8-.5 2.7 1 3-.2 3-.1 3-.2 2.8 .8 3.1 0 2.7-1.2 2.5-.4 2.7 .8 3 .3 3-.1 3.1 0 3-.5 2.2-1.9 2.5 .6 2.4 1.7 3.1 .2 3 .1 2.7-1.2 2.4-.9 2.6 .7 2.9 .6 3-.2 2.9 .5 3 0 3-.4 3-.3 3-.4 2.7-1 2.6-.9 2.9 .2 2.9 .8 2.9 .8 3 .3 3-.5 2.8-.1 2.7-.7 2.6 .9 2.8-1 2.8-.9 2.6 1.3 3-.2 2.9 .2 3 .5 2.7-.6 2.9 .8 2.4-1.6 2.9-.3 2.8 .8 2.8-.9 2.6 .9 2.8-.4 2.9 .1 3 .3 3-.3 3-.4 3 0 2.7-.9 2.5 1.2 3.1 .2 3 .3 3 .3 2.9-.4 2.7-1.4 2.4-1.6 2.9-.9 2.8-.7 2.4 1.2 2.1 2 2.3 2 2.5 1.6 3.1 .3 3 .1 2.9-.4 2.9 .2 3 .1 3.1-.1 2.9-.3 3-.1 3 .3 2.9-.4 2.6-.2 3 .6 2.3-1.2 1.4-2.2 2.7 .9 2.8 1 2.8 1.1 3 .3 1.4-2 2.6 1.3 2.9 .9 3-.2 2.4-1.4 2.4 .1 2.7 1.4 2.9-1 2.7-1.1 2.9-.2 3 .3 2.6 1.3 3 .5 2.9-.8 2.7-.7 2.7 .6 2.8 1.2 2.9 .3 3.1-.1 3-.3 3-.4 2.9-.2 2.9 0 2.7 1.1 3.1-.3 3 0 3-.1 2.9-.1 3 .4 2.7-.9 2.1-.7 2.8 .9 2.9 .9 3-.4 2.3-.9 2.9 .4 2.9-.8 2.5 .8 3-.6 2.9-.7 2.9 0 2.8 .2 2.6-.5 2.6 .5 2.9-.3 3 .5 2.7 .1 2.3-1.2 2.9 .7 2.9 .1 3 0 2.6-.9 2.9 0 3.1 .2 2.9-.7 2.8-.3 2.9 .8 2.6-1.5 2.8-.9 2.8-.6 2.5 1.4 2.9 .8 3.1-.2 2.7-1.2 2.4-1 2.7 1.2 2.8 .2 3 0 3 .4 2.9-.5 2.7-1.3 2.3-1.6 2.2 .3 2.6 1.4 2.7 1.3 2.6 1.6 2.8 .5 2.9 .3 3 0 2.9-.7 3-.4 2.8-.4 2.8 1 3 .8 2.1-1.3 2.8 .4 3 .2 2.8-.6 2.6-.2 2.5 1.2 2.9-.9 2.3-.5 2.4 1.2 3.1 0 2.8-.8 2.9-.5 2.5-.5 2.6 1.4 3.1-.5 2.9-.4 2.8 0 2.9 .6 2.9-.7 3-.3 3-.1 2.8 .6 2.6-.4 1.8-2.2 2.2 .4 2 2.2 2.9 .2 2.9-.6 2.8-.5 2.7 .1 2.9 .6 2.9 .3 2.8-.7 3 0 2.7-.8 3-.1 2.9-.2 1.7 2 .1 1.2 .6 0-.1-1.5-2.1-2.1-3.1 .2-3 .1-2.8 .9-2.9 0-2.8 .7-2.8-.3-3-.6-2.7-.1-2.8 .5-2.9 .6-2.8-.2-1.9-2.3-2.6-.4-1.8 2.2-2.4 .4-2.8-.7-3 .1-3 .3-2.9 .7-2.8-.6-2.9-.1-3 .6-2.9 .4-2.6-1.5-2.7 .5-2.9 .6-2.8 .9-2.9 0-2.4-1.2-2.6 .5-2.7 .9-2.5-1.2-2.7 .2-2.7 .6-3-.1-2.9-.6-2 1.2-2.8-.7-2.9-1.1-3 .3-3 .6-2.9 .6-2.9 0-2.9-.2-2.6-.5-2.6-1.5-2.6-1.4-2.7-1.4-2.6-.4-2.4 1.7-2.5 1.3-2.8 .4-3-.2-2.9 0-2.8-.3-2.8-1.4-2.6 1.2-2.6 1.1-2.9 .3-2.8-.8-2.7-1.4-2.9 .6-2.9 1-2.5 1.5-2.8-.8-2.9 .2-2.9 .8-3-.1-3-.1-2.5 .9-2.9 0-3-.1-2.9-.8-2.4 1.1-2.6-.1-3-.4-2.9 .2-2.6-.4-2.6 .5-2.7-.2-3.1 .1-2.9 .6-2.9 .7-2.5-.7-2.9 .7-2.9-.4-2.4 .9-2.8 .2-2.8-.8-2.9-1-2.4 .7-2.5 .9-2.9-.4-3 0-3 .2-3 .1-3 .1-2.7-1-3-.1-3 .4-3 .3-3 .3-2.9 .1-2.9-.4-2.8-1-2.8-.6-2.9 .7-2.8 .9-2.8-.4-2.6-1.4-3.1-.2-2.9 .2-2.8 1.1-2.8 .9-2.6-1.3-2.6-.2-2.4 1.4-2.8 .2-2.8-.9-2.8-1.3-1.6 2-2.7-.3-2.7-1.1-2.8-1.1-3.1-1-1.6 2.4-2 .9-2.9-.6-2.7 .3-2.8 .3-3-.2-3 .2-3 .4-3 .1-2.9-.1-3-.3-2.9 .5-3-.2-2.9-.1-2.5-1.6-2.2-2-2.2-2.1-2.5-1.1-3 .7-2.9 .8-2.5 1.7-2.6 1.3-2.9 .4-2.9-.3-3-.3-2.9-.2-2.6-1.3-2.9 .9-3 .1-3 .4-2.9 .3-2.9-.4-3-.1-2.8 .4-2.5-1-2.9 .8-2.8-.7-3.1 .3-2.3 1.6-2.7-.8-2.8 .5-2.9-.3-3-.2-2.9 .3-2.7-1.3-2.9 .8-2.8 1-2.5-.8-2.8 .8-2.8 0-2.9 .5-2.9-.2-2.9-.8-2.9-.9-3-.2-2.7 .9-2.7 1-3 .4-2.9 .4-3 .4-3 0-2.9-.5-2.9 .2-2.9-.7-2.7-.6-2.5 .8-2.7 1.2-2.9-.2-2.9-.2-2.4-1.7-2.8-.7-2.4 1.8-2.8 .6-3 0-3 .1-2.9-.3-2.8-.8-2.7 .5-2.6 1.1-3-.1-2.7-.6-3.1 .1-3 .2-2.9 .1-2.8-.9-2.8 .5-3-.4-2.9 .2-2.7-.6-3 0-2.8-.8-2.7-1.2-2.9-1.1-2.2 1.6-2.1 1.3-2.9-.5-3-.4-3 .5-2.9 .1-2.9-.3-3 0-3-.1-3 .1-2.9-.1-3-.4-2.9 .4-2.9 .2-3-.1-3-.1-3 0-3 .1-2.9-.2-3-.1-3-.2-3 .1-2.9 .2-3-.4-3 .1-3-.3-3-.1-3 0-3 .5-2.9-.1-3-.2-3-.2-2.9 .2-3-.2-2.9-.7-2.9 .2-2.4-1.6-2.6-1.5-2.2-2.2-3 .9-3 .8-2.5 1.7-2.3 1.9-2.2-.3-2.8 0-2.9-.7-2.9 .7-1.7-1.1-2 1.4-2.8-.6z'/%3E%3C/svg%3E");
+	--torn-left: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='120' viewBox='-10 0 20 120' preserveAspectRatio='none'%3E%3Cpath d='m-.3-.1l-.2 .1-.1 1.6-.1 1.6-.1 1.6 0 1.6-.1 1.6 0 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 .2 1.6 .1 1.6 .1 1.6 0 1.6 .1 1.6 0 1.6 0 1.6-.1 1.6 0 1.6 0 1.6-.1 1.6 0 1.6-.1 1.6 0 1.6 0 1.6-.1 1.6 0 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 .1 1.6 .1 1.6 .1 1.6 .2 1.6 .1 1 .2 .9 .3 0 .1-.9 0-1 0-1.6-.1-1.6 0-1.6 0-1.6 0-1.6 .1-1.6 0-1.6 0-1.6 0-1.6 .1-1.6 0-1.6-.1-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 .1-1.6 0-1.6 0-1.6 0-1.6 0-1.6-.1-1.6-.1-1.6-.1-1.6-.1-1.6-.1-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6-.1-1.6-.1 0zm.1 9l0 .1 0 1.6 0 1.6 0 1.6 0 1.6-.1 1.6-.2 1.6-.1 1.6-.1 1.6 0 1.6-.1 1.6 0 1.6-.1 1.6 .1 1.6 .3 1.6 .2 1.6 .2 1.6 .1 1.6 0 1.6 0 1.2 0 1 .1 0 .1-1 0-1.2 .1-1.6 0-1.6-.2-1.6-.2-1.6-.2-1.6-.1-1.6 .1-1.6 .1-1.6 0-1.6 .1-1.6 0-1.6 .1-1.6 .1-1.6 .1-1.6 0-1.6-.1-1.6-.1-1.6-.1-1.6 0-.1zm.4 50.1l-.1 1-.1 1.6-.2 1.6-.1 1.6-.2 1.6-.1 1.6-.1 1.6-.1 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 0 1.6 .1 1.6 .1 1.6 0 1.6 .1 1.6 .1 1.6 .1 1.6 0 1.6 0 1.6 0 1.6 0 1.6-.1 1.6 0 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 0 1.6 .1 1.6 .1 1.6 .1 1.6 .1 .8 .1 1.5 .2 0 .1-1.5-.1-.8 0-1.6 0-1.6-.1-1.6 0-1.6 0-1.6 0-1.6 0-1.6 .1-1.6 0-1.6 0-1.6 .1-1.6 0-1.6 0-1.6 .1-1.6-.1-1.6 0-1.6-.1-1.6-.1-1.6-.1-1.6 0-1.6-.1-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6-.1-1.6 0-1.6 0-1.6 0-1.6 .1-1.6 0-1.6 .1-1.6 .1-1.6 .1-1.6 0-1.6-.1-1zm-1.7-59.1l0 .1 0 1.6 0 1.6 .1 1.6 0 1.6 .1 1.6 .1 1.6 0 1.6 .1 1.6 .1 1.6 0 1.6 .1 1.6 0 1.6 .1 1.6 0 1.6 0 1.6-.1 1.6 0 1.6-.1 1.6 0 1.6-.1 1.6-.1 1.6-.1 1.6-.1 1.6-.1 1.6-.1 1.6 0 1.6-.1 1.6-.1 1.6 0 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 .1 1.6 .1 1.6 0 1.6 .1 1.6 .1 1.6 .1 1.6 .1 1.6 .1 1.6 .1 1.6 .1 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6-.1 1.6 0 1.6-.1 1.6-.1 1.6-.1 1.6-.1 1.6-.1 1.6 0 1.6-.1 1.6-.1 1.6 0 1.6-.1 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 0 1.6 0 1.6 .1 1.6 .1 1.6 0 1.6 .1 1.6 0 1.6 .1 1.6 0 1.6 .1 1.6 0 1.6 .1 2.3 .1 0 .1-2.3 0-1.6 0-1.6 0-1.6-.1-1.6 0-1.6 0-1.6-.1-1.6 0-1.6-.1-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 .1-1.6 .1-1.6 .1-1.6 0-1.6 .1-1.6 .1-1.6 .1-1.6 .1-1.6 .1-1.6 0-1.6 .1-1.6 0-1.6 0-1.6 0-1.6 0-1.6-.1-1.6-.1-1.6 0-1.6-.1-1.6-.1-1.6-.1-1.6-.1-1.6-.1-1.6-.1-1.6-.1-1.6-.1-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 .1-1.6 0-1.6 .1-1.6 .1-1.6 .1-1.6 .1-1.6 .1-1.6 .1-1.6 .1-1.6 0-1.6 .1-1.6 0-1.6 0-1.6 0-1.6 0-1.6-.1-1.6 0-1.6-.1-1.6-.1-1.6-.1-1.6-.1-1.6-.1-1.6-.1-1.6-.1-1.6 0-1.6-.1-1.6-.1-1.6 0-1.6-.1-.1zm-.8 31l0 .6 0 1.6-.1 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 .2 1.6 .3 1.6 .2 1.6 .2 1.6 0 1.6-.2 1.6-.2 1.6-.2 1.6-.2 1.6-.2 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 .5 0 1.2 .1 0 0-1.2 0-.5 .1-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 .2-1.6 .2-1.6 .2-1.6 .2-1.6 .2-1.6-.1-1.6-.1-1.6-.3-1.6-.2-1.6-.2-1.6-.1-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-.6zm2.2-11.8l-.1 .1-.1 1.6-.1 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 0 1.6 .1 1.6 0 1.6 0 1.5-.1 .6 .1 0 .1-.6 .1-1.5 .1-1.6-.1-1.6 0-1.6-.1-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6-.1-1.6 0-1.6-.1-1.6 .1-1.6 .1-1.6 0-1.6 0 0zm.4 27.1l0 0-.1 1.6 0 1.6-.2 1.6-.3 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 .3 1.7 .2 1.5-.1 1-.1 .3 .1 .1 .2-.4 .1-1-.2-1.6-.2-1.6-.1-1.6 .1-1.6 0-1.6 .1-1.5 .2-1.6 .2-1.7-.1-1.6 0-1.6-.1 0z'/%3E%3C/svg%3E");
+	--torn-right: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='120' viewBox='-10 0 20 120' preserveAspectRatio='none'%3E%3Cpath d='m-.3-1l-.1 1-.1 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6-.1 1.6 0 1.6 0 1.6-.1 1.6 0 1.6-.1 1.6 0 1.6-.1 1.6 0 1.6 0 1.6-.1 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 0 1.6-.1 1.6 0 1.6 0 1.6 0 1.6 0 1.6-.1 1.6 0 1.6 0 1.6-.1 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 0 1.6 0 1.5 .4 0 0-1.5 0-1.6 .1-1.6 0-1.6 .1-1.6 0-1.6 0-1.6 .1-1.6 0-1.6 .1-1.6 0-1.6 .1-1.6 0-1.6 0-1.6 .1-1.6 0-1.6 0-1.6 .1-1.6 0-1.6 .1-1.6 0-1.6 .1-1.6 0-1.6 0-1.6 .1-1.6 0-1.6 .1-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6-.1-1.6 0-1.6 0-1.6-.1-1.6 0-1.6 0-1.6-.1-1.6 0-1.6 0-1.6-.1-1.6 0-1.6 0-1.6 0-1.6 0-1.6-.1-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 .1-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6-.1-1.6 0-1.6 0-1.6 0-1.6-.1-1.6 0-1.6-.1-1.6 0-1.6-.2-1zm.1 .6l0 .4 0 1.6 .1 1.6 .1 1.6 .1 1.6 .1 1.6 0 1.6 .1 1.6 0 1.6-.1 1.6 0 1.6-.1 1.6-.1 1.6-.1 1.6-.1 1.6-.1 1.6 0 1.6 0 1.6 .1 1.6 0 1.6 .1 1.6 .1 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 .1 1.6 0 1.6 .1 1.6 0 1.6 .1 1.6 0 1.6-.1 1.6-.1 1.6-.1 1.6-.1 1.6-.1 .7 0 1 .2 0 .2-1 .1-.7 .2-1.6 .2-1.6 .1-1.6 .2-1.6 .1-1.6 0-1.6 0-1.6 0-1.6-.1-1.6-.1-1.6 0-1.6-.1-1.6-.1-1.6 0-1.6-.1-1.6 0-1.6-.1-1.6-.1-1.6-.1-1.6-.1-1.6 0-1.6 0-1.6 0-1.6 0-1.6 .1-1.6 0-1.6 .1-1.6 .1-1.6 .1-1.6 0-1.6 0-1.6 0-1.6-.1-1.6-.1-1.6-.1-1.6-.1-1.6-.1-1.6-.1-1.6-.1-.4zm.6 62.4l-.1 1-.1 1.6-.2 1.6-.2 1.6-.2 1.6-.2 1.6-.1 1.6 0 1.6 0 1.6 .1 1.6 0 1.6 .2 1.6 .1 1.6 0 1.6 .1 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 0 1.6-.1 1.6-.1 1.6-.1 1.6-.1 1.6-.1 1.6-.1 1.6-.1 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 .1 1.6 0 1 .3 2 .1 0 .1-2 0-1-.1-1.6 0-1.6-.1-1.6 0-1.6 0-1.6 0-1.6 .1-1.6 .1-1.6 .2-1.6 .1-1.6 .2-1.6 0-1.6 .1-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6-.1-1.6 0-1.6 0-1.6 0-1.6-.1-1.6-.2-1.6-.1-1.6-.1-1.6-.1-1.6 0-1.6 0-1.6 .1-1.6 .1-1.6 .2-1.6 .1-1.6 .2-1.6 0-1.6 0-1zm-.8-26.7l-.1 .3 0 1.6 0 1.6 0 1.6-.1 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 0 1.6 .1 1.6 .1 1.6 .1 1.6 .1 1.6 0 1.6 .1 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 0 1.6 0 1.6 0 1.6 0 1.6 .1 1.6 0 1.6 0 1.6 0 1.6 0 1.6-.1 1.6 0 1.6 0 1.6-.1 1.6 0 1.6 0 1.6-.1 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6 0 1.6-.1 1.6 0 1.6 0 1.6 0 .2 0 .4 .1 0 .1-.4 0-.2 0-1.6 .1-1.6 0-1.6 0-1.6 .1-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 .1-1.6 0-1.6 .1-1.6 0-1.6 0-1.6 .1-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6-.1-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6-.1-1.6 0-1.6-.1-1.6-.1-1.6-.1-1.6 0-1.6-.1-1.6 0-1.6-.1-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6 0-1.6-.1-1.6 0-1.6 0-1.6 0-.3z'/%3E%3C/svg%3E");
+	--torn-below: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1000' height='26' viewBox='0 0 1000 26'%3E%3Cpath fill-opacity='0.08' d='m7.7-1.2q2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5.1 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.6 0 5.1 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.6 0 5.1 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.6 0 5.1 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5.1 0 2.5 0 5 0 2.5 0 5 0 2.5-.1 5-.1 2.5 0 5.1 0 2.5 0 5.1 0 2.5 .1 5 .1 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.4 0 4.9 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5.1 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.6 0 5.1 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5.1 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5.1 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5.1 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5.1 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.6 0 5.1 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5.1 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 4.9 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.4 0 4.9 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.4 0 4.9 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 3.9 2.1 1.3 2.1 2.7 4.1 1.4 2.1-.8 2.1-2.2-.1-4.7-.1-2.5-.1-5-.1-2.5 0-5 0-2.5 0-5-.1-2.5 0-5 0-2.6 0-5.1 0-2.5 0-5-.1-2.5 0-5-.1-2.5-.1-5-.2-2.5-.1-5-.3-2.5-.1-5-.2-2.5-.1-5-.1-2.6-.1-5.1-.1-2.5 0-5 0-2.5 .1-5 .1-2.5 .1-5 .1-2.5 .1-5 .1-2.5 .1-5 .1-2.5 .1-5 .1-2.5 0-5 .1-2.5 0-5 .1-2.6 .1-5.1 .2-2.5 .1-5 .3-2.5 .1-5 .2-2.5 .1-5 .2-2.5 .1-5 .1-2.5 0-5 0-2.5 0-5 0-2.5 0-5 0-2.5-.1-5-.1-2.5 0-5 0-2.5 0-5 0-2.5 0-5-.1-2.5 0-5 0-2.5 0-5-.1-2.5-.1-5-.1-2.5-.1-5-.2-2.5 0-5-.1-2.5 0-5-.1-2.5 0-5 0-2.5 .1-5 .1-2.5 .1-5 .2-2.5 .2-5 .3-2.5 .1-5 .2-2.5 .1-5 .2-2.5 .1-5 .1-2.5 0-5-.1-2.5-.1-5-.3-2.5-.1-5-.3-2.5-.3-5-.5-2.5-.2-5-.4-2.5-.1-5-.3-2.5-.1-5-.1-2.5 0-5 .2-2.5 .1-5 .3-2.5 .2-4.9 .4-2.5 .2-5 .4-2.5 .2-5 .4-2.5 .2-5 .2-2.5 .1-5 .1-2.5 0-5 .1-2.5 0-5 0-2.5 0-5.1 0-2.5 0-5 .1-2.5 0-5 0-2.5 0-5 0-2.5 0-5 0-2.5 0-5 0-2.5 0-5 .1-2.5 0-5 0-2.5 0-5 0-2.5 0-5 0-2.5 0-5 0-2.5-.1-5-.2-2.5-.1-5-.4-2.5-.2-5-.4-2.5-.3-5-.6-2.4-.2-4.9-.4-2.5-.2-5-.3-2.5-.1-5 0-2.5 0-5 .2-2.5 .1-5 .3-2.5 .3-5 .5-2.5 .2-5 .5-2.5 .2-5 .3-2.4 .2-4.9 .2-2.5 .1-5 .1-2.5 0-5 0-2.5-.1-5-.1-2.5 0-5 0-2.5-.1-5-.1-2.5 0-5 0-2.5 0-5-.1-2.5 0-5-.1-2.5-.1-5-.3-2.5-.2-5-.4-2.5-.2-4.9-.4-2.5-.2-5-.4-2.5-.2-4.9-.3-2.4-.1-4.9 0-2.5 0-5 .2-2.5 .1-5 .3-2.5 .2-5 .4-2.5 .2-5 .4-2.5 .1-5 .3-2.5 .1-5 .1-2.5 .1-5 .1-2.5 0-5-.1-2.5 0-5 0-2.5-.1-5-.1-2.5-.1-5-.1-2.5 0-5-.1-2.5 0-5 0-2.5 0-5 0-2.5 0-5-.1-2.5 0-5.1 0-2.5-.1-5-.1-2.5 0-5-.1-2.5 0-5 0-2.5 0-5 0-2.5 0-5 0-2.5 0-5 .1-2.5 0-5 0-2.5 .1-5 .1-2.5 0-5 0-2.5 .1-5 .1-2.6 0-5.1 0-2.5 0-5 0-2.5 0-5 0-2.5 .1-5 .1-2.5 0-5 0-2.5 0-5 .1-2.5 0-5 0-2.5-.1-5-.1-2.5-.1-5-.1-2.5-.1-5-.2-2.5-.1-5-.2-2.5-.1-5-.2-2.5-.1-5-.1-2.5-.1-5 0-2.5 0-5 .1-2.5 .1-5 .2-2.5 .2-5 .3-2.5 .2-5 .3-2.5 .1-5 .2-2.5 .1-5 .2-2.5 0-5 0-2.5 0-5 0-2.5 0-5 0-2.5 0-5 0-2.5 0-5 0-2.5 0-5-.1-2.5 0-5 0-2.5 0-5 0-2.5-.1-5-.1-2.5-.1-5-.2-2.5-.1-5-.1-2.5-.1-5-.2-2.5 0-5-.1-2.5 0-5 0-2.5 0-5 .1-2.5 .1-5 .2-2.5 .1-5 .2-2.5 .1-5 .2-2.5 .1-5 .2-2.5 .1-5 .1-2.5 0-5 0-2.5-.1-5-.2-2.5-.1-5-.2-2.5-.2-5-.3-2.5-.1-5-.2-2.5-.2-5-.2-2.5-.1-5-.1-2.5-.1-5-.1-2.5-.1-5-.2-2.5 0-5-.1-2.5-.1-5-.3-2.5-.1-5-.1-2.5-.1-5-.2-2.5 0-5 0-2.5 .1-5 .2-2.5 .1-5 .3-2.5 .2-5 .4-2.5 .2-5 .4-2.5 .1-5 .3-2.5 .1-5 .1-2.5 .1-5 .1-2.5 0-5 0-2.5 .1-5 .1-2.5 0-5 0-2.5 0-5 .1-2.5 0-5 0-2.5 0-5 0-2.5 0-5 0-2.5 0-5-.1-2.5 0-5-.4-2.5-.3-4.8-1.1-2.4-.8-4.4-2.3-1.9-1.5-3.7-3.2-1.8-1.7 .7-1.7z'/%3E%3Cpath fill='none' stroke='black' stroke-width='0.7' stroke-linecap='round' stroke-opacity='0.26' d='m3 3.1q2.5-1 4.6-2.5m-3.8 4.6q3.9-2.2 7.9-4.2m-6.1 7.8q6.7-3.1 12.9-7.3m-9.7 9.7q8.9-5 17.9-10.1m-12.5 11.2q7.2-3.8 14.2-8.1m-13.2 10q9.4-4.7 18.7-9.9m2.6 9.7q10.1-4.7 20.2-9.2m-16.6 10q14.7-6 28.9-12.9m-19 11.2q8.4-2.9 16.3-6.7m-9.7 6.5q13.5-5.8 27-11.7m-23.2 13.9q10.1-5.1 20.1-10.3m4.4 8q10.1-5.9 20.5-11.6m-9.8 16.2q14.1-7.7 27.9-15.9m-15 13.6q12.1-6 24.1-12.2m-7.3 11.5q10.1-4.7 19.8-10.4m-11.9 8.8q8.7-4.4 17.2-9.2m-16.1 11q10.2-4.7 19.9-10.3m-6.5 9.7q10.8-6.1 21.3-12.8m11.6 12.5q11.3-5.6 22.6-11.1m-14.5 10q9.2-4.7 18.4-9.4m-8.9 9.8q8.7-3.6 17-8.1m-4.6 11.7q12.1-5.9 23.8-12.7m-18.4 14.1q11.3-6.3 22.8-12.1m-2.2 9.4q9-4.6 18-9.4m-19.5 12.4q14.9-6.7 29.2-14.5m-16.2 11.3q13.1-6.5 26-13.6m-20.1 13.8q11.6-5.6 22.5-12.2m-3.8 10.6q13-5.8 26.3-11.3m-17.5 10.6q10.5-4.1 21.1-8.4m-11.8 9.9q13.3-5.3 26.1-11.4m-7.8 10.8q10.7-4.3 21.2-9.1m-21.2 11.6q14.1-5.8 28-12m-22 14.3q12.6-6.4 24.8-13.8m-6.3 10.4q10.9-6.8 21.6-13.8m-18.9 16.5q13.6-8.8 26.9-18.1m-13.4 14.6q8.9-5.9 17.6-12.1m-16.9 14.5q11.9-7.9 24.1-15.3m3.5 8.5q7.9-3.9 15.3-8.5m-17.5 13.7q12.4-7.1 24.6-14.5m-3.1 13.3q9.7-5.4 19.4-10.9m-9.7 9.2q11.5-4.4 22.3-9.8m-16.9 10.2q10.4-4 20.4-8.7m4.8 10q10.8-4.9 21.5-10m-12.3 8.9q11.6-5.3 23-11m-2.2 13.4q9.7-4.9 19.4-9.9m1.6 10.7q11.8-4.9 23.4-10.3m-16.9 8.9q13.6-5.2 26.7-11.3m-15.3 14.9q10-6.5 19.8-13.3m-12.3 13.2q10.6-6.2 20.7-13.5m-15.6 13.8q14.5-9.2 28.6-19m-21.2 17.8q11.1-6.6 21.8-14.2m-15.6 13.7q8.8-5.7 17.2-12m-10.7 11.9q12.1-6.8 24.2-13.5m-16.2 12.8q14.4-7.5 28.7-15.3m-14 14.6q8.3-5.9 16.7-11.6m-15.3 14.2q12-7.7 24.1-15.1m-19.4 16.2q12.2-8.2 24.5-16.1m-18.4 16.5q12.2-7.8 24.4-15.7m-15 14.1q11.8-7.3 23.6-14.5m13.5 13.5q13.4-8.4 26.7-17.2m-21.5 17.3q14.4-8.9 29-17.6m-6.3 14q11.3-6.2 22.2-13.3m-20.1 17.1q14.1-8.6 27.9-17.9m-22.7 17.2q9.3-5.6 18.5-11.5m-7 11q9.7-5.1 19-10.9m2.9 10.8q12.2-6.1 24-12.8m-15.5 13.9q15.2-8.1 30.4-16.5m-25.8 16.9q10.8-5.4 21.2-11.5m-12.6 11.3q15-6.4 29.5-13.6m-21.7 11.8q15.4-7.2 31.1-14m-26.6 15.2q16.4-7.6 33-15.1m-23.8 12.9q10.8-4.9 21.5-9.7m-18.6 11.1q15.2-6.8 30.6-13.2m-25.7 15.8q13.6-7.9 26.7-16.6m-20.2 16.4q11.6-7 22.8-14.5m14.6 10.3q12.4-5.6 24.8-11m-19.6 11.9q11.2-4.5 21.9-10m-14.7 9.8q13.8-6.3 27.2-13.3m-21.5 12.7q13.8-6.6 27.6-13.3m-7.1 12.5q9.5-5.4 19-10.6m-19.7 14.1q13.3-7.4 26.4-15.1m-20.4 15q12-6.8 24-13.4m-14.9 11.1q8.7-4.7 17.2-10m-7.3 12q9.6-6.2 18.7-13.1m-13.4 13.3q10-7 20.1-13.5m-11.9 11.6q11.3-7.7 22.7-15.1m-18.3 16.8q11.5-6.7 22.5-14.4m-16.5 14.8q9.3-5.8 18.4-11.9m-5.1 8.9q7.9-5.3 16.1-10.2m-11.5 10.7q10.8-6.4 21.1-13.9m-14.3 17.2q9.9-6.9 20.1-13.3m-13.7 13.7q9.1-6.2 18-12.6m-7 12q10.5-6.5 20.9-13.1m-14.2 12.8q11.8-7.1 23.5-14.2m-14.6 13.8q11.3-6.6 22.3-13.7m-7.4 14q11.5-8.2 23.1-16.4m-15.4 14.8q10.4-6.5 20.4-13.8m-13.4 13q11.1-7 21.8-14.8m-11.4 13q6-3.5 11.6-7.8m-3.7 11.1q7.6-3.2 14.6-7.3m-7.3 7.5q5.5-3.2 11.2-6.3'/%3E%3Cpath fill='none' stroke='black' stroke-width='0.7' stroke-linecap='round' stroke-opacity='0.5' d='m6.1 1.5q1.5-.2 2.5-1.3m-1.4 2.7q2.1-1.1 4.1-2.7m-3 3.7q3.1-1.7 6-4m-4.8 4.7q3.1-2.2 6.3-4.1m-4.6 5.9q4.9-2.9 9.4-6.5m-4.3 7.8q5.9-3.7 11.5-8m-9.6 8.7q6.5-4.7 13.1-9.1m-8.2 9.3q6.3-3.3 12.1-7.5m-7.5 7.5q6.8-4.3 13.7-8.5m-11.8 8.8q7.4-3.8 14.4-8.3m-9.8 8.5q6.7-4 13.3-8.3m-9.8 7.7q6.7-3.9 13.4-7.7m-7.4 7.3q7.1-3.1 14.1-6.3m-11.1 6.2q7-3.1 13.9-6.4m-9.8 6.1q7.4-3.2 14.1-7.4m-11.3 8q6.8-3.3 13.7-6.5m-8.1 5.4q6.7-3 13.3-6.3m-9.3 7.1q7.7-3 15-6.7m-8.7 5.5q6.4-2.8 12.8-5.3m-5.1 4.9q6.4-2.5 12.7-5.3m-10.6 7.4q7-4.2 13.9-8.8m-9.3 8q5.4-3.5 10.5-7.3m-6.3 7.5q5.8-3.7 11.3-8m-5.5 6.7q4.7-2.9 9.1-6.4m-4.7 6.7q5.1-2.9 10-6.1m-7.4 6.1q6-2.8 11.4-6.7m-4.2 6.4q5.1-3 10.1-6m-7.8 5.8q6.8-2.7 13.4-5.8m-8.9 6q6.2-2.8 12.3-5.7m-6.3 5.9q5.2-3 10.6-5.7m-7 6.4q6.7-3.6 13.2-7.5m-8.9 6.3q5.9-2.8 11.6-6m-9.6 6.7q5.6-2.7 11-5.7m-8.4 6.6q6.8-3.9 13.7-7.9m-3.2 7.4q5.8-3.4 11.4-7.1m-8.5 6.9q5.8-3.2 11.7-6.1m-4.7 6.9q6.5-3.8 12.7-8m-9.8 8.7q5.8-3.9 11.6-7.7m-6.7 7.4q6.3-3.4 12-7.8m-9 8.7q7.5-4.6 14.5-10m-12.6 8.9q7.3-3.6 14.6-7.1m-10.7 7.1q7.5-3.4 14.8-7.2m-6.4 7.5q6.9-4.7 13.9-8.9m-11.6 9.2q6.2-3.6 12.3-7.6m-7.6 7.3q6.2-3.6 12-8m-8.4 7.6q6.2-3.5 12-7.6m-9.4 7.9q6.9-3.5 13.2-7.9m-7.9 7.3q6.9-3.3 13.3-7.3m-9.8 7.1q6.3-3.3 12.2-7.1m-9.2 7.3q6.8-3.5 13.4-7.1m-8.5 7.5q6.6-4 13.1-8.2m-10 8q6.1-4.2 12.4-8m-10.5 8.7q7.1-4.3 13.9-9m-9.8 9q6.3-4.2 12.8-7.9m-7.3 7.3q7.6-3.8 15.4-7.4m-11.9 7.2q6.3-3.2 12.9-6.1m-4.4 5.5q6.1-2.8 12.2-5.4m-10.4 6.2q7.9-3.8 15.9-7.3m-8.6 7q7.5-3.1 14.8-6.6m-5.2 7.5q7.1-4 13.9-8.5m-7 8.8q7-4.8 14.2-9.2m-12 9.6q6.3-4.6 12.7-8.9m-9.3 8.5q7.1-4.1 14-9m-10 9q7.5-4.5 14.9-9m-8.6 7.7q6.6-3.3 12.9-7m-7.9 6.3q6-2.7 11.9-5.6m-8.8 6.3q7.4-3.2 14.4-7.1m-9.3 6.8q7.5-3.1 14.5-7m-9 6.6q6.3-3.3 12.7-6.5m-5.7 6.8q6.5-3.6 13-7.1m-5.9 7q5.6-2.9 11.1-5.9m-8.2 6.3q5.6-3 10.9-6.7m-2.7 5.5q6.6-2.6 12.7-6m-11.2 7.3q7.3-3.4 14.3-7.1m-8.3 7.9q6-4.3 12-8.6m-9.5 9q7.2-4.8 14.4-9.5m-10.9 9.7q6.9-4.7 13.7-9.6m-9.2 9.7q7-4.4 13.5-9.7m-9.8 9.1q6.5-4 12.9-8m-7.5 7.3q6.3-3.1 12.2-6.9m-8.4 6.8q7.1-3.7 14-7.7m-10.7 7.6q6-3.2 11.8-6.7m-8.1 7.2q6.7-3.8 13.3-7.8m-7.7 7.9q5.3-4 10.9-7.6m-8.3 7.5q6.3-3.5 12.5-7.4m-9.9 7.5q6.6-3.6 12.9-7.8m-7 7.1q5.5-3.3 10.6-7.5m-9.7 8.5q6.6-4.4 13.3-8.6m-3.7 6.9q5.9-2.5 11.8-4.9m-8 5.3q6.3-2.3 12.1-5.5m-9.7 5.4q7.1-3.1 14.1-6.2m-11.3 6.5q7.3-3 14.2-6.9m-6.4 6.9q6-2.8 11.3-6.7m-8.6 6.5q5.7-3 11.4-6m-7.2 6.1q6.5-3.1 12.8-6.7m-9.8 7q7.5-3 14.4-7.2m-10.7 6.8q6.3-2.9 12.5-5.9m-8.3 5.9q7.2-2.3 13.9-5.6m-9.8 5.7q7.6-2.7 14.8-6.1m-11.4 5.7q6.7-2.8 13.7-5.2m-9.1 5.1q5.8-2.3 11.4-5m-10.1 5.6q7.3-3.4 14.8-6.3m-7.5 7.1q6.5-3.6 12.8-7.4m-8.9 7.4q6.8-3.5 13.1-8m-9.3 8.5q6.7-3.9 13.1-8.5m-9.8 8.2q6.2-3.8 12.5-7.4m-7.6 7.2q6.2-4.4 12.6-8.3m-9.2 8.5q6.9-4.2 13.8-8.5m-11.6 9.1q6.2-4.4 12.5-8.5m-10 8.6q6.4-4.4 12.9-8.5m-9.5 7.8q7-3.9 13.7-8.5m-9.1 8.8q6.4-4.2 12.7-8.5m-8.2 8q6-3.3 11.5-7.5m-6.7 7.9q6.1-4.6 12.2-9.1m-7.6 7.2q6.7-3.4 13.6-6.2m-8.7 5.2q5.3-1.6 10.1-3.9m-6.5 4.5q6.5-2.9 13-5.8m-7.8 5q5.8-2.3 11.5-4.7m-9.3 5.3q5.9-2.5 11.9-4.8m-7 6.1q6.1-3.7 12.1-7.7m-8.5 7.3q5.2-2.8 10.1-6.1m-6.2 6.1q5.5-3.6 11.1-7.1m-9.2 8.2q5.9-3.5 11.5-7.3m-6.8 6.4q7-2.7 13.9-5.7m-10 5.3q6.2-2.4 12.4-5.1m-8.8 6.6q6.9-3.3 13.3-7.5m-11.2 8.2q7.6-4.4 15.1-9.1m-10 7.5q6.7-2.9 13.3-6m-11 6.8q7.5-3.2 14.5-7.2m-7.2 7.6q6.3-3.9 12.2-8.3m-9.4 8.8q7.5-5 15.1-9.7m-7 8.9q6-3.2 11.5-7.1m-9.5 8.2q7.4-4.6 14.8-9.5m-9.4 9.6q7.7-4.9 15.4-10m-12.2 9.6q7.5-4 14.6-8.6m-10.7 8.2q7-4.1 13.9-8.1m-10.8 8.3q7.1-4.3 14.2-8.7m-3.2 8.1q5.5-3.8 10.8-7.7m-4.4 6.5q5-3 9.5-6.9m-3.3 6q5.4-2.7 11.1-4.9m-7.7 4.6q5.4-2.2 10.6-4.9m-6.7 5.1q6.3-2.3 12.1-5.4m-9.3 5.5q5.6-2.1 10.8-4.8m-7.5 5.3q6.6-2.8 13.1-5.9m-6.6 7.1q6.9-4 13.8-8.2m-10.4 8.2q5.7-3.3 11.3-7m-5.3 7.2q6.8-3.5 13.3-7.5m-7.5 7.7q6.4-3.9 13.1-7.6m-10.7 8q7.7-4 15.3-8m-11.3 8.4q7.4-3.8 14.3-8.4m-9.2 8.1q6.6-4 13.6-7.5m-10.1 7.1q7.9-3.7 15.2-8.3m-8.7 9q7.9-4.7 15.9-9.1m-10.4 8.7q6.3-4.2 12.5-8.5m-8.4 7.9q6.7-4.1 13.4-8.3m-6.7 8.3q6.4-4.3 12.9-8.4m-11.1 9.5q7.8-3.9 15-8.9m-11.1 8.3q6.2-3.6 12.2-7.6m-10.4 8.3q7.2-3.9 13.8-8.7m-8.1 7.5q6.6-3.9 13.3-7.9m-9.5 8.2q5.5-3.7 11-7.6m-6.6 7.4q5.4-3.7 10.9-7.4m-7.8 8.9q7.3-5.2 14.4-10.5m-11.5 10.5q7-4.7 13.8-9.8m-8.7 9.2q6.7-5.2 13.6-10.1m-11.3 10.1q6.6-4.4 12.8-9.4m-7.2 7.7q5.8-3 11.4-6.6m-9.9 7.2q7.3-4 14.7-7.8m-5.1 6.6q4.6-3.4 9.6-6.4m-6.4 6.4q5.5-3.8 11-7.4m-6.9 7.5q4.9-3.4 9.8-7m-7.3 6.9q5.3-3.8 10.8-7.3m-1.4 6.9q6.6-3 13.2-6m-9.9 6.5q7.2-2.9 14-6.4m-10.6 6.2q5.8-2.7 11.8-4.9m-7 6q7.6-3.3 14.7-7.1m-11.2 7.3q7.1-3.5 14-7.5m-8.1 7.8q6.8-3.3 13.3-7.1m-10.8 7.6q8-3.9 15.6-8.7m-10.4 8.2q7-3.8 14-7.5m-10.4 7.6q7.4-3.2 14.3-7.2m-8.5 5.5q5.9-2.5 11.6-5.3m-11.6 6.4q8.3-3.1 16.1-7.2m-5.3 6.4q5.8-3.7 11.7-7.4m-9.6 8.6q5.8-3.8 11.7-7.4m-6.5 6.9q6.1-3.1 11.7-7.1m-6.2 6.4q6.4-2.3 12.4-5.3m-7.3 5.2q6.9-3.3 13.9-6.6m-10.9 6.7q5.8-2.8 11.7-5.5m-9.3 5.9q6.9-3.2 13.8-6.5m-6.7 6.9q6.7-2.8 13-6.2m-10.3 6.2q7.3-3.8 14.8-7.2m-11.2 7.5q6.8-3.4 13.3-7.1m-6.8 7.1q6.7-3.1 13.1-6.8m-9.7 7.2q6.3-3.6 12.6-7.4m-9.8 7.1q7.4-3.6 14.3-8.1m-10.2 8.4q6.9-3.6 13.4-7.8m-10.6 7.7q7.6-4 15-8.1m-8.5 7.7q7.8-4 15.8-7.5m-11.9 6.9q7-3.6 14.3-6.9m-5.8 8q7.7-4.3 15.3-8.6m-11.5 8.1q7.5-3.3 14.5-7.5m-10.5 7.6q7.6-4.1 15.3-7.9m-11.5 8.4q7.4-4.1 14.4-8.8m-1.8 6.2q6.1-2.9 12.2-5.6m-10.5 6.9q5.9-3.3 11.9-6.5m-6.5 6q5.6-2.7 11.1-5.5m-8.8 5.6q6.9-3.3 13.9-6.5m-9.2 6.1q6.4-2.2 12.5-5.1m-7.8 4.6q6.3-2.8 12.7-5.4m-10.7 5.8q6.4-2.8 13-5.3m-2 5.5q4.6-2.9 9.2-5.8m-5.7 6q5.4-2.9 10.3-6.6m-7.3 6.4q6.3-2.6 12-6.2m-7.4 5.2q5.5-2.5 11-4.9m-8.4 5.8q6-2.9 11.9-6m-5.5 5.8q4.9-2.5 9.7-5.1m-8.1 5.6q6.4-2.7 12.4-6.3m-9.1 5.6q5.9-2.5 11.6-5.2m-8.7 6q6.9-3.4 13.8-6.6m-10.3 6.7q6.6-3.2 13.1-6.6m-11 6.6q6.3-2.7 12.5-5.3m-5 5.3q5.3-2.8 10.3-6m-7.4 6.1q5.7-2.7 11.2-6m-9.6 7q6.2-3.4 12.3-7.2m-4.9 7q6-4.1 12.2-7.8m-7.2 7.8q6.3-3.7 12.1-8.4m-8.9 8.2q5.7-2.5 11.1-5.5m1.7 6q1.5-.2 2.5-1.5m-5.7-6.5q2.8 4 6 7.7m-14.4-7.4q2.5 3.6 6 6.6m-10.3-6.4q2.8 3.5 5.8 6.8m-11.3-7.1q1.9 2.9 3.9 5.7m-7.3-5.3q2.4 3.6 5.6 6.6m-9.3-7.2q2.4 3 4.9 5.8m-8.6-4.4q1.8 2.6 3.8 4.9m-11.5-5.7q2 3.6 5.1 6.5m-11.7-7.1q2.9 3.3 5.8 6.6m-9.2-6.3q2.4 3.2 5.6 6m-12.5-6.6q2.7 3.5 5.1 7.1m-7-6.3q2.1 3 4.7 5.8m-7.1-6.5q2.1 2.5 3.9 5.3m-8-4.5q1.1 2.9 3 5.1m-7.8-6.1q1.8 3.4 4.1 6.4m-6.2-5.9q1.5 3.1 3.9 5.5m-7.3-5.9q1.3 3.2 3.3 5.9m-7.4-4.7q1.7 2.7 3.6 5.1m-9.5-6.1q2.2 3 4.8 5.7m-6.8-5.6q2.1 2.8 3.8 5.9m-5.8-5.6q1.9 2.7 3.7 5.3m-12.4-5.6q2.7 3.5 5.6 6.9m-9-6.7q2 3.1 4.4 5.8m-8.3-6.2q2.8 3.6 5.5 7.3m-9.1-7.3q2.3 3.4 4.9 6.5m-8.1-6.1q2.8 2.9 5.3 5.9m-10.2-6.1q2.7 3.4 5.7 6.8m-10.2-6.5q2.9 3.5 6 6.9m-9.2-7.4q1.9 4 4.2 7.6m-7.8-7.8q1.9 3.5 4.4 6.6m-7-5.9q2.1 3.2 3.9 6.4m-7.1-6.9q2 3.4 3.6 7.1m-11.1-6.6q2 4 4.8 7.4m-11.2-7.5q2 3.5 4.6 6.5m-6.1-5.3q1.4 2.8 3.5 5.1m-8.7-6q2.8 3.5 5.5 6.9m-8.4-6.4q3.1 3.2 5.8 6.7m-9.1-7.3q2.7 3.7 5.8 7.1m-11.9-7.5q2.9 3.9 5.8 8m-16.7-8q2.9 3.8 5.8 7.6m-12.4-7.9q1.9 3.3 4.1 6.5m-9.1-6.2q1.8 3.3 4.6 6m-9.7-5.8q2.4 2.8 4.5 5.9m-9-6.1q2.3 3.6 4.9 6.9m-7.8-7q2.2 3.6 4.6 7m-7.4-6.8q2.7 3.5 5.3 7m-11.6-7.5q2.4 4 5.1 7.9m-6.7-7.3q2.1 3.5 4.1 7m-8.5-7.2q1.9 3.7 4.3 7.1m-15.1-7.4q2.6 4 5.3 7.8m-7.7-5.9q1.8 2.4 3.6 4.7m-10.4-5.2q3 3.4 5.6 7.2m-9.7-8.6q2.4 4.2 5.4 7.9m-8.1-7.1q2.1 4 5.1 7.3m-7.1-6.1q1.4 2.2 3 4.3m-9.3-5.9q2.1 3.6 4.7 6.7m-8.1-7.1q1.8 3.5 4.5 6.3m-7.5-5.3q1.7 2.4 3.5 4.7m-5.5-5.1q1.7 3.1 3.7 6m-11.3-4.8q2.1 2.5 4.2 5m-8.5-6.5q2.2 2.9 4.1 5.9m-12.7-5.8q2.9 3.5 5.4 7.2m-11.1-7.6q1.9 4.2 4.7 7.8m-7.4-7q1.9 3.9 4.1 7.6m-6.7-8.6q2.3 3.9 4.2 8.1m-7.8-7.6q2.2 3.8 4.6 7.3m-6.9-7.6q2.2 3.6 4.5 7.1m-6.7-7q2 3.5 4.2 6.8m-7.4-6.2q3.4 3.6 6.6 7.2m-9.1-6.9q2.6 3.5 5.7 6.5m-9.1-6.5q3.4 3.8 7 7.5m-13.6-7.3q2.4 3.8 5.2 7.4m-8.9-8.3q2.1 3.5 4.8 6.6m-8.2-6.6q2.8 4.1 5.5 8.2m-9-8.6q2 4.1 4.7 7.7m-9.7-6.9q2.9 3.7 6.1 7.2m-15.6-7.4q2.4 4 5.2 7.7m-10.4-8.3q2.7 3.9 5 8.1m-9.7-7.9q2.9 4 5.6 8.1m-7.7-8.2q2.7 4.6 6 8.8m-8.6-8.2q2.6 4.1 5.3 8.2m-9.2-8.9q2.1 4.4 5.2 8.2m-8.4-8.2q2.5 4 5.2 8m-10.5-7.3q2.8 3.9 5.5 7.9m-11.2-7.8q3.4 4.1 7 8m-9.8-8.2q2.7 3.6 5.7 7m-12.6-7.1q2.9 3.7 5.6 7.6m-9.7-7.7q2.9 3.6 6.1 7m-8.8-6.9q1.9 3.1 3.5 6.4m-7.2-6.9q1.5 3.3 3.5 6.2m-21.3-5.8q1.8 3.1 4.3 5.7m-7.9-5.8q2 3.2 4.7 5.8m-9-5.4q1.7 3 4.2 5.5m-7-5.9q2.7 3.5 5.4 7.1m-9.8-7.2q2.3 3.9 4.9 7.6m-7.3-7.7q2.5 3.9 5.3 7.6m-9.4-7.1q3.5 4.2 7.5 8m-8.3-7.3q2.2 3.3 4.8 6.4m-8.1-7.1q2.8 3 5.5 6m-11.8-6.4q1.9 3.8 3.8 7.7m-12.6-7.4q2.2 3.4 5 6.5m-10.9-6.8q2.3 3.8 4.6 7.5m-9.4-6.5q2.5 3.9 5.6 7.4m-8.9-8q2.2 3.1 4.4 6.1m-16.7-6.3q3.1 3.7 6 7.5m-13.3-6.8q2 3 4.3 5.7m-6.8-5.7q1.8 2.3 4.1 4.4m-7.3-5.2q1.5 2.7 2.8 5.4m-6-4.8q1.5 2.6 3.5 4.7m-8.9-4.8q2.3 2.3 4.4 4.7m-8-4.9q1.9 2.4 4.4 4.5m-11.7-4.3q1.7 3.2 4.4 5.6m-12.8-6.1q2.6 3.4 4.9 7.1m-8-6.8q2.6 2.8 4.9 5.8m-7.8-5.7q2.6 3.8 5.6 7.2m-9.9-7.4q1.8 3.4 4.3 6.2m-16.4-6.1q2.3 4.3 5.2 8.2m-16-8.4q2.3 3.9 4.5 7.8m-10.6-7.8q2.5 2.9 4.7 6m-7.2-5.6q2.7 3.1 5.2 6.3m-7.2-6.6q2 3.6 4.4 6.9m-6.9-5.8q1.7 3.7 4.3 6.7m-9.7-8.2q2.6 4.2 5.5 8.2m-8.8-8.2q2.4 3.3 4.4 6.9m-7.5-6q2.1 3.3 4.2 6.5m-7.9-6.9q1.8 3.1 4 6m-9.8-6.6q2 4.5 4.7 8.4m-15-7.9q2.8 2.5 5.1 5.3m-8-5.4q2.8 3.3 5.6 6.6m-13.8-6.5q2.5 3 4.7 6.2m-10.5-6.5q2.3 3.4 4.7 6.8m-14.5-6.2q2.1 2.7 4.3 5.4m-7.8-5.9q2.3 4.1 5.2 7.7m-15.7-8q2.1 3.4 3.9 7.1m-6.6-7q2.1 3.6 4.3 7.1m-7.2-7q1.8 3.5 4.3 6.5m-10.5-5.8q2.2 3 4.8 5.6m-12.4-5.6q3.2 3.7 6.7 7.1m-11.7-7.3q2.1 3.3 4.1 6.6m-8.4-6.7q2.1 3.7 4 7.6m-13.3-7.8q2.3 3.2 5.1 6.1m-7.7-5.5q2 2.9 4.5 5.4m-7-5.1q2.3 2.7 4.7 5.4m-9.9-6q2.6 3.6 5.3 7.1m-8.4-7.3q2.4 2.8 5 5.4m-6.7-5.1q2 2.6 3.8 5.4m-7.6-5.6q2.5 3.2 4.6 6.6m-7.1-6.6q1.9 3.7 4.3 7m-6.1-6.6q2.1 2.8 3.7 6m-11.9-6.4q2.3 3.6 5.2 6.9m-9-7.1q2.1 3 4.8 5.6m-11.6-5.7q2.3 3.3 4.4 6.8m-6.6-7.3q2.5 4.2 4.6 8.8m-7.7-8.3q2.3 3.3 4.2 6.8m-9-6.2q2.8 3.2 5.4 6.4m-9.1-7.2q2.1 3.4 4.6 6.6m-17-6.2q2.6 3.2 5.7 6m-8.2-5.4q2.6 3.2 5.5 6.3m-11.4-6.6q3.1 3.5 6 7.2m-7.3-6.5q1.8 3.6 4.3 6.7m-13.8-7.9q2.8 4.1 6.2 7.9m-9.5-6.6q2.9 2.5 5.3 5.2m-8-6.1q2.2 3.7 5.3 6.7m-9.1-6.9q2.7 4 6.2 7.3m-9.1-7.3q2.7 3.5 5.5 7.1m-9.4-7.2q2.6 3.6 5.8 6.8m-8.5-7q2.5 3.7 5 7.4m-13.3-7.8q2 3.7 4 7.4m-6.2-6.8q1.7 3.5 3.8 6.7m-8.2-7.2q2 3.6 3.9 7.3m-11.2-7.1q1.9 3.6 4.1 7.1m-12.8-6.7q1.7 3.3 4.3 5.9m-8.6-6q2.6 4 5.1 8m-7.8-8.2q1.9 3.9 4.4 7.4m-9.2-7.1q2.6 3.3 5.6 6.3m-17.6-6.7q2.6 4.5 5.8 8.6m-8.7-8.3q3.4 4.2 6.9 8.3m-9.6-8.4q2.9 3.3 5.5 6.7m-9.5-6.5q3.1 3.5 6.1 7.1m-8.3-7.1q2.3 3.1 4.7 6.1m-9.8-5.6q2.3 3.8 5.4 7m-10.8-6.9q2.4 3.5 5.6 6.3m-8.2-6.2q2.6 2.9 5.2 5.8m-12.5-6.2q3 2.9 6 5.9m-9-6.2q2 3.1 4.7 5.7m-7.7-5.8q2.3 2.7 4.4 5.5m-7.3-5.5q2 3 4.4 5.8m-7.8-5.6q2.2 2.8 4.2 5.7m-7.4-5.8q2.5 3.3 4.8 6.6m-7.9-7q2 2.7 3.9 5.6m-5.7-5.1q1.3 2.8 2.7 5.5m-6.4-5.8q1.5 2.8 3.6 5.2m-6.2-5.2q1.9 3.3 3.8 6.7m-6.2-5.8q2 2.7 3.7 5.7m-6.4-5.3q1.5 2.7 3.2 5.1m-15.1-6.4q2.1 3.7 4.5 7.1m-8.6-6.9q2.2 3.8 4.7 7.5m-8.2-7.3q2.4 3.2 4.5 6.5m-7.2-6.5q2.6 3.8 5.4 7.3m-8.6-7.2q1.9 3.1 4.2 6m-8.9-6.5q2.1 3.9 4.5 7.5m-6.9-7.1q2.3 4.3 5.3 8.1m-9.2-8.7q2.3 4.4 5.5 8.1m-7.4-7q2.5 3.9 5.6 7.4m-11-8.3q3.2 3.9 6.3 7.9m-11.3-7.6q2.9 3.4 5.9 6.7m-14.1-6.9q1.3 3.9 3.6 7.1m-7.9-6.4q1.5 4.3 4 7.9m-7.5-8.3q2.2 4.1 4.8 7.9m-9.9-8.1q2.5 3.6 5.5 7m-7.1-6.8q2.1 4 5.2 7.3m-9.9-7.7q2 3.5 4.8 6.7m-8.1-5.8q2 3.3 4.8 5.9m-12-6.8q1.7 2.7 3.4 5.5'/%3E%3C/svg%3E");
+	--torn-beside: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='600' viewBox='0 0 26 600'%3E%3Cpath fill-opacity='0.08' d='m1.6 6.4q0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 4.9 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 4.9 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.4 0 4.9 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.6 0 5.1 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.6 0 5.1 0 2.5 0 5 0 2.5 0 5 0 2.6 0 5.1 0 2.5 0 5 0 2.5 0 5 0 2.6 0 5.1 0 2.5 0 5 0 2.5 0 5.1 0 2.5 0 5 0 2.5 0 5 0 2.6 0 5.1 0 2.5 0 5 0 2.5 0 5.1 0 2.5 0 5 0 2.5 .1 5 0 2.5 0 4.9 0 2.4 0 4.9 0 2.4 0 4.9 0 2.5 0 5-.1 2.5-.1 4.9 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5.1 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.6 0 5.1 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 0 5 0 2.5 .5 4.6 .5 2 3 2.3 2.5 .2 2.6-1.9 .1-2.2 .1-4.7-.1-2.4-.2-4.9 0-2.5 0-5 0-2.5-.1-5 0-2.5-.2-5-.2-2.5-.4-5-.2-2.5-.3-5-.1-2.5-.1-5 .1-2.4 .1-4.9 .1-2.5 .2-5 .1-2.5 .2-5 0-2.5 .1-5 .1-2.5 .3-5 .2-2.5 .4-5 .2-2.5 .3-5 .1-2.5 .1-5 0-2.5 0-5 0-2.5-.1-5 0-2.5 0-5-.1-2.5-.1-5 0-2.5-.1-5-.1-2.4-.2-4.9-.2-2.5-.2-5-.1-2.5 0-5 .1-2.5 .2-5 .2-2.5 .4-5 .2-2.5 .2-5 .1-2.5 .1-5-.1-2.5-.5-4.9-.3-2.5-.6-5-.3-2.4-.5-4.9-.2-2.5-.1-5 .1-2.5 .4-5 .3-2.4 .6-4.9 .4-2.5 .6-5 .2-2.5 .2-5 .1-2.4 .1-4.9 0-2.5 .1-5 0-2.5 0-5 0-2.5 0-5 0-2.5 .1-5 0-2.5 0-5 0-2.5 0-5 0-2.5-.1-5-.2-2.5-.5-4.9-.4-2.5-.8-5-.4-2.4-.7-4.9-.2-2.5-.1-5 .1-2.5 .4-5 .3-2.4 .7-4.9 .4-2.5 .6-5 .3-2.5 .3-5 0-2.5 0-5 0-2.5-.1-5 0-2.5 0-5-.1-2.5-.2-5-.1-2.5-.3-5-.3-2.5-.6-5-.4-2.5-.5-5.1-.2-2.7-.2-5.2 0-2.5 .2-5 .3-2.5 .6-5 .3-2.4 .5-4.9 .2-2.5 .2-5 0-2.5-.1-5 0-2.5-.1-5-.1-2.5-.1-5-.1-2.4-.1-4.9 0-2.5-.1-5 0-2.5-.1-5 0-2.5-.1-5 0-2.5 0-5 0-2.5 .1-5 0-2.4 0-4.9 .1-2.5 .1-5 .1-2.5 .1-5 0-2.5 0-5 0-2.5 .1-5 0-2.5 0-5 0-2.5 0-5 0-2.5-.2-4.9-.1-2.5-.3-5-.1-2.5-.2-5-.1-2.5-.1-5 .1-2.5 .3-5 .2-2.5 .4-5 .2-2.5 .4-5 .2-2.5 .2-5 0-2.5 0-5 0-2.5 0-5 0-2.5-.1-5 0-2.5 0-5 0-2.5-.1-5-.1-2.5-.3-5.1-.1-2.5-.2-5-.1-2.5 0-5 0-2.5 .2-5 .1-2.5 .3-5 .1-2.5 .2-5 .2-2.6 .1-5.1 0-2.5-.2-5-.2-2.5-.4-5-.2-2.5-.3-5-.2-2.5-.2-5-.1-2.6-.3-5.1-.1-2.5-.3-5-.1-2.5-.3-5-.1-2.5 0-5 .1-2.5 .3-5 .3-2.5 .6-5 .3-2.5 .5-5 .3-2.5 .3-5 0-2.5 .1-5 0-2.5 0-5.1 .1-2.5-.1-4.9-.2-2.5-.7-5-.4-2.5-1-4.9-.5-2.4-1.1-4.9-.5-2.4-2.2-3.2-1.6-.8-1.6 1.7z'/%3E%3Cpath fill='none' stroke='black' stroke-width='0.7' stroke-linecap='round' stroke-opacity='0.26' d='m1.1 13.4q3.6-2 7.3-3.8m-7.3 6.4q2.8-1.7 5.9-3.2m-6.1 16.2q5.2-3.1 10.4-6.2m-10.6 18.3q4.9-3.4 9.6-7.2m-8.5 10q4.7-2.6 8.9-6m-9.7 9.3q4.5-2.8 8.9-5.8m-7.6 9.9q6-4.2 12-8.6m-14 12.5q7-3 14.1-5.7m-12.8 8.8q4.9-2.7 10.1-4.9m-10.2 8.6q5.2-2.8 10.7-5.2m-10.1 9.1q4.9-2.6 9.6-5.6m-11.1 9.9q5.4-3.4 11-6.4m-9.2 11.8q5.4-3.6 10.7-7.2m-12.6 11.3q5.5-3.1 10.4-7.1m-7.3 7.1q5-1.8 9.9-3.9m-13.7 13.9q6.3-2.2 12.5-4.8m-11.7 19.6q5.3-3.6 10.8-6.8m-11 11.1q3.9-2.6 8-4.9m-8.1 7.7q5.4-2.8 10.2-6.7m-10.2 10.6q4.6-2.1 9.4-4.1m-8.9 8.6q4.7-1.9 8.8-5m-9 7.5q5.5-2.8 10.8-5.9m-9.9 8.1q5.8-2.9 11.6-5.9m-12.1 15.6q5.7-2.8 11.6-5.6m-12.8 9.9q8.4-3.2 16.2-7.4m-15.4 13.4q6.5-3.2 12.8-7m-12.9 21q5.4-2.3 10.5-5.2m-10.2 8.3q6.3-3.7 12.8-7.1m-12.7 14.2q5.4-2.6 10.9-5.1m-11.5 9.5q5.2-2.1 10.2-4.6m-9.6 7.7q6-2.3 11.9-5.1m-11.4 7.5q5.5-1.9 10.6-4.6m-12.2 8.2q6.9-3 13.6-6.1m-13.2 9.5q7.6-3.7 15-7.8m-15.2 12.8q8.2-3.9 16.2-8m-16.3 14.5q7.1-2.7 13.7-6.4m-12.2 7.9q7.8-3.6 15.7-7.3m-17.1 11.5q6.2-3 12.6-5.5m-11 16.9q6.2-3.3 12.1-7.1m-12.4 11.2q4.7-2.6 9-6m-10.1 11.4q5.4-2.6 10.2-6.2m-10 9.5q4.4-1.7 8.4-4.3m-6.9 10.3q5.4-2.9 10.9-6m-12.8 17.3q6-3.3 12.2-6.3m-11.1 16q4.7-3 9.6-5.6m-10.5 10.2q4.5-2.3 8.8-5.3m-7.2 9.3q5.6-2.1 10.9-4.7m-12 12.6q3.9-2.2 8.1-4.1m-7.4 11.4q5.1-2 9.8-4.9m-8.2 9.5q3.6-2 7.2-3.8m-9.7 12.5q5.2-3.2 10.5-6.2m-9.5 13.7q4.9-3.1 10-5.9m-10.5 9.2q6.6-2.6 12.6-6.2m-13.6 8.8q7.9-3 15.5-6.6m-15.8 11.1q6.6-3.2 13.4-6m-11.8 18.8q4.9-2.1 10-3.9m-10.7 8.4q6.5-2.6 12.6-5.9m-11 10.1q5.6-2.3 10.9-5.1m-12.4 16q5.3-2.3 10.7-4.4m-8.8 12.7q4.1-2.5 8-5.1m-10.3 13.6q5.7-3.7 11.6-6.9m-8.3 8.4q5.9-3 12-5.7m-12.2 8.4q6.1-2.4 11.7-5.6m-14.8 9.8q7.2-2.7 14.1-5.9m-14.6 10.1q8-3.5 15.5-7.6m-14.4 15.9q5.7-2.3 11.2-5.1m-11.2 9q4.9-2.7 10-5m-11.1 13.1q6-2.8 11.9-5.6m-8.8 8.8q3.7-1.9 7.3-4m-10.4 8.7q6.3-3 12.8-5.6m-12.8 11.1q4.9-2.4 10-4.4m-7.8 6.5q5.9-2.2 11.2-5.2m-12.5 10.6q5.3-2.9 10.7-5.7m-11.7 9.7q5.7-2.2 11.3-4.6m-10.5 7.2q7-3 13.7-6.8m-14.1 13.6q5.8-2.5 11.4-5.3m-8.8 6.5q5-1.6 9.7-3.8m-12.6 12.4q8.3-3.1 16.1-7.3m-14.6 9.2q7.7-3 15.1-6.6m-16.6 11.7q7.6-3.5 15.6-6.6m-15 8.9q7.1-2.5 13.7-6m-9.8 20.2q4.6-2.9 9.3-5.4m-13.1 15.7q5.4-4 11.1-7.7m-11.1 20.5q6.1-3.5 12.2-7.1m-11.9 8.8q4.4-1.8 8.8-3.8m-9.2 8q6-2.3 11.7-5.3m-12 10.2q5.7-2.4 11-5.7m-10.6 11.4q6.1-3.1 11.8-7m-11.3 10q7-3.3 13.6-7.4m-13.9 14.7q6-3.9 12.2-7.5m-12.8 12.1q6.8-4.3 13.8-8.2m-12.9 17.4q5.1-3.3 10.3-6.3m-9.3 7.8q4.8-2.7 9.8-4.9m-9 11.5q3.8-2 7.4-4.3m-8.1 8.9q5.8-3.3 11.7-6.4m-11.6 11.5q5.1-2 9.9-4.4m-11.8 9.3q8.4-3 16.2-7m-12.6 13.5q5.1-1.8 9.8-4.4m-13.4 10.4q8.2-3.3 16-7.4m-14.4 16.2q6.3-3.2 11.9-7.5m-11.8 11.2q5.3-3.4 10.4-7m-10.7 13.4q4.1-2.1 7.8-4.7m-8.4 8.2q6.1-3.7 12-7.5m1.4 26.9q.6 .1 1-.4'/%3E%3Cpath fill='none' stroke='black' stroke-width='0.7' stroke-linecap='round' stroke-opacity='0.5' d='m.1 6.3q.6-.4 1.5-.5m-1.5 2.8q1.3-.9 2.9-1.5m-2.9 4.1q1.9-.9 3.5-2.3m-3.6 5.5q2.4-.6 4.5-1.8m-4.4 4.2q2.2-1.2 4.4-2.3m-4.3 4.3q2.5-1.1 4.9-2.5m-5 4.4q2.4-1.1 4.8-2.4m-4.7 4.8q2.9-1.1 5.4-2.9m-5.4 5.3q2.9-1.7 5.6-3.6m-5.8 4.9q3.1-1.8 6.4-3.5m-5.5 5.9q2.7-1.3 5.1-3m-5.3 5.4q2.7-1.7 5.5-3.1m-6 6.2q2.7-1.9 5.5-3.7m-5.1 5.9q3.1-1.7 5.6-4.4m-5.8 6.7q3-2 5.8-4.6m-6 6.2q2.5-1.8 5.1-3.6m-4.6 5.5q2.6-2.3 5.4-4.3m-6 5.4q3.2-1.4 6.2-2.9m-6.2 5.2q3-1.9 6.1-3.4m-6.2 6.2q3.3-1.2 6.1-3.2m-6.1 4.6q2.8-1.2 5.8-2.2m-5.9 4.5q2.7-1.3 5.6-2.5m-5.1 4.7q2.1-1.1 4.1-2.3m-4.5 3.7q2.6-1 5.1-2.1m-5 7.4q2.3-1 4.5-2.2m-4.5 4.5q2-1.1 3.9-2.3m-4 4.8q2.3-1.4 4.8-2.6m-4.8 4.2q2.4-1 4.7-2.3m-4.7 4.7q2.5-1.4 5.2-2.4m-4.8 3.9q2.3-.7 4.5-1.9m-4.7 5.1q2.5-1.5 5.1-2.9m-5.2 6.1q2.4-1 4.4-2.7m-4.3 4.3q2.7-1.4 5.1-3.3m-5.3 4.9q2.5-1.1 4.8-2.5m-4.4 3.9q2.8-.9 5.5-2.1m-5.8 3.9q2.9-.8 5.5-2.3m-5.3 4.1q2.7-.2 4.8-1.6m-5.2 3.6q3.2-.8 6-2.4m-5.9 4.7q3.3-1 6.2-2.6m-5.9 10.3q2.9-2 5.7-4m-5.8 6.3q2.6-1.9 5.3-3.6m-5.1 6.2q3-1.5 5.6-3.9m-5.7 5.3q3.1-1.1 5.6-3.2m-5.5 5.1q3-1.3 5.6-3.5m-5.6 4.7q2.8-1.7 5.8-2.9m-5.6 6.6q2.6-1.5 5-3.2m-5.6 5.4q3.1-1 5.8-2.7m-5.4 5.7q2.9-2 5.7-4.3m-5.5 5.7q2.4-2 4.9-3.8m-5.2 6q2.8-1.8 5.7-3.4m-5.3 6.6q2.6-1 4.8-2.8m-4.9 4.6q2.8-1.1 5.1-3.3m-4.7 5q2.4-1.7 4.9-3.4m-5.8 5.8q2.8-1.3 5.6-2.6m-5.8 4.5q3.1-.7 5.7-2.3m-5.5 4.1q3.1-1.5 6.1-3.1m-6.2 4.9q3-1.8 6.3-3.2m-6.6 4.3q3.3-.4 6-1.8m-5 3.6q2.4-1.4 4.8-2.9m-5.5 5.3q3.6-1.2 6.7-3.2m-6.7 4.8q3.3-1.8 6.8-3.4m-6.8 5.5q2.9-1.6 6-3.1m-5.2 5.1q2.6-.9 4.8-2.7m-5.4 8.8q3.5-1 6.6-2.8m-6.7 6.7q3.1-1.8 6.1-3.9m-5.6 5.7q2.6-1.4 5.1-2.8m-5.7 5.1q3-1.2 5.7-2.8m-5.6 5.7q3-1.4 5.6-3.4m-5.4 6.1q3-2.2 6.2-4.2m-6.4 7.9q3.1-.8 5.8-2.5m-5.6 4.9q2.9-1.8 5.9-3.5m-5.6 5.8q2.7-1.2 4.8-3.2m-5.4 4.5q2.8-.9 5.2-2.4m-5.1 4.8q2.7-1.4 5.3-3.1m-4.7 4.4q1.9-1.4 4-2.3m-4.7 5.2q2.4-1.3 4.7-2.7m-4.6 6.2q2.2-1.8 4.6-3m-4.7 5.2q2.8-.8 5.1-2.6m-5 4.6q2.6-.8 4.7-2.6m-4.5 5.2q2.8-1.5 5.4-3.6m-5.3 5.4q2.6-1.2 4.9-2.9m-5.4 8.8q3.2-1.1 6.1-2.7m-5.4 5.1q2.8-1.7 5.7-3.4m-6.1 6q3.1-1.6 5.9-3.7m-6.1 5.8q3-1.6 6.1-2.9m-6.1 4.6q2.7-1.4 5.4-2.8m-5.1 7.5q2.7-.8 5.1-2m-5.4 4q2.9-1 5.6-2.5m-5.6 5.9q2.8-.9 5.1-2.8m-5 4.8q3-1.5 6.1-3m-6 5.5q2.6-1.9 5.4-3.4m-5.5 6.3q2.7-1.4 5.2-3.2m-5.1 4.8q2.8-1.1 5-3.3m-5 5.2q2.9-1.5 5.3-3.8m-5.2 7.1q3.1-1 5.6-3.1m-5.8 5.4q2.5-1.3 5-2.4m-5 4.6q2.7-1.7 5.3-3.4m-4.5 5.4q2.6-1 4.6-3.1m-5.2 5.5q2.7-1 5.3-2.1m-5.4 4.4q2.7-.6 5.1-1.7m-5.3 4.3q2.6-1.2 5.3-2.1m-5 5.6q2.3-1.4 4.5-3.1m-4.6 5.2q2.6-1.2 4.6-3.2m-4.3 5q2.7-.9 5-2.6m-5.2 5.3q2.6-1.3 5-3m-4.9 4.8q2.9-1.3 5.4-3.2m-5.7 6.2q3.3-1.2 6.1-3.4m-5.4 4.5q2.6-1.3 5.1-2.8m-5.8 5.2q2.8-1.5 5.7-2.9m-5.8 5.3q2.9-1.6 5.7-3.1m-5.3 4.2q2.7-.7 4.9-2.3m-4.8 6.5q2.8-1.8 5.7-3.6m-5.8 6.6q2.7-.9 4.9-2.9m-5.1 5.1q3-1.8 6.3-3.2m-6.5 5.3q3-1.5 5.9-3.1m-6 5q3.1-1.3 6.3-2.8m-6 5.5q2.6-1.7 5.3-3m-5.3 5.8q2.9-1.3 5.5-3.1m-5.4 4.1q2.6-.9 5-2.1m-5.3 4.7q2.8-.8 5.2-2.5m-4.4 3.8q2.3-.9 4.2-2.4m-4.4 6.3q2.5-1.1 4.4-3.4m-4.6 4.7q2-1 3.8-2.4m-3.8 4.6q2.1-1.3 4.3-2.4m-4.1 4.2q1.8-1.2 3.6-2.4m-4 4.7q2.1-.8 4.2-1.5m-4.5 3.9q2.4-.8 4.7-1.8m-3.9 3.2q2.4-.9 4.4-2.4m-4.5 4.3q2.6-.8 4.6-2.6m-5 5.6q2.6-.9 4.8-2.7m-4.3 4.8q2.5-1 4.7-2.4m-5.3 4.2q2.9-1.2 5.5-2.7m-5.3 5.2q2.9-1.5 5.8-3.2m-6 5.6q3.1-.9 5.7-2.7m-4.8 4q3-1 5.4-2.8m-6.1 5.2q3.3-.8 6.1-2.4m-6.3 4.3q3-1 5.8-2.5m-5.6 5.7q2.7-1.4 5.6-2.5m-5.2 4.5q2.9-.6 5.3-1.9m-5.5 4.8q3.3-1.3 6.1-3.5m-6.5 5.1q3.7-1.3 6.8-3.7m-6.6 4.5q3-1 6-2.2m-6.2 6.2q3.1-1.3 6-3.1m-4.9 4.4q2.7-1.2 4.8-3.3m-5.6 5.6q3.2-1.5 6.2-3.5m-6.3 8.6q3.1-1.4 5.7-3.7m-5.9 5.2q2.6-1.5 5.1-3m-5.2 4.2q2.9-.9 5.4-2.8m-5.2 4.7q2.3-1.5 4.8-2.7m-4.5 6.2q1.9-1.9 3.9-3.4m-4.1 4.7q2.4-1.1 4.5-2.8m-4.6 5.2q1.8-1.7 3.7-3.1m-3.5 7.2q2.4-1 4.5-2.7m-4.6 6q2.5-1.2 4.7-2.9m-5 4.9q2.7-.7 5-2.1m-4.6 3.9q2.6-1.2 5.3-2.2m-5.9 4.4q3.5-.8 6.4-2.6m-5.8 4.8q3.1-1.2 5.9-2.7m-6.2 5.1q3.2-1.3 6.5-2.5m-6.5 4.3q3.1-1.5 6.5-2.6m-6.4 4.4q3.4-1.6 6.9-2.7m-6.8 6.4q2.7-2.4 5.7-4.4m-4.9 6.2q2.7-1.5 4.9-4m-5.7 6q2.9-2 5.5-4.4m-5.3 5.7q3-1.3 5.5-3.6m-5.8 7q3.2-1.9 6.5-3.4m-6 5.2q3-1.5 5.7-3.4m-6.2 5.5q3.3-2 6.6-3.9m-6.2 6.4q3.2-1.1 6.3-2.1m-6.5 3.6q3.2-1.4 6.7-2.4m-7.4 4.1q3.4-1.1 6.8-2.3m-6.4 6.4q2.9-1.8 6.1-3.2m-5.6 5.8q2.8-1.3 5.7-2.5m-6.1 7q3.1-1.2 5.9-3.1m-6 4.8q3.3-1.4 6.1-3.7m-5.6 7.9q2.8-1 5.3-2.8m-5.2 5q2.8-1.2 5.5-2.6m-6.1 6q2.7-1.5 5.2-3.2m-4.6 4.9q2.8-1.1 5.1-3.1m-5.5 5.1q2.5-1.4 5-2.6m-5.3 4q2.7-.8 5-2.2m-4.7 5.5q2.4-.8 4.4-2.5m-4.7 4.5q2.3-.9 4.4-2.4m-4.3 4.1q2.5-1 4.6-2.7m-4 4.7q2.2-.8 3.8-2.6m-4 4.1q2.2-.6 3.9-1.9m-4.2 4.9q2.2-1 4.1-2.5m-4.3 4.9q2.3-1.5 4.9-2.7m-4.9 4.1q2.7-1.2 5.1-2.9m-4.9 5.5q2.5-1.3 5-2.7m-5.1 4.2q3.1-1.5 6-3.1m-5.8 7.3q2.9-1.3 5.6-2.9m-5.8 8.1q2.8-1.8 5.7-3.4m-5.6 5.7q3.1-1.7 6.1-3.7m-5.9 5.6q3-1.8 6.3-3.1m-6.6 6.5q3.2-1.5 6.4-2.8m-6.7 4.1q3.2-1.3 6.6-2.2m-6.7 3.6q3.2-1.2 6.5-2.1m-5.9 3.9q2.8-1.4 5.7-2.6m-5.8 5.8q2.6-1.4 5.3-2.7m-4.9 5.2q2.4-1.3 4.7-2.9m-5 5.5q2.3-1.7 4.9-3m-4.8 4.4q2.5-1 4.6-2.8m-5 5q2.7-1.4 5.5-2.8m-5.4 5.2q3-1.4 5.7-3.2m-5.6 5.1q2.9-1.5 5.9-2.6m-5.4 5.3q2.9-1.3 5.2-3.5m-5.6 5.5q2.3-1.8 4.8-3.3m-4.9 5.3q3.2-1.3 5.9-3.6m-5.3 5q2.2-1.6 4.5-3m-5.1 5.3q2.8-1.1 5.3-2.8m-5.2 6.3q2.5-1.6 5.2-3.1m-5.2 4.8q2.5-1.7 5.2-3m-5 5.2q2.7-1.5 5.4-3m-5.8 5.1q2.8-1 5.4-2.4m-5.3 6.5q3-.9 5.5-2.8m-5.5 5.6q3.1-1.5 5.8-3.7m-5.9 7.5q3.2-1.8 6.3-3.8m-6.2 6.1q3-1.4 5.6-3.6m-5.5 5.6q2.8-1.6 5.1-4m-4.9 5.4q2.5-1.7 5.2-3.2m-5 5.3q2.5-1 4.6-2.8m-4.7 4.7q2.6-1.5 5-3.2m-5.4 6.5q2.3-1.9 4.8-3.4m-4.2 4.9q2.2-.9 3.9-2.8m-4.2 4.2q2.6-.9 4.8-2.6m-4.9 4.2q2.3-.6 4.4-1.7m-4.6 6q2.5-.6 4.5-2.2m-4 5.5q2.3-.9 4-2.9m-4.3 4.6q2.4-1.3 4.7-2.9m-4.8 6.9q2.4-1.5 4.6-3.3m-4.1 4.5q1.5-1.6 3.3-2.7m-4 4q2.1-1.3 4.3-2.3m-4 3.7q2.1-.7 3.6-2.3m-3.9 3.7q2.6-.9 4.8-2.4m-4.8 8.2q2.1-1.6 4.4-2.8m-4.1 5.3q1.8-1.5 3.7-2.8m-4 4.3q2.6-.8 4.6-2.5m-4.4 5.8q2.4-1 4.6-2.3m-4.9 4.6q2.4-1.2 4.9-2.3m-4.4 4.6q2.7-1.1 4.8-3.3m-5 5.3q2.9-1.2 5.2-3.5m-5.3 5.4q2.8-.7 4.9-2.5m-4.5 4.5q3-.7 5.3-2.6m-5.8 4.7q2.7-1.1 5.1-2.5m-5.3 5.4q2.7-1.2 5.4-2.3m-5.2 3.9q2.9-1.6 5.7-3m-5.4 4.8q2.2-1.5 4.6-2.7m-4.9 9.3q2.9-1.8 5.9-3.4m-4.6 5.4q2.1-1.3 3.8-3.1m-1.1 3.3q1.1-.9 2-2m-6.3-591.6q2.2 2.5 4.4 5m-4.3-2.2q2.5 3.3 5.1 6.6m-4.8-1.8q2.9 3.8 6 7.4m-6-.1q2.1 3.8 4.9 7.2m-4.7-.5q2.6 4.2 5.7 8m-6.2-2.2q3.6 3.8 7.1 7.5m-7.2-3.5q2.7 3.9 5.9 7.4m-5.4-3.3q2.3 2.7 4.3 5.6m-3.9 2.9q1.6 3 3.9 5.5m-4.3-2.9q1.8 2.8 4.2 5.2m-4.2-2.8q1.8 3.5 4 6.8m-4.2-1.7q2.1 2.9 4.1 5.9m-3.8 4q1.9 3.2 4.1 6.3m-4.1-3.5q2.1 3.8 4.7 7.2m-5.2 .5q3.2 4.2 6.6 8.3m-5.5 3.3q2.8 4 5.1 8.2m-4.7-3.5q2 3.8 4.2 7.4m-4.6-.1q1.5 4 4 7.2m-4.6-3.5q2.3 3.4 4.5 6.8m-5.2 3.2q3 4.2 6.7 7.8m-5.7 1q1.9 3.1 4.7 5.5m-4.5-.3q2 3.5 4.2 6.8m-4.8-3.4q2.5 3.6 5.5 6.8m-5 7q2.4 4.5 5.1 8.8m-5.5 10.8q2 2.6 4 5m-3.4-.5q1.8 3.3 4 6.3m-4.5-3.3q2.1 3.3 4.8 6.2m-5.3-2.3q1.9 3.7 4.8 6.6m-4.8 .9q2.3 3.9 5.4 7.1m-4.6 9.7q1.8 3.2 4.2 5.9m-5.2-2.7q2.5 3.8 5.7 7.1m-5.1-1.3q2.6 4.5 5.3 8.9m-4.9-4.7q1.8 3.8 3.8 7.4m-4.1-2.7q1.8 3.4 3.8 6.7m-3.5-2q1.7 4.1 3.8 7.9m-3.8-3.5q1.9 3.8 3.8 7.6m-3.9-2.9q1.7 3.5 3.8 6.7m-4.1 0q2.5 3.6 5.2 7.1m-5.6-3.3q2.3 3.4 5.2 6.4m-4.4-.5q1.9 3 4.3 5.7m-4.8 4q1.9 3.8 4.6 7.1m-4.5-2q2.1 3.9 4.7 7.4m-4.4-3.9q2.3 3.8 4.6 7.5m-4.9 4.1q1.9 3.6 4.2 7m-4.4-4.1q2.3 3.5 4.5 7.1m-4.6-1.9q1.9 2.7 3.8 5.3m-3.6 2.3q2 3.2 3.9 6.4m-3.6 0q2 4 4.7 7.5m-4.5 1.6q2.3 4.4 4.6 8.8m-4.5-5.2q2.4 4.7 5 9.2m-5.5-4.8q2.6 5.4 6.1 10.2m-5.9-5.6q2.3 4.9 5.6 9.2m-5.9-3.3q2.3 4.3 5.2 8.1m-5.3-4.2q2.6 3.2 4.9 6.5m-4.2 .1q2.3 3.4 4.8 6.6m-5.7-4q2.6 3.3 4.9 6.9m-4.9-2.1q1.8 2.6 3.9 5m-3.9-.3q2 3.1 4.7 5.6m-4.4 1.4q1.9 3.8 4.5 7.1m-4.3-3.2q2.5 3.2 4.9 6.5m-4.7-3.1q2.5 4 4.9 8.1m-5.6-5q3.2 4.8 6.7 9.4m-6.4-.7q2.5 4.3 6 7.9m-6.2-3.6q2.4 4.4 5.8 8.1m-5.2-2.7q2.6 3.9 5.9 7.2m-6-5.1q2.7 4.5 5.8 8.7m-5.6-4q2.2 3.8 4.4 7.5m-4.6-.1q2.4 3.8 4.7 7.8m-4.6 17.1q2.1 3 4.6 5.8m-4.5-.2q1.1 2.4 3 4.3m-4 4.5q2.9 4.2 6.7 7.7m-6.2 .8q2.6 3.9 5.2 7.8m-5.4-2.1q2.4 3.8 5.3 7.3m-4.7-1.6q2.5 3.6 5.4 7m-5 1.8q1.4 3.5 3.3 6.7m-3.9 .4q2.6 4.1 5.3 8m-5.2-4.4q2.4 3.2 4.8 6.4m-5.2-1.7q2.4 3.8 4.9 7.6m-4.1-3.9q1.9 4.5 4.6 8.4m-4.9-1.3q2.2 4.1 5.1 7.6m-5-2.8q2 4.1 4.6 7.7m-4.7 2.4q3.1 3.2 6.3 6.3m-7-.6q2.6 4.6 6.1 8.4m-5.9-5.4q2.5 3.5 4.9 7.1m-3.7-.8q1.7 3.3 3.9 6.4m-4.7-5q1.4 3.7 3.8 6.8m-4.3-2.9q1.9 3.5 4.8 6.3m-4.7-1.2q2.2 3.2 4.6 6.4m-4.3-1.4q1.7 3.6 3.8 6.7m-3.5-1.8q1.6 3.3 3.2 6.6m-3.7 4.7q1.6 3.6 4.2 6.5m-4.6-3q1.9 3.1 4.5 5.7m-3.9 .9q1.5 3.4 3.9 6.2m-3.6-2.1q1.8 4.2 4.6 7.8m-5.2-4.7q2.4 3.3 4.5 6.7m-3.3-1.1q1.6 2.6 3 5.3m-4.1 3.1q2.1 3.1 3.9 6.5'/%3E%3C/svg%3E");
+	--torn-corner: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 26 26'%3E%3Cpath fill-opacity='0.08' d='m4.2-1.2q2.5-.1 3.4 1.4 .8 1.5-.5 3.7-1.4 2.2-3.6 3.1-2.2 .9-2-1.8 .2-2.8 .2-4.5 0-1.7 2.5-1.9z'/%3E%3Cpath fill='none' stroke='black' stroke-width='0.7' stroke-linecap='round' stroke-opacity='0.26' d='m1.6 3q2.6-.8 4.7-2.4'/%3E%3Cpath fill='none' stroke='black' stroke-width='0.7' stroke-linecap='round' stroke-opacity='0.5' d='m.1 4q3.2-.7 5.9-2.3m-5.9 6q2.5-1.3 5.1-2.3m-.6-5.3q1.1 1.2 2 2.6m-4.2-2.1q1.6 2.1 3.2 4.1m-5.6-4.6q1.7 3.1 4.1 5.8m-3.8 .6q.6 1 1.4 1.9'/%3E%3C/svg%3E");
+	--torn-tone-below: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1000' height='12' viewBox='0 -12 1000 12'%3E%3Cpath fill='none' stroke='black' stroke-width='0.6' stroke-linecap='round' stroke-opacity='0.3' d='m1.3-2q2.5-1.2 5.1-2.1m-.4 2.9q4.3-1.2 8-3.3m-2.3 3.7q4-2 8.1-3.9m-3.5 3.9q3.4-.8 6.2-2.7m-3.3 2.9q3.8-1.7 7.4-3.9m-4.7 4q4.1-1.4 7.8-3.4m-4.8 3.6q4.3-2 8.4-4.3m-.6 4.1q3-1.5 5.8-3.4m-3.9 3.9q3.3-1.9 6.6-3.6m-1.4 4q4-2.8 8-5.5m-4.6 5.3q4.1-2.1 7.9-4.9m.2 4.5q3.8-2.1 7.3-4.5m-2.6 4.2q3.9-1.5 7.4-3.7m-3.6 3.3q4.2-1.1 8-2.8m-.3 3q3.5-.8 6.5-2.4m1.5 2.8q3-1.5 6.3-2.6m-2.7 2.4q3.3-1.1 6.3-2.5m1.5 2.3q1.9-.9 3.5-2.3m2.4 2.3q2.2-1.3 4.7-2.2m-.7 2.9q3.1-1.3 5.8-3.2m-.8 2.3q1.8-1.2 3.8-2m7.7 2.6q2.8-1.5 5.7-3m-1.2 2.9q3.6-1.6 7-3.6m1.2 3.4q3.5-1.7 7.1-3.2m-4.6 3.3q4-1.3 7.8-3m5.2 3.3q3.5-2 7-4.1m-3.7 4.4q3.6-2.4 7.3-4.4m-1.9 3.8q4.1-2.1 8.2-4.1m-4.6 4q4.4-1.9 8.6-4.3m-5.2 4.3q4.7-1.8 9-4.3m-4.2 3.9q3.4-1.3 6.8-2.9m-4.8 3.3q4-1.7 8.1-3.5m-2.3 3.8q4.4-1.4 8.3-3.8m-4.6 3.5q3.3-1.7 6.8-2.9m-.6 3.6q3.9-1.8 7.3-4.4m2.3 4.2q2.8-1.4 5.4-3.2m12.6 3.1q3-1.5 5.9-3.2m4.1 2.1q3.2-1.7 6.6-3.1m-5.2 4.3q4.6-1.7 8.7-4.5m-1.7 3.6q3.1-1.5 6.3-2.8m-2.4 3.4q2.9-1.8 5.8-3.5m2.9 3.5q4-2.5 8.1-4.8m-1.8 4.5q3.7-1.3 6.8-3.6m-1 2.9q3.9-1.2 7.3-3.3m-5.6 4.3q4.5-2 8.8-4.2m-4.9 4q3.9-1.2 7.4-3.2m-3.9 3q3.9-1.3 7.4-3.2m-2.2 3.7q4.7-1.6 8.8-4.2m-4.4 3.6q3.3-1.4 6.7-2.6m-3.4 3q3.5-1.1 6.5-3m-3.4 2.6q3.4-.6 6.3-2.3m-.7 3.5q2.8-2.2 5.7-4.1m-1.8 3.7q3.4-1.7 6.3-4m-1.6 3.9q2.7-1.5 5.2-3.1m.2 3.5q3.5-2 6.8-4.4m6.1 3.7q2.5-1.6 5-3m-.7 2.5q2.6-.7 4.8-2.2m-2.8 2.8q3.2-1.2 6-3.1m-2 3.3q3.2-1.2 6-3.3m7.1 2.3q2.8-1.5 5.7-3m-3.7 3.7q4.2-1.6 7.9-4m5.8 3.4q2.9-1.9 5.9-3.3m-.5 4.4q3.1-1.8 6-4m-.4 4.4q2.9-1.6 5.4-4.1m-1.3 3.8q3.9-2 7.3-5m5.8 3.9q2.5-1.1 4.8-2.5m.1 3.1q3.5-1.1 6.4-3.1m1.9 3.4q2.9-1.5 5.8-3.1m-2.2 2.7q3.3-1.1 6.2-3m2.1 2.9q3.2-.7 5.9-2.4m-2.4 3q3.5-1.8 6.8-4m.1 2.8q3.1-1.2 5.8-3.1m-2.6 4.4q3.4-2.2 6.8-4.3m.1 4.4q3.7-2.5 7.3-5.3m-3 5q3-2.1 6.2-3.9m.4 4.4q3.2-2.1 6.3-4.4m-1.8 4.2q3.7-2.6 7.5-5.1m-2.1 5q3.3-1.5 6.3-3.7m1.3 2.2q2.7-1.4 5.3-3m-4 3.9q3.5-1.2 6.7-3.1m-1.9 2.9q2.7-1.6 5.4-3.2m.3 3.3q4.5-1.7 9-3.5m-5.3 3.5q4.7-1.3 8.7-3.6m-5.1 3.8q3.3-.9 6.3-2.7m9.3 2.1q3.1-1.3 6.4-2.3m-3.9 2.8q3.5-1.1 6.8-2.5m1.3 2.7q3.4-.9 6.3-2.9m-1.7 2.6q2.2-.8 4-2.1m1.6 1.9q2.5-1.3 5-2.3m-2.3 2.5q3-.7 5.6-2.1m7 3.2q3.1-2 5.9-4.6m-.3 4q2.9-1.7 5.5-3.8m-.2 3.7q4-2.5 7.9-5.1m-2.2 4.4q2.7-1.9 5.4-3.6m0 3.6q3.5-1.4 6.6-3.4m.8 3.4q3.5-1.2 6.4-3.4m-2.7 3.8q2.9-1.6 5.7-3.5m9.7 3.3q2.8-1.2 5.3-3.2m2.4 4q3.5-2.3 7.2-4.4m-3.2 3.8q3.8-1.6 7.5-3.3m-3.1 3.3q2.7-1 5.1-2.8m5.9 3.2q2.1-1.7 4.3-3m5.3 2.4q3.4-1.5 6.8-3.1m-3.5 3.5q3-1.5 6-3.1m-.9 2.8q2.7-1.1 4.8-3.1m1.1 2.9q3.8-1.8 7-4.5m-3.6 4.9q4.4-2 8.3-4.9m-5.1 5.1q4.4-2.3 8.9-4.5m-5.5 4.4q4-2.4 8.2-4.4m-1 4.6q4.4-1.6 8.1-4.3m-2.3 3.4q3.4-1.1 6.4-2.9m-2.7 2.7q4-1.2 7.5-3.2m-3.6 3.5q3.4-1.4 6.4-3.3m-2.4 3.6q4.7-2.3 9.6-4.3m-5.2 4q4.4-1.9 8.9-3.4m-2.2 3.9q4.2-1.2 7.9-3.4m1.2 2.5q4.2-1.2 7.9-3m-4.3 3.6q3.6-1.3 7-2.9m-.8 2.5q3.1-1.5 6.2-2.8m-1 3.4q4.8-2.2 9.6-4.2m-6.7 4.6q4.2-2.3 8.6-4.6m-5.8 4.5q3.9-1.7 7.6-3.7m.1 4q3.9-2.6 7.9-5m-3.4 5q3.8-2 7.4-4.5m-2.7 3.6q2.2-.7 3.7-2.4m-1.9 3q3.5-1.4 6.4-3.8m-2.1 4.1q2.9-1.9 5.9-3.6m-1.7 3.8q2.5-1.9 5.1-3.8m3.3 3.5q2.5-1.2 4.6-3m1.8 2.1q1.7-1.2 3.6-2m-1.9 2.5q3.3-1.7 6.7-3.2m-3.5 3.1q4-1.6 7.8-3.4m-4.7 3.5q4.2-1.7 8.1-3.9m14.5 4.2q3.5-1.7 6.7-3.8m-1.8 3.7q3.7-1.6 7-3.9m2.4 3.1q2.4-1.2 4.8-2.1m-1.6 2.5q4.3-1.4 8.3-3.3m-4.6 3.1q2.7-1 5.2-2.2m-.4 2.3q3.2-1.3 6.1-3.1m-2.7 3.8q3.5-2.2 7.2-4.1m1.3 4q3.4-1.2 6.4-3.3m-2.4 3.1q3.6-1.7 6.8-4m-2.4 4q4.3-1.7 8.1-4.3m-3.6 3.9q4.2-1.5 8-3.7m-4.8 3.9q3.9-1.6 7.8-3.3m-1.8 3.5q3.2-1.8 6.5-3.7m-2.1 3.8q3.3-1.4 6.3-3.8m-2.6 3.7q3.4-1.3 6.3-3.4m2.2 3.6q3.1-1.5 5.7-4m2.3 3.5q2.9-1.9 6-3.7m-4.4 4.3q4.4-2.3 8.7-4.8m-1.2 4.7q4.3-2.2 8.4-4.8m-3.8 4q2.1-1.6 4.4-2.8m-2.5 3.6q4.1-2 8-4.2m-2.5 4q3.6-1.7 7.1-3.7m2.5 4.2q3.6-2.3 7.2-4.5m-3.2 4.3q2.8-1.3 5.5-3.1m-1.3 2.5q3-1.3 5.7-3.2m-.9 3.6q2.6-1.7 5.3-3.4m-2.4 3.9q2.8-1.7 5.5-3.8m.5 3q2.4-1.2 4.4-2.8m-1.1 3.3q2.9-1 5.2-3.2m8.3 2.4q2.5-.6 4.7-2m-.7 2.7q2.7-1.2 5.3-2.7m-1.8 2.7q3.7-1.2 6.7-3.5m-2.6 3.4q3-1.3 5.8-2.9m2.1 2.8q2.4-1.5 4.6-3.3m-.5 3.2q3.2-1.8 6.6-3.5m-2.4 3.8q3.6-1.4 6.8-3.7m-2.8 3.8q3.6-1.9 6.9-4.5m-3.2 4q3.1-1.3 5.8-3m2.6 3.9q3.6-2 6.7-4.9m4.6 4.1q4-1.2 7.5-3.4m-4.7 3.2q4.4-1.7 8.8-3.4m-.6 4q3.5-2.6 7.1-5m-3.8 4.8q3.2-1.6 5.9-4.3m-3.6 4.9q2.2-1.1 3.8-3.2m-994.6-4.5q3-1 5.7-2.7m5.3 9.8q8.6-4.7 17.4-9m-6.9 6.8q7.8-3.2 15.4-6.9m-8.2 8.4q9.4-3.9 18.4-8.7m-13.8 9.3q8-4.1 16-8.1m13.8 6.8q8.9-3.7 17.2-8.5m-10.8 9.9q6.3-3.8 12.7-7.1m-7.9 7q6.5-3.4 13.2-6.5m8.5 5.4q7.9-4.2 15.2-9.2m-1.6 10.8q9.6-6.9 19.4-13.5m-9.6 10.9q8.3-5.4 16.6-10.8m-14.5 13.1q9.7-5.6 19.2-11.5m-9.3 9.2q6.2-3 11.9-7.1m-1.1 8.3q7.5-4.5 14.6-9.8m-8 10.9q9.7-6.3 19.4-12.6m-2.5 8.8q4.8-2.3 9.5-4.6m6.6 6q5.2-2.6 10.6-5.1m52 5.3q6-3.6 12.1-7.1m-9.4 9q10.8-5.6 21.4-11.4m-8.4 10.1q7.1-3.9 14.2-7.8m5.5 9.2q9.7-5.1 18.8-11.4m-10.5 11.1q8.2-4.4 16.5-8.6m-2.7 8.7q6.9-3.3 13.7-6.9m-3.9 6.2q7.5-2.3 14.5-5.5m-7 6.1q7.2-3.6 14.7-6.7m-4.6 5.6q10.1-3.7 19.7-8.3m-14.9 9q7.6-3.2 15.4-6.2m-2.8 3.9q8.5-3.6 17.1-7.1m-1.4 9q11.8-5.3 23.3-11.5m-16.6 12.1q7.3-3.3 14.3-7.3m.6 4.9q9.2-4.6 18.2-9.6m-14.1 10.5q6.8-3.6 13.7-7m-8.3 7q9-4.6 18.1-9.1m-1.1 10.9q8.7-4.1 17-9.2m-11 9.2q8.1-4.2 16.3-7.9m-3.6 7.7q5.9-4.2 11.8-8.4m-6.1 9.9q10.9-7 21.3-14.8m-8.9 13.5q10.1-4.4 19.8-9.6m-10.8 8q8.4-3.5 16.4-7.9m6.9 9.3q6.2-3.4 12.6-6.6m25.7 5.6q7.4-3.8 14.9-7.5m-7 7q5.4-2.2 10.2-5.2m4 7.4q7.8-3.9 15.2-8.7m3.3 7.8q6-3.4 12.1-6.8m15.3 5.6q8.1-4 16.4-7.7m-10.7 9.2q9-4 17.8-8.4m10.4 6.3q4.8-2.2 9.6-4.6m2.3 7.3q9.9-6.4 19.8-12.8m.6 10.4q6.3-3.8 12.1-8.5m18.9 9.1q5.9-3.7 12-7.2m9.9 8.4q5.7-4.2 11.7-8.1m9.4 8.5q6.8-3.3 13-7.6m-2 5.7q9.5-4.8 18.6-10.4m-12.3 11.1q8.8-4.7 17.7-9m17.6 9.3q9.5-4.2 18.5-9.4m11 9.4q6.7-3.8 12.9-8.4m-4.6 7.9q8.8-4.2 17.4-9.1m.3 8.2q6.3-3.2 12.8-6.1m-8.3 6q7.2-3.3 14.6-6.4m-13.4 7.9q9.5-4 19.1-7.7m4.8 6.2q8-3.6 15.9-7.4m-9.9 7q4.1-1.9 8.4-3.5m-1 6.4q6.8-3.9 13.7-7.6m-2.3 4.1q6.1-2.6 11.7-6.1m-1.3 9.1q7.5-4.5 14.8-9m-3.2 7.6q5.2-2.6 10-5.8m18 6.4q5.8-2.8 11-6.5m-7.1 6.8q8.5-4.6 17-9.3m-10.7 9.1q5.7-3.2 11.1-6.6m20.9 7.8q5.8-2.3 10.9-5.7'/%3E%3C/svg%3E");
+	--torn-tone-beside: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='600' viewBox='-12 0 12 600'%3E%3Cpath fill='none' stroke='black' stroke-width='0.6' stroke-linecap='round' stroke-opacity='0.3' d='m-4.9 .8q.7-.2 1.3-.7m-.7 2.4q1.9-1.5 4-2.5m-4.6 5.2q1.9-.8 3.6-1.8m-3.1 3.7q1.7-.5 3.4-1.1m-3.8 5.9q2-.8 3.9-1.6m-3.4 4.4q1.8-.9 3.5-2.2m-4.3 4.5q2.7-.5 4.8-2m-4.7 10.7q2.1-.4 4-1.4m-4 4.6q2.2-1.6 4.5-2.8m-3.6 4.6q1.4-1 2.9-1.6m-3.7 3.6q2.4-1 4.6-2.6m-3.6 4.3q1.9-.8 3.7-1.7m-4.6 5.4q2.1-.9 4.4-1.4m-3.4 7.7q1.3-.6 2.7-1.2m-2.3 3q1.3-.7 2.4-1.7m-3.4 5.2q1.7-.7 3.5-1.2m-3 3.9q1.9-.8 3.7-1.9m-2.9 3.6q1.8-.1 3.1-1m-3.7 5.1q1.7-.8 3.5-1.3m-3.4 3.1q1.5-.7 3.1-1.1m-2.9 2.7q1.6-.1 2.8-.9m-3 5.2q1.3-.5 2.6-1.1m-2.7 3.4q1.9-.5 3.2-2.1m-2.9 5.4q1-1 2.2-1.9m-2.7 3.7q1.6-.7 2.9-1.6m-2.9 5.2q1.7-.7 3.4-1.5m-3.8 4.5q2-1 4-2.1m-3.7 4.5q1.9-.5 3.6-1.6m-4 4.2q2-1.4 4.2-2.4m-4.3 4.2q2-.6 3.4-2.1m-3.3 5.7q1.7-.8 3.2-1.7m-2.8 3.7q1.9-1.1 3.8-2.1m-4.6 4.4q2.6-.8 4.8-2.1m-4.3 4.6q1.9-.7 3.5-2m-4.4 5q2-1.2 4-2.3m-3.8 4q2.5-.7 4.5-2.4m-4.5 4.4q1.7-1.4 3.6-2.4m-3.1 7.3q2-.9 3.9-1.8m-3.8 4.1q1.9-.7 3.5-1.8m-3.4 5q1.8-.7 3.2-1.9m-3.3 4.4q1.8-1.1 3.5-2.1m-3.1 3.3q2.3-.6 4-2.2m-4.2 4.6q1.4-1.4 2.9-2.5m-2.6 4.6q1.8-1 3.1-2.8m-3.3 4.4q1.7-1.2 3.6-1.9m-3 3.6q1.7-.7 3-2.1m-3.7 4.2q1.9-1.3 3.7-2.6m-3.8 5.8q1.7-1.1 3.5-1.8m-4.1 4.6q1.9-.9 3.9-1.6m-4 4.6q2.5-1.3 4.9-2.7m-4.8 4.5q1.8-.8 3.4-2m-2.7 6.4q1.5-.9 2.7-2.4m-2.8 4.7q1.6-.7 2.7-2m-2.6 3.9q2.1-1 3.7-3m-4.6 4.6q2.3-1.3 4.6-2.4m-4.3 5.5q2.4-1.4 4.3-3.7m-4.2 6.2q1.9-.3 3.3-1.6m-3.3 3.8q2.6-.5 4.8-1.8m-5.2 4.6q2-.7 3.9-1.5m-3.3 4.5q1.9-.9 4-1.5m-4.1 5.6q2.3-1.3 4.4-3m-3.4 4.9q1.7-.7 3-2.4m-2.7 6.1q1-1.1 2-2m-2.3 7.6q1.4-1.3 3-2.1m-3.5 8.5q1.9-1.2 4.1-2m-4.1 3.9q2.2-.9 4-2.3m-4.2 5.4q2.1-.6 3.6-2.1m-3.6 4.1q1.7-.5 3.2-1.5m-2.9 3.6q2.1-.6 3.7-2m-4.1 3.7q1.6-.7 3.3-1.2m-3.4 4.3q2.1-1 3.9-2.6m-3.6 5.8q2.4-.3 4.3-1.6m-4.9 4.4q2.5-.5 4.6-1.8m-4.6 3.5q2.2-.3 3.9-1.4m-3.7 9q2.1-1 4.1-2.3m-3.9 4.8q2-.5 3.5-2.1m-3.6 4.8q2-1 3.9-2.3m-4 5q2.3-1 4.3-2.2m-4.2 6.5q2-.7 3.7-2m-3.2 4.2q1.4-1 2.6-2.3m-2.8 5.6q1.9-1.4 3.9-2.8m-3.9 4.8q1.7-.7 3.3-1.4m-3.1 3.9q2.1-.8 3.6-2.5m-3.7 5.7q1.6-.8 3-1.9m-2.9 6.3q2.1-.4 3.8-1.7m-3.8 4q1.3-.7 2.8-1m-2.9 5.9q1.8-1.1 3.4-2.6m-3.8 4.2q1.9-1.2 4-2.1m-4.1 4.8q1.7-1 3.6-1.7m-3 3.5q2.1-.9 3.8-2.4m-4.6 10.5q2.3-.4 4.3-1.3m-3.8 3.3q1.6-.6 3.1-1.3m-3.7 5.3q1.9-.9 3.7-1.9m-3.4 3.3q1.9-.6 3.6-1.7m-4 4.4q1.8-.8 3.6-1.6m-2.8 5.1q2.1-.9 4.3-1.7m-4.2 5.3q1.8-.4 3.3-1m-3.8 3.9q1.7-.7 3.5-1.2m-2.4 3.6q1.6-.5 2.7-1.9m-2.3 4.7q1.7-.5 3-1.6m-4 3.7q2.1-.7 4-1.9m-3.5 4.8q1.5-1.2 3.1-2.2m-2.8 11.5q1.6 .2 2.7-.6m-3.5 4.1q2-.4 3.6-1.7m-3.9 4.3q2-.1 3.4-1.3m-3.7 5.7q1.9-.7 3.7-1.7m-3.3 3.1q1.8-.7 3.8-1.3m-4 4.1q2.2-.7 4-2.2m-4.2 6.7q1.7-1.2 3.2-2.5m-3.5 4.3q2.2-1.2 4.2-2.6m-3.4 3.6q1.7-1.1 3.5-2m-4.2 4.1q1.9-.6 3.6-1.8m-3.6 4.5q2.4-1 4.5-2.4m-4.2 4.9q1.6-1.3 3.3-2.5m-4.2 5.4q3-.5 5.6-1.9m-5.2 4.8q2.4-.9 4.5-2.2m-4.3 5q1.8-.8 3.7-1.5m-3.6 3.2q2.1-1 4.3-2.3m-3.1 3.9q1.8-.6 3.2-1.8m-4 4.8q2.2-1 4.1-2.7m-3.7 6.4q1.8-.8 3.6-1.7m-3.4 3.8q1.6-.3 2.9-1m-2.7 3.1q1.6-.2 2.8-1.1m-2.8 3.1q1.7-1 3.3-2.1m-3 4.9q1.3-.7 2.4-1.8m-2.5 3.6q1.5-.4 2.6-1.7m-3.1 4.3q2.1-.1 3.6-1.4m-3.8 3.7q2.1-1 4-2.5m-4.5 4.2q1.8-.9 3.8-1.4m-3.2 3.5q1.7-.8 3.1-2.2m-3.7 8.5q1.8-1.4 3.7-2.4m-4.4 6.2q1.9-1.4 4-2.4m-4.1 4.1q2.3-.8 4.4-2.1m-3.3 5.4q1.9-1.7 3.9-2.8m-4 4.2q1.8-.7 3.5-1.7m-4.3 4.2q2.2-1.1 4.2-2.5m-4.3 5.4q2.6-.9 4.6-2.8m-4.4 6.9q2.1-1.2 3.8-3m-3.2 4.6q1.7-1.3 3.5-2.3m-3.3 4.7q2.1-1.3 4.2-2.5m-4.9 5.2q2.1-.5 3.7-1.9m-3.9 4q2.3-.5 4.2-1.9m-4.3 5.7q2.7-.8 5.1-2.2m-4.8 4.7q2.2-1 4-2.5m-2.9 6q1.3-1 2.4-2.3m-3.4 7.2q2.1-.7 3.8-2m-3.7 6.4q1.7-.9 3.3-2.1m-2.7 2.9q2-.9 4.1-1.5m-4.1 3.6q2.2-.7 4-2.3m-3.5 3.6q1.4-.3 2.5-1.1m-2.1 4q1.5-.6 2.6-1.8m-2.8 4.7q1.4-1.1 2.7-2.4m-2.8 4.4q2-.4 3.5-1.8m-3.8 9.4q1.3-.7 2.8-1.1m-3.1 4q1.9-.3 3.4-1.5m-3.6 3.5q2-.9 4.2-1.5m-3.5 3.9q1.3-.4 2.5-.8m-3.7 3.7q2-1.2 4-2.4m-4.1 4.1q2.2-.9 4.4-1.8m-3.7 7.1q1.8-.7 3.4-1.7m-3.8 4.6q2.6-.8 4.7-2.4m-4.7 5.8q2.1-.9 4.2-1.7m-3.8 7.9q1.6-1.2 3.4-2m-3.4 3.7q1.7-.9 3.5-1.7m-3.1 8.3q1.8-.8 3.4-1.8m-3.5 3.7q1.6-.7 2.8-1.9m-2.5 10.8q1.3-.5 2.3-1.4m-3 4.6q1.8-1.3 3.8-2.2m-4 5.4q1.5-.9 3.2-1.8m-3.3 4.5q2.3-1 4.3-2.7m-4.4 8.9q2.5-1.1 4.8-2.7m-5.2 7.3q2.3-.4 4.4-1.2m-4.2 3.2q2.8-.7 5-2.3m-4.5 4.7q1.5-.7 3.2-1.1m-2.9 6.9q1.8-1.2 3.8-2.2m-4.1 4.7q2-1.4 4.2-2.4m-4.5 4q2.2-1.1 4.6-1.9m-4.4 4.4q2.2-.3 4-1.4m-3.7 4.4q2.1-.6 3.7-2m-2.8 3.5q1.6 0 2.6-.9m-3 3.1q1.8-.6 3.2-1.9m-3.1 4.8q1.7-.9 3.1-2.2m-3 4.3q1.7-.7 3.3-1.5m-3.4 3.6q1.7-1 3.4-2.1m-3.4 4.4q1.5-.5 2.9-1.4m-2.5 3.2q1.6-.6 2.9-1.6m-2.9 3.8q1.6-.3 2.9-1.1m-3.4 4.6q1.7-.7 3.4-1.4m-3.2 3.5q1.7-.7 3.4-1.5m-3 5.7q1.6-.9 2.9-2.1m-3.2 5q1.8-.7 3.2-2.2m-2.6 5.5q1.1-.3 2.2-.6m-3.4 3.6q1.6-.4 3.2-1m-3.2 6.9q1.6-.7 3.1-1.7m-3.5 5.3q2.1-.3 3.7-1.7m-3.1 3.8q1.5-1.4 3.2-2.3m-3.6 4.2q1.7-1.5 3.6-2.7m-4 5.2q2.2-.4 4.1-1.3m-3.4 3.1q1.7-.4 2.9-1.8m-3.4 3.8q2.1-.6 3.6-2m-3 7.7q1.1-1 2.5-1.6m-3.5 4.4q2.1-.5 4-1.4m-3.4 2.9q1.9-.3 3.5-1.4m-.3 2.1q.7-.1 1.1-.8m-11.4-595.6q2.9-1.7 5.9-2.9m-6.6 17.2q4.3-2.7 8.8-5m-8.9 9.7q5.1-2.9 10.4-5.4m-10.8 9.1q6.5-2.7 12.6-6.1m-11.1 28.5q3.5-2.1 7.2-3.8m-7.4 15.2q3.8-1.6 7.2-4.1m-5.9 6.4q5-2.8 9.8-6.1m-9 9.9q2.4-1.2 4.7-2.6m-7.9 8.9q3.8-2 7.5-3.9m-5 6.3q4.6-2.4 9.2-4.9m-7.7 18.1q2.9-1.5 6.1-2.6m-8.7 12.8q5.2-3.2 10.2-6.8m-11.5 13.7q4.5-2.4 9.1-4.8m-10.1 12.8q5.6-2.7 11.4-5.1m-8.2 24.1q2.9-1.8 5.9-3.2m-5.3 6.3q3.2-1.8 6.2-4m-6.8 14.4q3.6-2.3 7.3-4.3m-8.3 22q5.3-2 10.7-4.1m-10.5 13.6q4-1.3 7.7-3.3m-7.6 9.7q4.6-2.3 8.7-5.2m-6.9 7.1q4.3-2 8.2-4.5m-9.4 12.4q3.7-2.6 7.4-5.3m-7 18.5q3.3-2.4 6.7-4.4m-9.5 20.4q5.6-3 11.2-5.8m-12.6 28.9q6.1-1.8 11.7-4.5m-8.7 19.1q3-1.4 6-2.7m-6.6 5.4q5.7-1.7 11-4.3m-12.6 14.7q4.7-2.1 9.2-4.6m-9 8.8q5.3-3 10.7-5.9m-9.8 20.9q5.1-2.5 10.2-5.1m-9.2 13q5.5-3.5 10.7-7.5m-10.2 12.7q4.6-2.5 8.9-5.4m-7.7 11.6q2.8-1.2 5.2-3.3m-7.1 7q3.3-2.4 6.9-4.3m-6.5 16.7q3.7-1.6 7.3-3.5m-7.4 11.3q4.2-1.7 8.5-3.2m-7.9 23.4q5-2.1 9.4-5.2m-9.5 17.1q3.7-1.4 7-3.5m-7.9 10.2q4.6-2.5 9.2-4.9m-10.1 7.9q6.4-2.1 12.3-5m-12.3 12.3q5.6-2.5 11.3-4.7m-8.6 11.5q2.7-1.7 5.3-3.5m-8.1 12.5q5.1-3.3 10.3-6.2m-10.3 9.3q6.3-3.3 12.3-7.1m-11.2 11.8q5.7-2.8 10.7-6.6m-10.8 12.6q3.1-2.3 6.5-4.2m-6.6 7.7q3.8-2.5 7.8-4.7m-5.7 8.6q3.2-2 6.2-4.3m-5 7.5q3.4-2.1 7-4m-9 8.3q3.1-2.1 6.2-4.4m-6 13.8q3.4-2 6.7-4.2m-7.1 8.6q3.7-1.5 6.9-4.1m-8.2 15.4q4.4-2.1 8.5-4.6m-9.9 15.1q6.2-3.3 12.1-7m-10 13.7q3.3-1 6.2-2.8m-6.4 9.1q5.3-2.5 10.9-4.5m-10.5 9q3.7-1.2 7.2-2.7m-8.1 15.9q4.7-2.6 9.5-4.9m-6.8 23.2q3.5-2 6.7-4.3m-9.7 12.8q5.3-3.1 10.3-6.9m-9.5 16.9q4.6-2.4 8.7-5.9m-8.2 16.5q3.7-1.3 7.1-3.1m-6.7 7.8q4.3-2.6 8.7-5m-8.3 10.6q3-2.5 6.2-4.8m-5.8 6.9q3.8-2.4 7.7-4.6m-9 31.4q4.3-2.2 8.3-4.9m-9.4 19.7q5.8-3.5 11.5-7.3m-11.2 10.7q3.6-2.6 7.3-5.1m-6.4 8.8q3.6-2.2 7.3-4.6'/%3E%3C/svg%3E");
+}
+/* end torn-strip art */

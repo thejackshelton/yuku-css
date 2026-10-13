@@ -1,0 +1,103 @@
+
+			.code-panel {
+				margin-block: var(--space-m);
+			}
+
+			.panel {
+				border: 1px solid var(--code-edge);
+				border-radius: 8px;
+				background: var(--raised);
+				overflow: clip;
+			}
+
+			.strip {
+				padding: 0.35em 0.5em 0;
+				border-bottom: 1px solid var(--code-edge);
+			}
+
+			.strip-row {
+				display: flex;
+				gap: 0.2em;
+			}
+
+			.tab {
+				padding: 0.25em 0.75em;
+				border: 0;
+				border-radius: 6px 6px 0 0;
+				background: transparent;
+				color: var(--ink);
+				font-family: var(--font-mono);
+				font-size: var(--step--2);
+				opacity: 0.6;
+				cursor: pointer;
+			}
+
+			.tab[ui-selected] {
+				background: var(--paper);
+				opacity: 1;
+				font-weight: 700;
+			}
+
+			/* The clamp: the code always shows, and opening only lifts the ceiling. */
+			.clamp {
+				position: relative;
+			}
+
+			.code {
+				max-height: 150px;
+				overflow: clip;
+			}
+
+			.clamp[ui-open] .code {
+				max-height: none;
+				overflow: visible;
+			}
+
+			pre {
+				margin: 0;
+				padding: var(--space-s);
+				font-family: var(--font-mono);
+				font-size: var(--step--2);
+				line-height: 160%;
+				overflow-x: auto;
+			}
+
+			.line {
+				display: block;
+				white-space: pre;
+			}
+
+			.fade {
+				position: absolute;
+				inset-inline: 0;
+				bottom: 0;
+				height: 5rem;
+				background: linear-gradient(to bottom, transparent, var(--raised) 70%);
+				pointer-events: none;
+			}
+
+			/* The whole faded strip is the target, so a reader can click the code
+			   they cannot read yet rather than hunting for a small control. */
+			.expand {
+				position: absolute;
+				inset-inline: 0;
+				bottom: 0;
+				height: 5rem;
+				display: flex;
+				align-items: flex-end;
+				justify-content: center;
+				padding-bottom: 0.6em;
+				border: 0;
+				background: transparent;
+				color: var(--ink);
+				font: inherit;
+				font-size: var(--step--1);
+				font-weight: 700;
+				cursor: pointer;
+			}
+
+			.clamp[ui-open] .fade,
+			.clamp[ui-open] .expand {
+				display: none;
+			}
+		

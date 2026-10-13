@@ -1,0 +1,12 @@
+
+			@layer markless {
+				[ui-surface] {
+					touch-action: none;
+					-webkit-user-select: none;
+					user-select: none;
+				}
+				[ui-stroke] { fill: currentColor; stroke: none; }
+				[ui-current]:not([ui-drawing]) { display: none; }
+				[ui-guide] { fill: none; stroke: currentColor; }
+			}
+		

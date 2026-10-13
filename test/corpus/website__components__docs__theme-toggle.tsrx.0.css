@@ -1,0 +1,41 @@
+
+			.theme-toggle-island {
+				position: fixed;
+				top: 0;
+				right: var(--space-s-l);
+				z-index: 40;
+				block-size: var(--header-height);
+				display: flex;
+				align-items: center;
+				font-size: var(--step--1);
+			}
+
+			/* The drawing inside the button. It is a die-cut sticker with its own white
+			   border and shadow, so it is given the button's whole box and no chrome of its
+			   own: the ring the button used to draw around a glyph would be a second edge
+			   around an edge. */
+			.theme-toggle-icon {
+				display: block;
+				inline-size: var(--theme-toggle-size);
+				block-size: var(--theme-toggle-size);
+				object-fit: contain;
+			}
+
+			/* The button offered is the one for the palette not painted: theme.js
+			   resolves `system` and puts the painted palette on <html> as a class. */
+			.theme-toggle-to-dark {
+				display: inline-flex;
+
+				html.dark & {
+					display: none;
+				}
+			}
+
+			.theme-toggle-to-light {
+				display: none;
+
+				html.dark & {
+					display: inline-flex;
+				}
+			}
+		

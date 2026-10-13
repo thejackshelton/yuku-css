@@ -1,0 +1,16 @@
+
+			.tr-board {
+				display: grid;
+				grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+				gap: 1.5em;
+				align-items: start;
+				width: min(38rem, 100%);
+			}
+
+			@media (max-width: 600px) {
+				.tr-board {
+					grid-template-columns: minmax(0, 1fr);
+					gap: 1.2em;
+				}
+			}
+		

@@ -1,0 +1,110 @@
+
+			.pg-hint {
+				position: relative;
+				display: inline-flex;
+				align-items: center;
+			}
+
+			.pg-dot {
+				display: inline-grid;
+				place-items: center;
+				box-sizing: border-box;
+				width: 1.1em;
+				height: 1.1em;
+				padding: 0;
+				border: 0;
+				background: transparent;
+				color: var(--ink);
+				opacity: 0.85;
+				font: inherit;
+				font-size: inherit;
+				font-weight: 700;
+				line-height: 1;
+				cursor: help;
+			}
+
+			.pg-dot:hover,
+			.pg-dot:focus-visible {
+				opacity: 1;
+			}
+
+			.pg-tip {
+				position: absolute;
+				inset-block-start: calc(100% + 0.35em);
+				inset-block-end: auto;
+				inset-inline-start: 0;
+			}
+
+			.pg-tip {
+				z-index: 40;
+				width: max-content;
+				max-width: min(36ch, calc(100vw - 2 * var(--space-s-l)));
+				margin: 0;
+				padding: 0.15em 0;
+				border: 0;
+				border-radius: 6px;
+				background: var(--slab);
+				box-shadow: 3px 3px 0 var(--pg-accent);
+				color: var(--slab-ink);
+				font-family: 'Joy Elia', system-ui, sans-serif;
+				font-size: var(--step--1);
+				line-height: 1.4;
+				text-align: start;
+				white-space: normal;
+			}
+
+			.pg-tip .tsrx-tip-title,
+			.pg-tip .tsrx-tip-body,
+			.pg-tip .tsrx-tip-type {
+				display: block;
+				background: transparent;
+				border: 0;
+				color: inherit;
+			}
+
+			.pg-tip .tsrx-tip-title {
+				padding: 0.45em 0.75em 0.35em;
+				font-family: var(--font-mono);
+				font-size: var(--step--2);
+				font-weight: 700;
+			}
+
+			.pg-tip .tsrx-tip-body {
+				padding: 0 0.75em 0.5em;
+			}
+
+			.pg-tip .tsrx-tip-body:empty {
+				display: none;
+			}
+
+			.pg-tip .tsrx-tip-type {
+				padding: 0.4em 0.75em;
+				border-block-start: 1px solid color-mix(in oklch, var(--slab-ink) 30%, transparent);
+				font-family: var(--font-mono);
+				font-size: var(--step--2);
+				opacity: 0.8;
+			}
+
+			.pg-tip:is([ui-closed], [hidden]) {
+				display: none;
+			}
+
+			@supports (position-area: block-end) {
+				.pg-hint {
+					anchor-scope: --pg-hint;
+				}
+
+				.pg-dot {
+					anchor-name: --pg-hint;
+				}
+
+				.pg-tip {
+					position: fixed;
+				inset: auto;
+				position-anchor: --pg-hint;
+				position-area: block-end span-inline-end;
+				position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+					margin-block: 0.35em;
+				}
+			}
+		

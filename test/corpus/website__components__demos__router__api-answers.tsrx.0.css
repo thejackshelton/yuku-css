@@ -1,0 +1,88 @@
+
+			.said,
+			.said :where(span, b) {
+				font-family: var(--pg-font);
+			}
+
+			.board {
+				display: grid;
+				grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+				gap: 0.6em;
+				align-items: center;
+				width: 100%;
+			}
+
+			.box {
+				box-sizing: border-box;
+				min-width: 0;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+				overflow: hidden;
+			}
+
+			.head {
+				padding: 0.35em 0.85em;
+				border-block-end: 1px solid var(--pg-edge);
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+			}
+
+			.body {
+				padding: 0.6em 0.85em;
+				font-family: var(--font-mono);
+				font-size: 0.85em;
+				line-height: 1.5;
+				overflow-wrap: anywhere;
+			}
+
+			.board[data-file='none'] .reply .body {
+				background: color-mix(in srgb, var(--pink) 18%, var(--paper));
+			}
+
+			.files {
+				display: grid;
+				margin: 0;
+				padding: 0.35em 0;
+				list-style: none;
+			}
+
+			.file {
+				margin: 0;
+				padding: 0.3em 0.85em;
+				font-family: var(--font-mono);
+				font-size: 0.85em;
+				line-height: 1.5;
+				overflow-wrap: anywhere;
+				transition: background 140ms ease;
+			}
+
+			.board[data-file='health'] .health,
+			.board[data-file='user'] .user {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			.arrow {
+				color: var(--ink);
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-size: var(--step-0);
+			}
+
+			@media (max-width: 40rem) {
+				.board {
+					grid-template-columns: minmax(0, 1fr);
+					justify-items: stretch;
+				}
+
+				.arrow {
+					justify-self: center;
+					rotate: 90deg;
+				}
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.file {
+					transition: none;
+				}
+			}
+		

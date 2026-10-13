@@ -1,0 +1,88 @@
+
+			.marker-sweep {
+				position: absolute;
+				inset: -0.12em -0.28em;
+				width: calc(100% + 0.56em);
+				height: calc(100% + 0.24em);
+				z-index: 1;
+				overflow: visible;
+				fill: none;
+				stroke: var(--sweep, var(--yellow));
+				stroke-linecap: round;
+				mix-blend-mode: var(--sweep-blend, multiply);
+				pointer-events: none;
+				--sweep-time: 420ms;
+			}
+
+			.marker-sweep[data-tone='pink'] {
+				--sweep: var(--pink);
+			}
+
+			.marker-sweep[data-tone='green'] {
+				--sweep: var(--green-star);
+			}
+
+			.marker-sweep[data-tone='purple'] {
+				--sweep: var(--purple);
+			}
+
+			path {
+				stroke-dasharray: 100 200;
+				stroke-dashoffset: 100;
+				animation-duration: var(--sweep-time);
+				animation-delay: var(--sweep-delay, 0ms);
+				animation-timing-function: cubic-bezier(0.25, 0.6, 0.3, 1);
+				animation-fill-mode: both;
+			}
+
+			.pass {
+				stroke-width: 15;
+				opacity: 0.85;
+			}
+
+			.edge {
+				stroke-width: 5;
+				opacity: 0.55;
+			}
+
+			.low {
+				opacity: 0.4;
+			}
+
+			.marker-sweep[data-beat='rest'] {
+				visibility: hidden;
+			}
+
+			.marker-sweep[data-beat='odd'] path {
+				animation-name: sweep-odd;
+			}
+
+			.marker-sweep[data-beat='even'] path {
+				animation-name: sweep-even;
+			}
+
+			@keyframes sweep-odd {
+				from {
+					stroke-dashoffset: 100;
+				}
+				to {
+					stroke-dashoffset: 0;
+				}
+			}
+
+			@keyframes sweep-even {
+				from {
+					stroke-dashoffset: 100;
+				}
+				to {
+					stroke-dashoffset: 0;
+				}
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.marker-sweep path {
+					animation: none !important;
+					stroke-dashoffset: 0;
+				}
+			}
+		

@@ -1,0 +1,542 @@
+
+			.anatomy {
+				margin: var(--space-m) 0;
+				container: anatomy / inline-size;
+			}
+
+			.stage {
+				display: block;
+				width: 100%;
+				padding: 0;
+				border: 0;
+				background: none;
+				color: inherit;
+				cursor: pointer;
+				border-radius: 12px;
+			}
+
+			.stage:focus-visible {
+				outline: 2px dashed var(--ink);
+				outline-offset: 4px;
+			}
+
+			.scene {
+				display: block;
+				width: 100%;
+				height: auto;
+				overflow: visible;
+				--sheet: color-mix(in oklch, var(--paper) 50%, white);
+				--sheet-ink: var(--ink);
+				--shade: color-mix(in oklch, var(--ink) 24%, transparent);
+				--shade-ink: var(--ink);
+				--bean: oklch(44% 0.08 50);
+
+				html.dark & {
+					--sheet: color-mix(in oklch, var(--ink) 94%, var(--yellow));
+					--sheet-ink: var(--paper);
+					--shade: rgb(0 0 0 / 0.55);
+				--shade-ink: rgb(0 0 0 / 0.85);
+					--bean: oklch(48% 0.08 55);
+				}
+			}
+
+			.sheet-paper,
+			.tag-paper {
+				fill: var(--sheet);
+			}
+
+			.sheet-ink,
+			.tag-ink {
+				fill: var(--sheet-ink);
+			}
+
+			.sheet-hatch,
+			.tag-hatch {
+				fill: none;
+				stroke: var(--sheet-ink);
+				stroke-width: 0.6;
+				stroke-linecap: round;
+				opacity: 0.8;
+			}
+
+			.jar-ink {
+				fill: var(--ink);
+			}
+
+			.thin,
+			.faint {
+				opacity: 0.7;
+			}
+
+			.light {
+				opacity: 0.55;
+			}
+
+			.hatch {
+				fill: none;
+				stroke: var(--ink);
+				stroke-width: 0.75;
+				stroke-linecap: round;
+			}
+
+			.deep {
+				stroke: var(--shade-ink);
+			}
+
+			.bean-hatch {
+				fill: none;
+				stroke: var(--shade-ink);
+				stroke-width: 0.55;
+				stroke-linecap: round;
+				opacity: 0.8;
+			}
+
+			.shadow-wash {
+				fill: var(--shade);
+			}
+
+			.shadow-ink {
+				fill: var(--shade);
+				opacity: 0.9;
+			}
+
+			.glass {
+				fill: color-mix(in oklch, var(--paper) 72%, transparent);
+			}
+
+			.lid-paper,
+			.cord {
+				fill: var(--paper);
+			}
+
+			.brass {
+				fill: var(--paper);
+			}
+
+			.bean-fill {
+				fill: var(--bean);
+			}
+
+			.wash {
+				stroke-width: 1.2;
+				mix-blend-mode: multiply;
+			}
+
+			.yellow {
+				fill: var(--yellow);
+				stroke: var(--yellow);
+				opacity: 0.85;
+			}
+
+			.pink {
+				fill: var(--pink);
+				stroke: var(--pink);
+				opacity: 0.6;
+			}
+
+			.pool {
+				fill: color-mix(in oklch, var(--yellow) 70%, oklch(70% 0.16 70));
+				stroke: none;
+				opacity: 0.5;
+			}
+
+			.pink.pool {
+				fill: var(--pink);
+				opacity: 0.45;
+			}
+
+			.wash-edge {
+				fill: none;
+				stroke: oklch(72% 0.15 75);
+				stroke-width: 1;
+				opacity: 0.55;
+				mix-blend-mode: multiply;
+			}
+
+			.brass-wash {
+				fill: color-mix(in oklch, var(--yellow) 70%, oklch(60% 0.12 70));
+				stroke: none;
+				opacity: 0.8;
+
+				html.dark & {
+					mix-blend-mode: normal;
+				}
+			}
+
+			.page-text,
+			.shop,
+			.price,
+			.button-text,
+			.digit,
+			.url,
+			.tag-text {
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				fill: var(--sheet-ink);
+			}
+
+			.page-text,
+			.shop,
+			.price {
+				font-size: 10px;
+				font-weight: 600;
+			}
+
+			.shop {
+				font-size: 14px;
+				font-weight: 800;
+			}
+
+			.price {
+				font-size: 15px;
+				font-weight: 800;
+			}
+
+			.label {
+				font-size: 12px;
+				font-weight: 700;
+				stroke: none;
+				fill-opacity: 1;
+			}
+
+			.digit {
+				font-size: 18px;
+				font-weight: 800;
+			}
+
+			.badge-digit {
+				font-size: 9px;
+				text-anchor: middle;
+			}
+
+			.kraft {
+				fill: color-mix(in oklch, var(--sheet) 80%, oklch(72% 0.07 65));
+			}
+
+			.kraft-wash {
+				fill: oklch(72% 0.07 65);
+				stroke: oklch(72% 0.07 65);
+				opacity: 0.35;
+			}
+
+			.boot {
+				fill: oklch(48% 0.15 25);
+
+				html.dark & {
+					fill: oklch(52% 0.15 25);
+				}
+			}
+
+			.url {
+				font-size: 6.5px;
+				opacity: 0.75;
+			}
+
+			.button-text {
+				font-size: 8.4px;
+				font-weight: 700;
+				text-anchor: middle;
+			}
+
+			.tag-text {
+				font-size: 6.5px;
+				font-weight: 700;
+			}
+
+			.strike {
+				fill: none;
+				stroke: var(--sheet-ink);
+				stroke-width: 1.3;
+				stroke-linecap: round;
+				stroke-dasharray: var(--l);
+			}
+
+			.old {
+				font-size: 12px;
+				font-weight: 600;
+				opacity: 0.55;
+			}
+
+			.old.small {
+				font-size: 9px;
+			}
+
+			.hand {
+				font-family: 'Joy Elia', system-ui, sans-serif;
+				font-size: 13px;
+				letter-spacing: 0.16em;
+				fill: var(--ink);
+			}
+
+			.pencil {
+				fill: none;
+				stroke: color-mix(in srgb, var(--pink) 70%, #e0603c);
+				stroke-width: 0.7;
+				stroke-linecap: round;
+				opacity: 0.5;
+
+				html.dark & {
+					opacity: 0.32;
+				}
+			}
+
+			.pulse {
+				fill: none;
+				stroke: var(--ink);
+				stroke-width: 7;
+				stroke-linecap: round;
+				stroke-dasharray: 3 100000;
+				opacity: 0;
+			}
+
+			.scene[data-beat='odd'] {
+				--sink: sink-a;
+				--travel: travel-a;
+				--slide: slide-a;
+				--strike: strike-a;
+				--ink-in: ink-in-a;
+				--wash-in: wash-in-a;
+				--fall: drop-a;
+				--settle: settle-a;
+			}
+
+			.scene[data-beat='even'] {
+				--sink: sink-b;
+				--travel: travel-b;
+				--slide: slide-b;
+				--strike: strike-b;
+				--ink-in: ink-in-b;
+				--wash-in: wash-in-b;
+				--fall: drop-b;
+				--settle: settle-b;
+			}
+
+			.scene[data-wired='no'][data-beat] {
+				--slide: none;
+				--strike: none;
+				--ink-in: none;
+				--wash-in: none;
+			}
+
+			.press {
+				animation: var(--sink) 420ms cubic-bezier(0.3, 0.7, 0.4, 1);
+			}
+
+			.to-jar {
+				animation: var(--travel) 620ms 240ms ease-in-out both;
+			}
+
+			.to-page {
+				animation: var(--travel) 760ms 1150ms ease-in-out both;
+			}
+
+			.crossed {
+				animation: var(--slide) 300ms 2250ms cubic-bezier(0.3, 0.7, 0.4, 1) both;
+			}
+
+			.crossed[data-mark='none'] {
+				display: none;
+			}
+
+			.newest .strike {
+				animation: var(--strike) 260ms 1950ms ease-out both;
+			}
+
+			.now {
+				stroke: var(--sheet-ink);
+				stroke-width: 0.3;
+				stroke-dasharray: 46;
+				animation: var(--ink-in) 640ms 2300ms ease-out both;
+			}
+
+			.spot {
+				animation: var(--wash-in) 520ms 2400ms ease-out both;
+			}
+
+			.bean {
+				opacity: clamp(0, calc(var(--cart) - var(--i)), 1);
+			}
+
+			.falling {
+				opacity: 0;
+				animation: var(--fall) 460ms 860ms cubic-bezier(0.5, 0, 0.8, 0.6) both;
+			}
+
+			.scene[data-beat='odd'] .bean,
+			.scene[data-beat='even'] .bean {
+				transition: opacity 0s 1320ms;
+			}
+
+			@keyframes sink-a {
+				35% {
+					transform: translate(var(--sink-x), var(--sink-y));
+				}
+			}
+
+			@keyframes sink-b {
+				35% {
+					transform: translate(var(--sink-x), var(--sink-y));
+				}
+			}
+
+			@keyframes travel-a {
+				0% {
+					opacity: 1;
+					stroke-dashoffset: 2;
+				}
+
+				92% {
+					opacity: 1;
+				}
+
+				100% {
+					opacity: 0;
+					stroke-dashoffset: calc(var(--len) * -1px);
+				}
+			}
+
+			@keyframes travel-b {
+				0% {
+					opacity: 1;
+					stroke-dashoffset: 2;
+				}
+
+				92% {
+					opacity: 1;
+				}
+
+				100% {
+					opacity: 0;
+					stroke-dashoffset: calc(var(--len) * -1px);
+				}
+			}
+
+			@keyframes slide-a {
+				from {
+					transform: translateX(var(--step));
+				}
+			}
+
+			@keyframes slide-b {
+				from {
+					transform: translateX(var(--step));
+				}
+			}
+
+			@keyframes strike-a {
+				from {
+					stroke-dashoffset: var(--l);
+				}
+
+				to {
+					stroke-dashoffset: 0;
+				}
+			}
+
+			@keyframes strike-b {
+				from {
+					stroke-dashoffset: var(--l);
+				}
+
+				to {
+					stroke-dashoffset: 0;
+				}
+			}
+
+			@keyframes ink-in-a {
+				from {
+					stroke-dashoffset: 46;
+					fill-opacity: 0;
+				}
+
+				55% {
+					fill-opacity: 0;
+				}
+
+				to {
+					stroke-dashoffset: 0;
+					fill-opacity: 1;
+				}
+			}
+
+			@keyframes ink-in-b {
+				from {
+					stroke-dashoffset: 46;
+					fill-opacity: 0;
+				}
+
+				55% {
+					fill-opacity: 0;
+				}
+
+				to {
+					stroke-dashoffset: 0;
+					fill-opacity: 1;
+				}
+			}
+
+			@keyframes wash-in-a {
+				from {
+					opacity: 0;
+				}
+			}
+
+			@keyframes wash-in-b {
+				from {
+					opacity: 0;
+				}
+			}
+
+			@keyframes drop-a {
+				from {
+					transform: translateY(var(--drop));
+					opacity: 0;
+				}
+
+				20%,
+				99% {
+					opacity: 1;
+				}
+
+				to {
+					opacity: 0;
+				}
+			}
+
+			@keyframes drop-b {
+				from {
+					transform: translateY(var(--drop));
+					opacity: 0;
+				}
+
+				20%,
+				99% {
+					opacity: 1;
+				}
+
+				to {
+					opacity: 0;
+				}
+			}
+
+			@container anatomy (max-width: 520px) {
+				.hand {
+					font-size: 21px;
+				}
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.scene * {
+					animation: none !important;
+					transition: none !important;
+				}
+			}
+
+			.sr {
+				position: absolute;
+				width: 1px;
+				height: 1px;
+				overflow: hidden;
+				clip-path: inset(50%);
+				white-space: nowrap;
+			}
+		

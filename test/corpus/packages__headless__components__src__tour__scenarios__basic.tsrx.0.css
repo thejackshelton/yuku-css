@@ -1,0 +1,4 @@
+
+			[data-testid="toolbar"] { display: flex; gap: 8px; padding: 40px; }
+			[data-testid="toolbar"] button { width: 90px; height: 30px; }
+		

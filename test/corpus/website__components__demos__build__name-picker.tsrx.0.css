@@ -1,0 +1,42 @@
+
+			button {
+				display: grid;
+				gap: 0.35em;
+				justify-items: start;
+				padding: 0.7em 1em 0.8em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+				font: inherit;
+				text-align: start;
+				cursor: pointer;
+				transition: background 140ms ease;
+			}
+
+			button::before {
+				content: 'child: Picker' / '';
+				color: var(--muted-ink);
+				font-family: var(--font-mono);
+				font-size: var(--step--2);
+			}
+
+			button:hover {
+				background: color-mix(in srgb, var(--purple) 16%, var(--paper));
+			}
+
+			button:active {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			button:focus-visible {
+				outline: 2px solid var(--ink);
+				outline-offset: 4px;
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				button {
+					transition: none;
+				}
+			}
+		

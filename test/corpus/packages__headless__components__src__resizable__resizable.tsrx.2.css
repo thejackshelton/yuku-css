@@ -1,0 +1,8 @@
+
+			@layer markless {
+				[ui-divider] { flex: none; touch-action: none; }
+				[ui-divider][ui-orientation="horizontal"] { cursor: col-resize; }
+				[ui-divider][ui-orientation="vertical"] { cursor: row-resize; }
+				[ui-divider][ui-disabled] { cursor: default; }
+			}
+		

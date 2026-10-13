@@ -1,0 +1,11 @@
+:root {
+	--muted-ink: color-mix(in oklch, var(--ink) 38%, var(--paper));
+	--marker-wash: color-mix(in oklch, var(--purple) 24%, transparent);
+	--quiet-fill: color-mix(in oklch, var(--ink) 6%, transparent);
+	--switch-on: oklch(72% 0.17 148);
+	--switch-off: oklch(64% 0.01 80);
+
+	&.dark {
+		--switch-off: oklch(42% 0.01 80);
+	}
+}

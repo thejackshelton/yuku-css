@@ -1,0 +1,6 @@
+
+			@layer markless {
+				/* A submenu is the module's only `role="menu"` inside an item, which is what tells it apart from the top surface. */
+				[role^="menuitem"] [role="menu"] { position-area: inline-end span-block-end; }
+			}
+		

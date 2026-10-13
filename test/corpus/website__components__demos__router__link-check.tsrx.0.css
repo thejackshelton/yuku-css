@@ -1,0 +1,95 @@
+
+			.said,
+			.said :where(span, b) {
+				font-family: var(--pg-font);
+			}
+
+			.board {
+				display: grid;
+				grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+				gap: 1em 1.25em;
+				align-items: start;
+				width: min(34rem, 100%);
+			}
+
+			.box {
+				box-sizing: border-box;
+				min-width: 0;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+				overflow: hidden;
+			}
+
+			.wide {
+				grid-column: 1 / -1;
+			}
+
+			.head {
+				padding: 0.35em 0.85em;
+				border-block-end: 1px solid var(--pg-edge);
+				font-family: var(--font-mono);
+				font-size: 0.85em;
+			}
+
+			.result .head {
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-size: inherit;
+			}
+
+			.code {
+				padding: 0.6em 0.85em;
+				font-family: var(--font-mono);
+				font-size: 0.85em;
+				line-height: 1.6;
+				overflow-wrap: anywhere;
+			}
+
+			.code span {
+				font-family: var(--font-mono);
+			}
+
+			.pattern {
+				padding: 0 0.1em;
+				border-radius: 3px;
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			.board[data-shown='renamed'] .pattern {
+				background: color-mix(in srgb, var(--pink) 22%, var(--paper));
+			}
+
+			.board[data-shown='no params'] .params {
+				display: none;
+			}
+
+			.files {
+				display: grid;
+				margin: 0;
+				padding: 0.35em 0;
+				list-style: none;
+			}
+
+			.file {
+				margin: 0;
+				padding: 0.3em 0.85em;
+				font-family: var(--font-mono);
+				font-size: 0.85em;
+				line-height: 1.5;
+			}
+
+			.board:is([data-shown='right'], [data-shown='no params']) .route {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			.board:not([data-shown='right']) .result {
+				background: color-mix(in srgb, var(--pink) 18%, var(--paper));
+			}
+
+			@media (max-width: 40rem) {
+				.board {
+					grid-template-columns: minmax(0, 1fr);
+				}
+			}
+		

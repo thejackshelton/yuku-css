@@ -1,0 +1,62 @@
+
+			.pv-seg {
+				display: flex;
+			}
+
+			.pv-seg-item {
+				position: relative;
+				display: flex;
+			}
+
+			.pv-seg-field {
+				position: absolute;
+				inset: 0;
+				margin: 0;
+				opacity: 0;
+				cursor: pointer;
+			}
+
+			.pv-seg-label {
+				padding: 0.3em 0.8em;
+				border: 1px solid var(--pg-edge);
+				background: var(--paper);
+				color: var(--ink);
+				font-family: var(--pg-font);
+				font-size: var(--step--1);
+				line-height: 1.3;
+				transition: background 140ms ease;
+			}
+
+			.pv-seg-item + .pv-seg-item .pv-seg-label {
+				margin-inline-start: -1px;
+			}
+
+			.pv-seg-item:first-child .pv-seg-label {
+				border-radius: 6px 0 0 6px;
+			}
+
+			.pv-seg-item:last-child .pv-seg-label {
+				border-radius: 0 6px 6px 0;
+			}
+
+			.pv-seg-item:hover .pv-seg-label {
+				background: color-mix(in oklch, var(--pg-wash) 50%, var(--paper));
+			}
+
+			.pv-seg-item:has(:checked) .pv-seg-label {
+				background: var(--pg-wash);
+			}
+
+			.pv-seg-item:has(:focus-visible) .pv-seg-label {
+				position: relative;
+				z-index: 1;
+				outline: 2px solid var(--ink);
+				outline-offset: 2px;
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.pv-seg-label {
+					transition: none;
+				}
+			}
+		

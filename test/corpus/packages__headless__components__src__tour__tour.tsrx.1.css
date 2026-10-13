@@ -1,0 +1,16 @@
+
+			@layer markless {
+				/* Intro.js's spotlight: the box IS the hole and the dim is its own shadow, so only geometry is written here and the colour, the corner radius and any transition stay the consumer's. */
+				[ui-spotlight] {
+					position: fixed;
+					position-anchor: --tour-target;
+					top: anchor(top);
+					left: anchor(left);
+					width: anchor-size(width);
+					height: anchor-size(height);
+					box-shadow: 0 0 0 100vmax var(--ui-tour-dim, rgb(0 0 0 / 0.5));
+					/* A box-shadow is not hit-testable and this border box IS the hole, so `auto` would swallow presses on the target and let the dim through - exactly backwards. */
+					pointer-events: none;
+				}
+			}
+		

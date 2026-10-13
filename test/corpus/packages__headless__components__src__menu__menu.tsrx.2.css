@@ -1,0 +1,12 @@
+
+			@layer markless {
+				/* Fixed on both paths: anchoring works the same, and a context menu's point is in client coordinates. */
+				[role="menu"] {
+					position: fixed;
+					position-anchor: --ui-menu;
+					left: var(--x);
+					top: var(--y);
+					position-area: block-end span-inline-end;
+				}
+			}
+		

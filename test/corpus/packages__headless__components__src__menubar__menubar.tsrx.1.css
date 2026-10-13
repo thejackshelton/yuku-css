@@ -1,0 +1,8 @@
+
+			@layer markless {
+				[role="menuitem"] {
+					anchor-name: --ui-menubar-item;
+					anchor-scope: --ui-menubar-item;
+				}
+			}
+		

@@ -1,0 +1,132 @@
+
+			.modal {
+				width: min(22rem, 100%);
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-size: var(--step--1);
+				line-height: 1.5;
+				color: var(--ink);
+			}
+
+			.card {
+				display: grid;
+				gap: 0.35em;
+				justify-items: start;
+				padding: 1em 1.1em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+			}
+
+			.card-label,
+			.card-address {
+				margin: 0;
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+			}
+
+			.card-label {
+				color: var(--muted-ink);
+			}
+
+			.card-address {
+				margin-block-end: 0.5em;
+				font-size: var(--step-0);
+			}
+
+			.button {
+				display: inline-flex;
+				gap: 0.5em;
+				align-items: center;
+				padding: 0.45em 0.9em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+				font: inherit;
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				cursor: pointer;
+				transition: background 140ms ease;
+			}
+
+			.button:hover {
+				background: color-mix(in srgb, var(--purple) 16%, var(--paper));
+			}
+
+			.button:active,
+			.open[ui-open] {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			.button:focus-visible,
+			.field:focus-visible,
+			.dialog:focus-visible {
+				outline: 2px solid var(--ink);
+				outline-offset: 4px;
+			}
+
+			.icon {
+				width: 1em;
+				height: 1em;
+				flex: none;
+			}
+
+			.backdrop:not([hidden]) {
+				position: fixed;
+				inset: 0;
+				z-index: 100;
+				display: grid;
+				place-items: center;
+				padding: 1rem;
+				background: color-mix(in oklch, var(--slab) 55%, transparent);
+			}
+
+			.dialog {
+				display: grid;
+				gap: 0.75em;
+				box-sizing: border-box;
+				width: min(24rem, 100%);
+				padding: 1.35em;
+				border: 1.5px solid var(--ink);
+				border-radius: 10px;
+				background: var(--raised);
+				box-shadow: 4px 4px 0 var(--muted-ink);
+				color: var(--ink);
+			}
+
+			.title {
+				margin: 0;
+				font-family: 'Joy Elia', system-ui, sans-serif;
+				font-size: var(--step-1);
+				line-height: 1.2;
+				text-shadow: none;
+			}
+
+			.description {
+				margin: 0;
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+			}
+
+			.field-label {
+				display: grid;
+				gap: 0.3em;
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+			}
+
+			.field {
+				padding: 0.45em 0.7em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+				font: inherit;
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+			}
+
+			.done {
+				justify-self: end;
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.button {
+					transition: none;
+				}
+			}
+		

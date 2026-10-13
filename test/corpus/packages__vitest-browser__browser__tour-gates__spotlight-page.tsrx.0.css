@@ -1,0 +1,18 @@
+
+			@layer markless {
+				[data-tg-behind] { position: fixed; inset: 0; background: rgb(255 255 255); }
+				[data-tg-target] { position: fixed; top: 200px; left: 120px; width: 90px; height: 30px; }
+				[data-tg-backdrop] {
+					position: fixed;
+					position-anchor: --tg-spot;
+					top: anchor(top);
+					left: anchor(left);
+					width: anchor-size(width);
+					height: anchor-size(height);
+					box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.5);
+					pointer-events: none;
+				}
+				[data-tg-backdrop][ui-hit] { pointer-events: auto; }
+				[data-tg-card] { position: fixed; top: 0; left: 0; width: 40px; height: 20px; }
+			}
+		

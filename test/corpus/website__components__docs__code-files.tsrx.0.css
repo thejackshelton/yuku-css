@@ -1,0 +1,273 @@
+
+	.files {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+		height: 100%;
+	}
+
+	.strip {
+		position: absolute;
+		top: var(--code-tab-top, calc(-1 * var(--code-tab-h)));
+		left: var(--code-tab-left);
+		z-index: 2;
+		display: flex;
+		align-items: end;
+		height: var(--code-tab-h);
+	}
+
+	.strip-row {
+		display: flex;
+		align-items: flex-end;
+	}
+
+	.tab {
+		position: relative;
+		margin-block-end: -2px;
+		padding: 0.25em 1.3em 0.25em;
+		border: 2px solid var(--ink);
+		border-block-end: 0;
+		border-radius: 22px 24px 5px 4px / 18px 20px 5px 4px;
+		background: var(--code-tab-back);
+		color: color-mix(in oklch, var(--ink) 82%, var(--paper));
+		font-family: 'Shantell Sans', system-ui, sans-serif;
+		font-size: var(--step-0);
+		line-height: 1.35;
+		cursor: pointer;
+		transition: color 130ms ease;
+	}
+
+	.tab + .tab {
+		margin-inline-start: -0.3rem;
+	}
+
+	.ext {
+		font-weight: 400;
+	}
+
+	.tab:hover {
+		color: var(--ink);
+	}
+
+	.tab[ui-selected] {
+		z-index: 1;
+		padding: 0.25em 1.25em 0.3em;
+		background: var(--paper);
+		color: var(--ink);
+		font-size: var(--step-1);
+	}
+
+	.tab[ui-selected] .ext {
+		font-weight: 700;
+	}
+
+	.tab:focus-visible {
+		outline: 2px solid var(--ink);
+		outline-offset: 2px;
+	}
+
+	.pane {
+		flex: 1;
+		min-height: 0;
+	}
+
+	.pane[hidden] {
+		display: none;
+	}
+
+	.editor {
+		max-height: var(--code-max-height);
+		height: 100%;
+		overflow: auto;
+		overscroll-behavior: contain;
+		background: var(--code-editor-surface, var(--code-surface));
+		scrollbar-width: thin;
+		scrollbar-color: transparent transparent;
+		--fade-top: 0px;
+		--fade-bottom: 0px;
+		mask-image: linear-gradient(to bottom, transparent, #000 var(--fade-top), #000 calc(100% - var(--fade-bottom)), transparent);
+		animation: editor-fade linear both;
+		animation-timeline: scroll(self block);
+	}
+
+	/* A pane that fits has no scroll timeline, so both fades stay at 0px. */
+	@property --fade-top {
+		syntax: '<length>';
+		inherits: false;
+		initial-value: 0px;
+	}
+
+	@property --fade-bottom {
+		syntax: '<length>';
+		inherits: false;
+		initial-value: 0px;
+	}
+
+	@keyframes editor-fade {
+		0% {
+			--fade-top: 0px;
+			--fade-bottom: 3rem;
+		}
+
+		8%,
+		92% {
+			--fade-top: 3rem;
+			--fade-bottom: 3rem;
+		}
+
+		100% {
+			--fade-top: 3rem;
+			--fade-bottom: 0px;
+		}
+	}
+
+	.editor:hover {
+		scrollbar-color: color-mix(in oklch, var(--ink) 16%, transparent) transparent;
+	}
+
+	.editor::-webkit-scrollbar {
+		width: 8px;
+		height: 8px;
+	}
+
+	.editor::-webkit-scrollbar-track,
+	.editor::-webkit-scrollbar-corner {
+		background: transparent;
+	}
+
+	.editor::-webkit-scrollbar-thumb {
+		border: 2px solid transparent;
+		border-radius: 999px;
+		background: transparent padding-box;
+	}
+
+	.editor:hover::-webkit-scrollbar-thumb {
+		background-color: color-mix(in oklch, var(--ink) 16%, transparent);
+	}
+
+	.editor::-webkit-scrollbar-thumb:hover {
+		background-color: color-mix(in oklch, var(--ink) 30%, transparent);
+	}
+
+	.layers {
+		display: grid;
+		width: max-content;
+		min-width: 100%;
+		min-height: 100%;
+		font-family: var(--font-mono);
+		font-size: var(--code-font-size, var(--step--2));
+		line-height: 1.6;
+		tab-size: 2;
+		font-variant-ligatures: none;
+		font-feature-settings:
+			'liga' 0,
+			'calt' 0;
+	}
+
+	.highlight,
+	.input {
+		grid-area: 1 / 1;
+		box-sizing: border-box;
+		margin: 0;
+		padding: 0.85rem 0 0.85rem 0;
+		border: 0;
+		border-radius: 0;
+		font: inherit;
+		letter-spacing: 0;
+		tab-size: inherit;
+		white-space: pre;
+		overflow-wrap: normal;
+	}
+
+	.highlight {
+		counter-reset: code-line;
+		color: var(--ink);
+		background: transparent;
+		pointer-events: none;
+	}
+
+	.input {
+		display: block;
+		width: 100%;
+		height: 100%;
+		min-height: 0;
+		padding-inline-start: var(--code-gutter);
+		overflow: hidden;
+		resize: none;
+		outline: none;
+		background: transparent;
+		color: transparent;
+		caret-color: var(--ink);
+		-webkit-text-fill-color: transparent;
+	}
+
+	.input::selection {
+		background: var(--code-selection);
+		-webkit-text-fill-color: transparent;
+	}
+
+	.input[readonly] {
+		cursor: default;
+	}
+
+	.line {
+		position: relative;
+		display: block;
+		min-height: 1lh;
+		padding-inline-start: var(--code-gutter);
+	}
+
+	.line::before {
+		display: var(--code-numbers, block);
+		content: counter(code-line);
+		counter-increment: code-line;
+		position: absolute;
+		left: 0;
+		width: calc(var(--code-gutter) - 1.1rem);
+		text-align: right;
+		color: var(--code-gutter-ink);
+	}
+
+	.line.problem {
+		background: var(--code-problem-wash);
+	}
+
+	.line.problem::before {
+		color: var(--code-problem);
+		font-weight: 700;
+	}
+
+	.line.problem::after {
+		content: attr(data-problem);
+		margin-inline-start: 2.5ch;
+		color: var(--code-problem);
+	}
+
+	/* A phone wraps long lines instead of scrolling sideways; both layers wrap alike, so the caret stays on its text. */
+	@media (max-width: 600px) {
+		.layers {
+			width: 100%;
+		}
+
+		.highlight,
+		.input {
+			white-space: pre-wrap;
+			overflow-wrap: anywhere;
+		}
+
+		.line::before {
+			white-space: nowrap;
+			overflow-wrap: normal;
+		}
+
+		.editor {
+			overflow-x: hidden;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.tab {
+			transition: none;
+		}
+	}
+		

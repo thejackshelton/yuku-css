@@ -1,0 +1,8 @@
+
+   .platform-icon { display: inline-flex; flex: none; width: 18px; height: 18px; align-items: center; justify-content: center; }
+   .platform-icon > * { display: none; }
+   .platform-icon[data-icon-platform='mac'] .apple-icon,
+   .platform-icon[data-icon-platform='windows'] .windows-icon,
+   .platform-icon[data-icon-platform='linux'] .linux-icon,
+   .platform-icon[data-icon-platform='auto'] .auto-icon { display: block; }
+  

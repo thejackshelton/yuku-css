@@ -1,0 +1,56 @@
+
+			.outcome {
+				display: grid;
+				grid-template-columns: 1.7em 1fr;
+				column-gap: 0.55em;
+				align-items: start;
+				margin-block: var(--space-s);
+			}
+
+			.outcome p {
+				margin: 0;
+			}
+
+			.icon {
+				display: flex;
+				justify-content: center;
+				padding-block-start: 0.12em;
+			}
+
+			.ink {
+				width: 1.6em;
+				height: 1.6em;
+				margin: 0;
+				vertical-align: top;
+			}
+
+			.ink {
+				rotate: 3deg;
+			}
+
+			.pick {
+				display: none;
+			}
+
+			.icon[data-icon='js'] .js,
+			.icon[data-icon='agent'] .agent,
+			.icon[data-icon='devices'] .devices {
+				display: block;
+			}
+
+			.fill {
+				fill: var(--paper);
+			}
+
+			.ink .fill {
+				fill: color-mix(in oklch, var(--pink) 45%, var(--paper));
+			}
+
+			.line {
+				fill: none;
+				stroke: var(--ink);
+				stroke-width: 1.8;
+				stroke-linecap: round;
+				stroke-linejoin: round;
+			}
+		

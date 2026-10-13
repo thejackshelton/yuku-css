@@ -1,0 +1,85 @@
+
+			.index-card {
+				--card: #fbf6e6;
+				--card-ink: oklch(28% 0.015 90);
+				--rule: color-mix(in oklch, oklch(62% 0.09 240) 32%, transparent);
+				--line: 1.5rem;
+				position: relative;
+				padding: 0.4rem 1rem 0.9rem 1.1rem;
+				border: 1px solid #d9cfc0;
+				border-radius: 3px;
+				background: var(--card);
+				color: var(--card-ink);
+				rotate: var(--tilt);
+				box-shadow:
+					-4px 7px 9px rgb(146 131 112 / 0.5),
+					0 1px 2px rgb(146 131 112 / 0.35);
+
+				html.dark & {
+					box-shadow:
+						-4px 7px 12px rgb(0 0 0 / 0.55),
+						0 2px 4px rgb(0 0 0 / 0.45);
+				}
+			}
+
+			.tape {
+				position: absolute;
+				top: -0.8rem;
+				left: 50%;
+				width: 5.2rem;
+				height: 1.55rem;
+				translate: -50% 0;
+				rotate: 3deg;
+				background: color-mix(in oklch, var(--yellow) 60%, oklch(91.4% 0.033 79));
+				border: 1px solid rgba(51, 48, 42, 0.18);
+				opacity: 0.9;
+				clip-path: polygon(0 6%, 4% 0, 10% 9%, 16% 1%, 23% 8%, 30% 0, 100% 3%, 97% 50%, 100% 97%, 92% 100%, 84% 92%, 77% 100%, 70% 93%, 0 100%, 3% 52%);
+			}
+
+			.pin {
+				display: none;
+				position: absolute;
+				top: -0.55rem;
+				left: 50%;
+				width: 1.5rem;
+				height: 1.5rem;
+				translate: -50% 0;
+				fill: var(--pink);
+				stroke: oklch(28% 0.015 90);
+				stroke-width: 1.4;
+			}
+
+			.pin .shine {
+				fill: #fff;
+				stroke: none;
+				opacity: 0.7;
+			}
+
+			.index-card[data-pin='pin'] .tape {
+				display: none;
+			}
+
+			.index-card[data-pin='pin'] .pin {
+				display: block;
+			}
+
+			.label {
+				margin: 0 -1rem 0 -1.1rem;
+				padding-inline: 1.1rem 1rem;
+				height: 1.9rem;
+				border-bottom: 1.5px solid color-mix(in oklch, var(--pink) 75%, transparent);
+				display: flex;
+				align-items: flex-end;
+				padding-bottom: 0.15rem;
+				font-family: 'Joy Elia', system-ui, sans-serif;
+				font-size: var(--step-0);
+				line-height: 1;
+				color: var(--card-ink);
+			}
+
+			.body {
+				padding-top: 0.2rem;
+				line-height: var(--line);
+				background: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--line) - 1px), var(--rule) calc(var(--line) - 1px), var(--rule) var(--line)) 0 0.2rem / 100% calc(100% - 0.2rem) no-repeat;
+			}
+		

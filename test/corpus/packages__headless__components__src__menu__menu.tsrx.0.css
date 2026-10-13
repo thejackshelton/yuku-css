@@ -1,0 +1,16 @@
+
+			@layer markless {
+				/* Root and contextarea are not separable by structure, and neither is harmed by the other's declaration. */
+				div:not([role]) {
+					anchor-scope: --ui-menu;
+					-webkit-touch-callout: none;
+				}
+				/* One anchor name for both surfaces. An item re-scopes it to its own
+				   subtree, so `--ui-menu` is the trigger for `menu.content` and the
+				   item itself for the `menu.itemcontent` written inside it. */
+				div[role^="menuitem"] {
+					anchor-name: --ui-menu;
+					anchor-scope: --ui-menu;
+				}
+			}
+		

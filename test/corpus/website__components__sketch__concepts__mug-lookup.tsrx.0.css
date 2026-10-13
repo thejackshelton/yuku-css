@@ -1,0 +1,20 @@
+
+			.out {
+				min-height: 3lh;
+			}
+
+			.answer,
+			.wait,
+			.oops {
+				margin: 0;
+				color: var(--ink);
+				font-size: var(--step-0);
+			}
+
+			.oops {
+				display: inline-block;
+				padding: 0.1em 0.45em;
+				border-radius: 4px;
+				background: color-mix(in srgb, var(--pink) 14%, var(--paper));
+			}
+		

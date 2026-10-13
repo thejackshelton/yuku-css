@@ -1,0 +1,112 @@
+
+			.acts {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.5em 1.2em;
+				margin-inline-start: auto;
+			}
+
+			.list {
+				display: grid;
+				justify-items: center;
+				width: 100%;
+			}
+
+			.pin {
+				position: relative;
+				width: min(19rem, 100%);
+			}
+
+			.groceries {
+				position: absolute;
+				inset-block-start: -1.5rem;
+				inset-inline-end: -1.4rem;
+				display: flex;
+				rotate: 6deg;
+				pointer-events: none;
+			}
+
+			.groceries > :not(:first-child) {
+				margin-inline-start: -0.7rem;
+			}
+
+			.rows {
+				display: grid;
+				gap: 0.7em;
+				margin: 0;
+				padding: 0;
+				list-style: none;
+			}
+
+			.row,
+			.none {
+				display: flex;
+				align-items: center;
+				min-height: 2.6em;
+				box-sizing: border-box;
+				padding: 0 1em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-size: var(--step-0);
+				transition: background 140ms ease;
+			}
+
+			.row:hover {
+				background: color-mix(in srgb, var(--purple) 16%, var(--paper));
+			}
+
+			.row:has(:checked) {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			.none {
+				justify-content: center;
+				border-style: dashed;
+				color: var(--muted-ink);
+			}
+
+			label {
+				display: flex;
+				flex: 1;
+				gap: 0.6em;
+				align-items: center;
+				align-self: stretch;
+				cursor: pointer;
+			}
+
+			input {
+				width: 1.05em;
+				height: 1.05em;
+				margin: 0;
+				accent-color: var(--ink);
+
+				html.dark & {
+					color-scheme: dark;
+				}
+			}
+
+			input:focus-visible {
+				outline: 2px solid var(--ink);
+				outline-offset: 4px;
+			}
+
+			.row[data-row]::after {
+				content: 'row ' attr(data-row);
+				padding: 0.05em 0.5em;
+				border: 1px solid var(--pg-edge);
+				border-radius: 6px;
+				color: var(--ink);
+				font-family: var(--font-mono);
+				font-size: var(--step--1);
+				white-space: nowrap;
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.row {
+					transition: none;
+				}
+			}
+		

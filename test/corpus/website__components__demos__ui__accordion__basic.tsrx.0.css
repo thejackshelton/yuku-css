@@ -1,0 +1,101 @@
+
+			.accordion {
+				display: grid;
+				gap: 0.7em;
+				width: min(31rem, 100%);
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-size: var(--step--1);
+				line-height: 1.5;
+			}
+
+			.section {
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				overflow: clip;
+			}
+
+			.heading {
+				margin: 0;
+				font-size: inherit;
+				font-weight: 400;
+				line-height: inherit;
+				text-shadow: none;
+			}
+
+			.trigger {
+				display: flex;
+				gap: 0.75em;
+				align-items: center;
+				width: 100%;
+				padding: 0.85em 1em;
+				border: 0;
+				background: transparent;
+				color: var(--ink);
+				font: inherit;
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				text-align: left;
+				cursor: pointer;
+			}
+
+			.trigger-icon,
+			.trigger-plus,
+			.trigger-minus {
+				display: inline-flex;
+				width: 1em;
+				height: 1em;
+				flex: none;
+				transition: transform 140ms ease;
+			}
+
+			.trigger[ui-open] .trigger-icon {
+				transform: rotate(90deg);
+			}
+
+			.trigger-plus,
+			.trigger-minus {
+				margin-inline-start: auto;
+			}
+
+			.trigger-minus,
+			.trigger[ui-open] .trigger-plus {
+				display: none;
+			}
+
+			.trigger[ui-open] .trigger-minus {
+				display: inline-flex;
+			}
+
+			.trigger[ui-open] {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			.trigger:hover {
+				background: color-mix(in srgb, var(--purple) 16%, var(--paper));
+			}
+
+			.trigger:focus-visible {
+				outline: 2px solid var(--ink);
+				outline-offset: -5px;
+			}
+
+			.trigger:disabled {
+				cursor: not-allowed;
+				opacity: 0.55;
+			}
+
+			.section[ui-open] .panel {
+				padding: 1em;
+				border-block-start: 1px solid var(--ink);
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+			}
+
+			.panel[hidden] {
+				display: none;
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.trigger-icon {
+					transition: none;
+				}
+			}
+		

@@ -1,0 +1,172 @@
+
+			.drawer {
+				width: min(20rem, 100%);
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-size: var(--step--1);
+				line-height: 1.5;
+				color: var(--ink);
+			}
+
+			.card {
+				display: grid;
+				gap: 0.35em;
+				justify-items: start;
+				padding: 1em 1.1em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+			}
+
+			.card-label,
+			.card-day {
+				margin: 0;
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+			}
+
+			.card-label {
+				color: var(--muted-ink);
+			}
+
+			.card-day {
+				margin-block-end: 0.5em;
+				font-size: var(--step-0);
+			}
+
+			.button {
+				display: inline-flex;
+				gap: 0.5em;
+				align-items: center;
+				padding: 0.45em 0.9em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+				font: inherit;
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				cursor: pointer;
+				transition: background 140ms ease;
+			}
+
+			.button:hover {
+				background: color-mix(in srgb, var(--purple) 16%, var(--paper));
+			}
+
+			.button:active,
+			.button[data-current],
+			.open[ui-open] {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			.button:focus-visible,
+			.sheet:focus-visible {
+				outline: 2px solid var(--ink);
+				outline-offset: 4px;
+			}
+
+			.sheet:focus-visible {
+				outline-offset: -6px;
+			}
+
+			.icon {
+				width: 1em;
+				height: 1em;
+				flex: none;
+			}
+
+			.backdrop {
+				z-index: 100;
+				background: color-mix(in oklch, var(--slab) 55%, transparent);
+			}
+
+			.backdrop[hidden] {
+				display: none;
+			}
+
+			/* A swipe starts only on the sheet itself, so the grab bar is a pseudo-element, not a child. */
+			.sheet {
+				display: grid;
+				gap: 0.75em;
+				align-content: start;
+				box-sizing: border-box;
+				padding: 0.5em 1.35em 1.5em;
+				border-block-start: 1.5px solid var(--ink);
+				border-radius: 14px 14px 0 0;
+				background: var(--raised);
+				color: var(--ink);
+				transition: translate 200ms ease;
+				cursor: grab;
+			}
+
+			.sheet:not([ui-orientation='horizontal']) {
+				max-inline-size: 36rem;
+				margin-inline: auto;
+				border-inline: 1.5px solid var(--ink);
+			}
+
+			.sheet::before {
+				content: '';
+				justify-self: center;
+				inline-size: 3em;
+				block-size: 0.35em;
+				margin-block: 0.4em 0.2em;
+				border-radius: 999px;
+				background: var(--muted-ink);
+			}
+
+			.sheet[ui-start] {
+				padding: 1.5em 1.35em 0.5em;
+				border-block: 0 1.5px solid var(--ink);
+				border-radius: 0 0 14px 14px;
+			}
+
+			.sheet[ui-start]::before {
+				order: 1;
+			}
+
+			.sheet[ui-orientation='horizontal'] {
+				inline-size: min(20rem, 85vw);
+				padding: 1.5em 1.35em;
+				border-block: 0;
+				border-inline-start: 1.5px solid var(--ink);
+				border-radius: 14px 0 0 14px;
+			}
+
+			.sheet[ui-orientation='horizontal'][ui-start] {
+				border-inline: 0 1.5px solid var(--ink);
+				border-radius: 0 14px 14px 0;
+			}
+
+			.sheet[ui-orientation='horizontal']::before {
+				display: none;
+			}
+
+			.sheet[ui-dragging] {
+				transition: none;
+			}
+
+			.title {
+				margin: 0;
+				font-family: 'Joy Elia', system-ui, sans-serif;
+				font-size: var(--step-1);
+				font-weight: 400;
+				line-height: 1.2;
+				text-shadow: none;
+			}
+
+			.description {
+				margin: 0;
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+			}
+
+			.days {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.6em;
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.button,
+				.sheet {
+					transition: none;
+				}
+			}
+		

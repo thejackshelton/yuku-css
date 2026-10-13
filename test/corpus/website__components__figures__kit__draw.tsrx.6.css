@@ -1,0 +1,19 @@
+
+			.iso-sheet {
+				--figure-accent: var(--yellow);
+				margin: var(--space-m) 0 var(--space-l);
+				padding: 0;
+			}
+
+			.iso-sheet[data-accent='pink'] {
+				--figure-accent: var(--pink);
+			}
+
+			.iso-sheet[data-accent='purple'] {
+				--figure-accent: var(--purple);
+			}
+
+			.iso-sheet[data-accent='green'] {
+				--figure-accent: var(--green-star);
+			}
+		

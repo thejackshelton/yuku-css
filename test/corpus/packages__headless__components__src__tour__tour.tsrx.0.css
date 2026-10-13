@@ -1,0 +1,6 @@
+
+			@layer markless {
+				/* Fixed rather than absolute, so the card escapes whatever overflow container the target sits in. A step with no target resolves no anchor, which leaves `position-area` inert and the card wherever the consumer's own ungated rule puts it. */
+				[overlay] { position: fixed; position-anchor: --tour-target; position-area: block-end; }
+			}
+		

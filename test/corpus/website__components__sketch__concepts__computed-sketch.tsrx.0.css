@@ -1,0 +1,36 @@
+
+			.slot {
+				position: relative;
+			}
+
+			.thing {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.4em;
+			}
+
+			.mark {
+				position: absolute;
+				border-radius: 4px;
+				background: color-mix(in srgb, var(--purple) 70%, var(--paper));
+				mix-blend-mode: multiply;
+				pointer-events: none;
+
+				html.dark & {
+					background: color-mix(in srgb, var(--purple) 45%, var(--paper));
+					mix-blend-mode: screen;
+				}
+			}
+
+			.mark[hidden],
+			.slot[hidden],
+			.optional[hidden],
+			.variant[hidden] {
+				display: none;
+			}
+
+			.optional,
+			div.variant {
+				display: contents;
+			}
+		

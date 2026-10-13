@@ -1,0 +1,9 @@
+
+			.pg-stage {
+				display: grid;
+				place-items: center;
+				min-height: 18rem;
+				padding: 2.5em 1.25em 2.25em;
+				box-sizing: border-box;
+			}
+		

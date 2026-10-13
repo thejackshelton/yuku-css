@@ -1,0 +1,139 @@
+
+			.said,
+			.said :where(span, b) {
+				font-family: var(--pg-font);
+			}
+
+			.acts {
+				display: inline-flex;
+				gap: 0.6em;
+				margin-inline-start: auto;
+			}
+
+			.board {
+				display: grid;
+				grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+				gap: 1.25em;
+				align-items: center;
+				width: 100%;
+			}
+
+			.box {
+				box-sizing: border-box;
+				min-width: 0;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+			}
+
+			.head {
+				padding: 0.35em 0.85em;
+				border-block-end: 1px solid var(--pg-edge);
+				font-family: var(--font-mono);
+				font-size: 0.85em;
+			}
+
+			.code {
+				padding: 0.6em 0;
+				overflow-x: auto;
+				font-family: var(--font-mono);
+				font-size: 0.85em;
+				line-height: 1.6;
+			}
+
+			.line {
+				display: block;
+				padding-inline: calc(0.85em + 4ch) 0.85em;
+				text-indent: -4ch;
+				white-space: pre-wrap;
+				font-family: var(--font-mono);
+			}
+
+			.call {
+				padding: 0 0.1em;
+				border-radius: 3px;
+				font-family: var(--font-mono);
+				transition: background 140ms ease;
+			}
+
+			.board[data-ran='yes'] .call {
+				background: var(--mark);
+			}
+
+			.sheet {
+				display: grid;
+				gap: 0.4em;
+				padding: 0.7em 0.85em 0.8em;
+			}
+
+			.tag {
+				font-family: var(--font-mono);
+				font-size: 0.85em;
+			}
+
+			.app {
+				display: grid;
+				place-items: center;
+				min-height: 4.5em;
+				border: 1px dashed var(--ink);
+				border-radius: 6px;
+				transition: background 140ms ease;
+			}
+
+			.board[data-ran='yes'] .app {
+				background: var(--mark);
+			}
+
+			.empty {
+				color: var(--muted-ink);
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+			}
+
+			.board[data-ran='yes'] .empty {
+				display: none;
+			}
+
+			.count {
+				padding: 0.5em 1em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-size: var(--step-0);
+				cursor: pointer;
+				transition: background 140ms ease;
+			}
+
+			.count[hidden] {
+				display: none;
+			}
+
+			.count:hover {
+				background: color-mix(in srgb, var(--purple) 16%, var(--paper));
+			}
+
+			.count:active {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			.count:focus-visible {
+				outline: 2px solid var(--ink);
+				outline-offset: 4px;
+			}
+
+			@media (max-width: 40rem) {
+				.board {
+					grid-template-columns: minmax(0, 1fr);
+				}
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.call,
+				.app,
+				.count {
+					transition: none;
+				}
+			}
+		

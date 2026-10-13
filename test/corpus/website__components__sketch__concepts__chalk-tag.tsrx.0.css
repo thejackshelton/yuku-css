@@ -1,0 +1,21 @@
+
+			.card {
+				padding: 0.7em 1.2em;
+				border: 1.5px dashed var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+				font-size: var(--step-0);
+				transition: background 140ms ease;
+			}
+
+			.lit {
+				background: color-mix(in srgb, var(--purple) 40%, var(--paper));
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.card {
+					transition: none;
+				}
+			}
+		

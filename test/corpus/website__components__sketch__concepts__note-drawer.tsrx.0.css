@@ -1,0 +1,54 @@
+
+			section {
+				display: grid;
+				gap: 0.7em;
+				justify-items: start;
+			}
+
+			button {
+				padding: 0.45em 1em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+				font: inherit;
+				cursor: pointer;
+				transition: background 140ms ease;
+			}
+
+			button:hover {
+				background: color-mix(in srgb, var(--purple) 16%, var(--paper));
+			}
+
+			button:active {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			button:focus-visible,
+			input:focus-visible {
+				outline: 2px solid var(--ink);
+				outline-offset: 4px;
+			}
+
+			input {
+				box-sizing: border-box;
+				width: min(14rem, 100%);
+				padding: 0.4em 0.6em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+				font: inherit;
+			}
+
+			p {
+				margin: 0;
+				overflow-wrap: anywhere;
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				button {
+					transition: none;
+				}
+			}
+		

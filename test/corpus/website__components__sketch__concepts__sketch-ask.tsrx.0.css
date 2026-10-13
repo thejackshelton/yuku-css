@@ -1,0 +1,40 @@
+
+			.sketch-ask {
+				position: relative;
+				width: fit-content;
+				max-width: 100%;
+				margin: 0 auto var(--space-m);
+				text-align: center;
+				rotate: -1.5deg;
+			}
+
+			.ask {
+				font-family: 'Joy Elia', system-ui, sans-serif;
+				font-size: var(--step-2);
+				font-weight: 700;
+				line-height: 1.15;
+				color: var(--ink);
+			}
+
+			.underline {
+				display: block;
+				width: 100%;
+				height: 0.55em;
+				margin-top: -0.1em;
+				fill: none;
+				stroke: var(--pink);
+				stroke-width: 4;
+				stroke-linecap: round;
+			}
+
+			.again {
+				stroke-width: 2;
+				opacity: 0.6;
+			}
+
+			@media (max-width: 40rem) {
+				.ask {
+					font-size: var(--step-1);
+				}
+			}
+		

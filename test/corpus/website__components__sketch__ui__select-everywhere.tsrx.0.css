@@ -1,0 +1,129 @@
+
+			.said,
+			.said :where(span, b) {
+				font-family: var(--pg-font);
+			}
+
+			.frame {
+				box-sizing: border-box;
+				width: min(24rem, 100%);
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+			}
+
+			.bar {
+				display: flex;
+				align-items: center;
+				gap: 0.75em;
+				padding: 0.45em 0.8em;
+				border-block-end: 1px solid var(--pg-edge);
+				border-start-start-radius: inherit;
+				border-start-end-radius: inherit;
+				background: color-mix(in srgb, var(--ink) var(--hover-wash), var(--paper));
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+			}
+
+			.bar span {
+				display: none;
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+			}
+
+			.frame[data-host='browser'] .for-browser,
+			.frame[data-host='server'] .for-server,
+			.frame[data-host='test'] .for-test {
+				display: inline;
+			}
+
+			.inside {
+				display: grid;
+				place-items: center;
+				padding: 1.5em 1em 1.75em;
+			}
+
+			.picker {
+				display: grid;
+				gap: 0.5em;
+				width: min(14rem, 100%);
+			}
+
+			.label {
+				color: var(--ink);
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+			}
+
+			.trigger {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				padding: 0.45em 0.8em;
+				border: 1px solid var(--ink);
+				border-radius: 6px;
+				background: var(--paper);
+				color: var(--ink);
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				font-size: var(--step-0);
+				text-align: start;
+				cursor: pointer;
+				transition: background 140ms ease;
+			}
+
+			.trigger span {
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+			}
+
+			.trigger::after {
+				content: '⌄' / '';
+				margin-block-start: -0.35em;
+				opacity: 0.65;
+			}
+
+			.trigger:hover {
+				background: color-mix(in srgb, var(--purple) 16%, var(--paper));
+			}
+
+			.trigger[ui-open] {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			.trigger:focus-visible,
+			.option:focus-visible {
+				outline: 2px solid var(--ink);
+				outline-offset: 4px;
+			}
+
+			.list:not([hidden]) {
+				display: grid;
+				padding: 0.25em 0;
+				border: 1px solid var(--pg-edge);
+				border-radius: 6px;
+				background: var(--paper);
+				box-shadow: 3px 3px 0 var(--pg-accent);
+			}
+
+			.option {
+				padding: 0.35em 0.8em;
+				color: var(--ink);
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+				cursor: pointer;
+			}
+
+			.option:hover {
+				background: color-mix(in srgb, var(--purple) 16%, var(--paper));
+			}
+
+			.option[ui-selected] {
+				background: color-mix(in srgb, var(--purple) 26%, var(--paper));
+			}
+
+			.option * {
+				font-family: 'Shantell Sans', system-ui, sans-serif;
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.trigger {
+					transition: none;
+				}
+			}
+		

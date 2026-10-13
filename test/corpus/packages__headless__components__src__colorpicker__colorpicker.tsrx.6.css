@@ -1,0 +1,15 @@
+
+			@layer markless {
+				[role='slider'][ui-channel] {
+					position: absolute;
+					left: var(--colorpicker-offset);
+					forced-color-adjust: none;
+				}
+				[role='presentation'] {
+					position: absolute;
+					left: var(--colorpicker-x);
+					bottom: var(--colorpicker-y);
+					forced-color-adjust: none;
+				}
+			}
+		

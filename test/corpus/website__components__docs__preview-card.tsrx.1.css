@@ -1,0 +1,41 @@
+
+			.pg-controls {
+				display: grid;
+				gap: 1em;
+				padding: 1.25em 1.35em;
+				border-block-end: 1px solid var(--pg-edge);
+			}
+
+			.pg-quick,
+			.pg-rest {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.9em 2em;
+				align-items: center;
+			}
+
+			@media (max-width: 600px) {
+				.pg-controls {
+					padding: 1em;
+				}
+
+				.pg-quick,
+				.pg-rest {
+					gap: 1em;
+				}
+
+			}
+
+			.pv-title {
+				margin: 0;
+				color: var(--ink);
+				font-family: 'Joy Elia', system-ui, sans-serif;
+				font-size: var(--step-0);
+				font-weight: 700;
+				line-height: 1.25;
+			}
+
+			.pv-push {
+				margin-inline-start: auto;
+			}
+		

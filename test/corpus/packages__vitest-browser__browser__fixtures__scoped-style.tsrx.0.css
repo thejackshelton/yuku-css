@@ -1,0 +1,7 @@
+
+			.card { color: rgb(200, 0, 0); }
+			.title { font-weight: 700; }
+			.title::after { content: '\2605'; }
+			@media (min-width: 1px) { .card > .title { letter-spacing: 2px; } }
+			@KEYFRAMES markless-fade { from { opacity: 0.5; } to { opacity: 1; } }
+		
