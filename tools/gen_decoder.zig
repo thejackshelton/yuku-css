@@ -165,11 +165,11 @@ fn writeDecode(w: *Writer) !void {
         \\  const _spOff = (_extraBase + extraCount) * 4;
         \\  const _dBase = (_spOff + ((spLen + 3) & ~3)) >> 2;
         \\  const _p = utf16(_u32, _dBase + diagCount * {[dstride]d}, _u32[{[u16]d}], _firstNa);
+        \\  // node strings in the source come as UTF-16 offsets, the pool's as bytes past the source's
         \\  const str = (s, e) => {{
         \\    if (s === e) return "";
         \\    if (s >= _srcLen) return _td.decode(_u8.subarray(_spOff + s - _srcLen, _spOff + e - _srcLen));
-        \\    if (e <= _firstNa) return _src.slice(s, e);
-        \\    return _src.slice(_p(s), _p(e));
+        \\    return _src.slice(s, e);
         \\  }};
         \\  const important = (s, e) => {{
         \\    if (s === NULL) return false;
@@ -278,8 +278,7 @@ fn writeNodeFunction(w: *Writer, comptime mode: Mode) !void {
         \\    const b = (i * {[size]d} + {[hdr]d}) >> 2;
         \\    const h0 = _u32[b];
         \\    const flags = h0 >>> 16;
-        \\    let start = _u32[b + {[ss]d}], end = _u32[b + {[se]d}];
-        \\    if (end > _firstNa) {{ start = _p(start); end = _p(end); }}
+        \\    const start = _u32[b + {[ss]d}], end = _u32[b + {[se]d}];
         \\    switch (h0 & 255) {{
         \\
     , .{

@@ -192,11 +192,11 @@ function decode(buffer, at, source, options, withTokens) {
   const _spOff = (_extraBase + extraCount) * 4;
   const _dBase = (_spOff + ((spLen + 3) & ~3)) >> 2;
   const _p = utf16(_u32, _dBase + diagCount * 3, _u32[7], _firstNa);
+  // node strings in the source come as UTF-16 offsets, the pool's as bytes past the source's
   const str = (s, e) => {
     if (s === e) return "";
     if (s >= _srcLen) return _td.decode(_u8.subarray(_spOff + s - _srcLen, _spOff + e - _srcLen));
-    if (e <= _firstNa) return _src.slice(s, e);
-    return _src.slice(_p(s), _p(e));
+    return _src.slice(s, e);
   };
   const important = (s, e) => {
     if (s === NULL) return false;
@@ -228,8 +228,7 @@ function decode(buffer, at, source, options, withTokens) {
     const b = (i * 32 + 44) >> 2;
     const h0 = _u32[b];
     const flags = h0 >>> 16;
-    let start = _u32[b + 6], end = _u32[b + 7];
-    if (end > _firstNa) { start = _p(start); end = _p(end); }
+    const start = _u32[b + 6], end = _u32[b + 7];
     switch (h0 & 255) {
     case 0: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "StyleSheet", start, end, children: nodeArr(f1, f2, depth + 1) }; }
     case 1: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Comment", start, end, value: str(f1, f2) }; }
@@ -275,8 +274,7 @@ function decode(buffer, at, source, options, withTokens) {
     const b = (i * 32 + 44) >> 2;
     const h0 = _u32[b];
     const flags = h0 >>> 16;
-    let start = _u32[b + 6], end = _u32[b + 7];
-    if (end > _firstNa) { start = _p(start); end = _p(end); }
+    const start = _u32[b + 6], end = _u32[b + 7];
     switch (h0 & 255) {
     case 0: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "StyleSheet", loc: loc(start, end), children: nodeArr(f1, f2, depth + 1) }; }
     case 1: { const f1 = _u32[b + 1], f2 = _u32[b + 2]; return { type: "Comment", loc: loc(start, end), value: str(f1, f2) }; }
