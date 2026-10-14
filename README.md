@@ -131,18 +131,18 @@ Parsing the 231 style sheets of [test/corpus](test/corpus) that every parser her
 
 ![Time per file to parse with yuku-css, css-tree, and PostCSS](bench/chart.svg)
 
-Against `yuku-css loc`, css-tree takes 3.21× as long. The rest of the API, per file of the same corpus, each row on the files both sides read cleanly:
+Against `yuku-css loc`, css-tree takes 3.28× as long. The rest of the API, per file of the same corpus, each row on the files both sides read cleanly:
 
 | Task | yuku-css | Against | Same work |
 |---|---|---|---|
-| Tokenize | `tokenize`, 3.8 µs | css-tree `tokenize`, 6.7 µs (1.78×) | yes |
-| Print css-tree's tree | `generate`, 6.0 µs | css-tree `generate`, 10.3 µs (1.71×) | yes |
-| Print css-tree's tree with a source map | `generate`, 15.1 µs | css-tree `generate`, 29.7 µs (1.97×) | yes |
-| Validate every declaration | `lexer.matchStylesheet`, 18.6 µs | css-tree `parse` and `matchDeclaration`, 155.3 µs (8.37×) | yes, over a different grammar: @webref/css, where css-tree's is mdn-data |
-| Check for parse errors | `parse`, reading only `diagnostics`, 7.8 µs | css-tree `parse` with `onParseError`, no positions, 41.7 µs (5.33×) | no: diagnostics only, yuku-css builds no tree in JS, where css-tree builds its whole tree |
-| Parse and print | `transform`, 10.8 µs | Lightning CSS `transform`: native, 33.0 µs (3.06×); WebAssembly, 86.1 µs (7.99×) | no: Lightning CSS types every value and pretty-prints, yuku-css prints compactly |
+| Tokenize | `tokenize`, 3.8 µs | css-tree `tokenize`, 6.9 µs (1.82×) | yes |
+| Print css-tree's tree | `generate`, 5.3 µs | css-tree `generate`, 10.9 µs (2.05×) | yes |
+| Print css-tree's tree with a source map | `generate`, 14.7 µs | css-tree `generate`, 29.1 µs (1.97×) | yes |
+| Validate every declaration | `lexer.matchStylesheet`, 18.8 µs | css-tree `parse` and `matchDeclaration`, 154.4 µs (8.21×) | yes, over a different grammar: @webref/css, where css-tree's is mdn-data |
+| Check for parse errors | `parse`, reading only `diagnostics`, 7.6 µs | css-tree `parse` at its defaults, 40.5 µs (5.32×) | no: diagnostics only, yuku-css builds no tree in JS, where css-tree builds its whole tree |
+| Parse and print | `transform`, 10.4 µs | Lightning CSS `transform`: native, 31.9 µs (3.07×); WebAssembly, 226.3 µs (21.74×; unsteady between runs, see [the caveats](docs/benchmark.md#caveats)) | no: Lightning CSS types every value and pretty-prints, yuku-css prints compactly |
 
-Median time per file over 1 runs, each in a fresh Node.js 24.15.0 process on an Apple M5 Pro, files timed smallest first. [docs/benchmark.md](docs/benchmark.md) has Lightning CSS by file size, Bun and Chromium, real-world and synthetic CSS, cold start, memory, bundle size and where yuku-css loses. Run it with `bun run bench:full`; `bun run bench` times the chart's parsers alone, and `bun run bench tokenize`, `generate`, `match` or `validate` one row, without touching the README.
+Median time per file over 3 runs, each in a fresh Node.js 24.15.0 process on an Apple M5 Pro, files timed smallest first. [docs/benchmark.md](docs/benchmark.md) has Lightning CSS by file size, Bun and Chromium, real-world and synthetic CSS, cold start, memory, bundle size and where yuku-css loses. Run it with `bun run bench:full`; `bun run bench` times the chart's parsers alone, and `bun run bench tokenize`, `generate`, `match` or `validate` one row, without touching the README.
 
 ## Development
 

@@ -468,7 +468,7 @@ export function report(results: Results): void {
   out(
     "## Bundle size",
     "",
-    "What a browser downloads to parse: the library bundled by [Rolldown](https://rolldown.rs) for the browser and minified, keeping only its parse function (`transform` for Lightning CSS and for `yuku-css transform`, `generate` for `yuku-css/codegen`), plus any file it fetches beside the JS. yuku-css inlines its WebAssembly into the JS as base64. Lightning CSS's WebAssembly is a separate file; its native addon does not run in a browser.",
+    "What a browser downloads to parse: the library bundled by [Rolldown](https://rolldown.rs) for the browser and minified, keeping only its parse function (`transform` for Lightning CSS and for the `yuku-css transform` row, `generate` for `yuku-css/codegen`), plus any file it fetches beside the JS. yuku-css inlines its WebAssembly into the JS as printable ASCII text. Lightning CSS's WebAssembly is a separate file; its native addon does not run in a browser.",
     "",
   );
   table(
@@ -513,12 +513,13 @@ export function report(results: Results): void {
   }
 
   // gate
-  const failures = new Map<string, { configs: string[]; reason: string }>();
+  // one row per file and first error, so each parser's own reason shows
+  const failures = new Map<string, { key: string; configs: string[]; reason: string }>();
   for (const config of configs)
     for (const [key, reason] of Object.entries<string>(results.gate.failed[config.id])) {
-      const entry = failures.get(key) ?? { configs: [], reason };
+      const entry = failures.get(`${key}\n${reason.replace(/^\d+ errors?, first: /, "")}`) ?? { key, configs: [], reason };
       entry.configs.push(name(config));
-      failures.set(key, entry);
+      failures.set(`${key}\n${reason.replace(/^\d+ errors?, first: /, "")}`, entry);
     }
   out(
     "## Files left out",
@@ -528,7 +529,19 @@ export function report(results: Results): void {
   );
   table(
     ["File", "Left out of", "First error"],
-    [...failures].map(([key, { configs, reason }]) => [short(key), configs.join("; "), reason.replaceAll("|", "\\|")]),
+    [...failures.values()].map(({ key, configs, reason }) => [short(key), configs.join("; "), reason.replaceAll("|", "\\|")]),
+  );
+
+  // configurations whose per-file medians differ by more than 2x between processes, on files over 1 KB
+  const unsteady = everywhere.flatMap((runtime) =>
+    configs.flatMap((config) => {
+      const timings = timingsOf(runtime, config) ?? {};
+      const shaky = Object.entries(timings).filter(([key, runs]) => {
+        const medians = runs.map((run) => run.median);
+        return bytes[key]! > 1024 && Math.max(...medians) > 2 * Math.min(...medians);
+      });
+      return shaky.length ? [`${name(config)} on ${titleOf(runtime)}, ${shaky.length} file${shaky.length > 1 ? "s" : ""} (such as ${short(shaky[0]![0])})`] : [];
+    }),
   );
 
   // methodology
@@ -542,6 +555,7 @@ export function report(results: Results): void {
     "- **Smallest first.** A process times its files a size bucket at a time, from the smallest, warming each bucket up first. css-tree resets its token buffers in full on every parse (`balance.fill(0)` in its `TokenStream`), and they keep the size of the largest source it has parsed: in a one-off check, `.a { color: red }` took 1.4 µs to parse before a 3.6 MB file and 60 µs after. Timing small files after large ones would charge css-tree for that.",
     "- **Per file** is the sum of the files' medians over the number of files, as in the README chart. **MB/s** is the files' bytes over that sum.",
     "- **Same work.** yuku-css and css-tree get the same options: `parseValue` and `parseAtrulePrelude` on and `parseCustomProperty` off, which is what yuku-css builds by default, and `positions` on, so both build css-tree's `loc` with lines and columns. Rows with values raw turn the first two off for both. css-tree's defaults are the same with positions off. Without positions yuku-css still gives each node `start` and `end` offsets, so it does more than css-tree there. Each library is called through one adapter in [bench/adapters.ts](../bench/adapters.ts), so after an API change only the adapter changes.",
+    "- **Building the tree.** yuku-css builds its JS tree when `ast` is first read. Every yuku-css row reads `ast` inside the timed call, so its time includes building the tree, except `yuku-css diagnostics`, which reads only `diagnostics`, as a caller that only checks for errors would, and builds no tree in JS.",
     "- **Lightning CSS** has no parse-only API in JS. It is timed calling `transform({ filename, code, minify: false })`, which parses into typed structures, values included, and prints CSS back with no minifying and no targets, so nothing is lowered. Encoding the source string to bytes is part of the timed call, as it is in yuku-css's `parse`.",
     "",
     "| | |",
@@ -557,6 +571,9 @@ export function report(results: Results): void {
     "- css-tree reads a nested rule that starts with a type selector, such as `html.dark & {}`, as a declaration and reports an error, which is why it leaves out most of the Markless files it does.",
     "- css-tree is imported from its main entry, which also loads its lexer and syntax data. `css-tree/parser` loads less; its bundle size is listed.",
     "- yuku-css's WebAssembly memory grows to fit the largest file it has parsed and does not shrink until it has passed 128 MB and a small file comes, so its external memory is a high-water mark.",
+    ...(unsteady.length
+      ? [`- Some timings changed by more than 2× between the ${results.settings.runs} processes, which the median over runs does not fully absorb: ${list(unsteady)}.`]
+      : []),
     "- One machine, one run of the suite: differences under about 5% are noise.",
     "",
   );
@@ -640,7 +657,7 @@ export function report(results: Results): void {
       rows.push([
         "Parse and print",
         cell("`transform`", own),
-        `Lightning CSS \`transform\`: native, ${us(per(addon))} (${times(addon, own)}); WebAssembly, ${us(per(web))} (${times(web, own)})`,
+        `Lightning CSS \`transform\`: native, ${us(per(addon))} (${times(addon, own)}); WebAssembly, ${us(per(web))} (${times(web, own)}${unsteady.some((line) => line.startsWith(`${wasm.library} on ${node}`)) ? "; unsteady between runs, see [the caveats](docs/benchmark.md#caveats)" : ""})`,
         "no: Lightning CSS types every value and pretty-prints, yuku-css prints compactly",
       ]);
     }

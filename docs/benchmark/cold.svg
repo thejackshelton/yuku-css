@@ -7,57 +7,57 @@
   <text class="title" x="0" y="11">website__components__sketch__concepts__basket-mugs-only.tsrx.0.css (0.8 KB)</text>
   <text x="200" y="41" text-anchor="end">yuku-css</text>
   <rect x="210" y="30" width="15" height="22" rx="4" fill="#FF6B35"/>
-  <text x="233" y="41">5.45 ms</text>
+  <text x="233" y="41">5.24 ms</text>
   <text x="200" y="71" text-anchor="end">yuku-css print</text>
   <rect x="210" y="60" width="18" height="22" rx="4" fill="#FFA07A"/>
-  <text x="236" y="71">6.42 ms</text>
+  <text x="236" y="71">6.48 ms</text>
   <text x="200" y="101" text-anchor="end">yuku-css transform</text>
   <rect x="210" y="90" width="14" height="22" rx="4" fill="#C1440E"/>
-  <text x="232" y="101">5.15 ms</text>
+  <text x="232" y="101">5.08 ms</text>
   <text x="200" y="131" text-anchor="end">yuku-css diagnostics</text>
-  <rect x="210" y="120" width="14" height="22" rx="4" fill="#FFD3B6"/>
-  <text x="232" y="131">5.18 ms</text>
+  <rect x="210" y="120" width="13" height="22" rx="4" fill="#FFD3B6"/>
+  <text x="231" y="131">4.78 ms</text>
   <text x="200" y="161" text-anchor="end">css-tree</text>
-  <rect x="210" y="150" width="64" height="22" rx="4" fill="#3A86FF"/>
-  <text x="282" y="161">22.86 ms</text>
-  <text class="ratio" x="266" y="161" text-anchor="end">8.19×</text>
+  <rect x="210" y="150" width="63" height="22" rx="4" fill="#3A86FF"/>
+  <text x="281" y="161">22.47 ms</text>
+  <text class="ratio" x="265" y="161" text-anchor="end">9.01×</text>
   <text x="200" y="191" text-anchor="end">lightningcss</text>
-  <rect x="210" y="180" width="8" height="22" rx="4" fill="#F7B801"/>
-  <text x="226" y="191">2.79 ms</text>
+  <rect x="210" y="180" width="7" height="22" rx="4" fill="#F7B801"/>
+  <text x="225" y="191">2.49 ms</text>
   <text x="200" y="221" text-anchor="end">lightningcss-wasm</text>
-  <rect x="210" y="210" width="227" height="22" rx="4" fill="#2EC4B6"/>
-  <text x="445" y="221">81.37 ms</text>
-  <text class="ratio" x="429" y="221" text-anchor="end">29.14×</text>
+  <rect x="210" y="210" width="225" height="22" rx="4" fill="#2EC4B6"/>
+  <text x="443" y="221">80.23 ms</text>
+  <text class="ratio" x="427" y="221" text-anchor="end">32.17×</text>
   <text x="200" y="251" text-anchor="end">postcss</text>
-  <rect x="210" y="240" width="21" height="22" rx="4" fill="#8338EC"/>
-  <text x="239" y="251">7.40 ms</text>
+  <rect x="210" y="240" width="20" height="22" rx="4" fill="#8338EC"/>
+  <text x="238" y="251">7.05 ms</text>
   <text class="title" x="0" y="291">bootstrap.css (274.5 KB)</text>
   <text x="200" y="321" text-anchor="end">yuku-css</text>
   <rect x="210" y="310" width="42" height="22" rx="4" fill="#FF6B35"/>
-  <text x="260" y="321">15.02 ms</text>
+  <text x="260" y="321">14.91 ms</text>
   <text x="200" y="351" text-anchor="end">yuku-css print</text>
-  <rect x="210" y="340" width="50" height="22" rx="4" fill="#FFA07A"/>
-  <text x="268" y="351">17.77 ms</text>
-  <text class="ratio" x="252" y="351" text-anchor="end">2.58×</text>
+  <rect x="210" y="340" width="49" height="22" rx="4" fill="#FFA07A"/>
+  <text x="267" y="351">17.41 ms</text>
+  <text class="ratio" x="251" y="351" text-anchor="end">2.48×</text>
   <text x="200" y="381" text-anchor="end">yuku-css transform</text>
   <rect x="210" y="370" width="25" height="22" rx="4" fill="#C1440E"/>
-  <text x="243" y="381">8.84 ms</text>
+  <text x="243" y="381">8.77 ms</text>
   <text x="200" y="411" text-anchor="end">yuku-css diagnostics</text>
   <rect x="210" y="400" width="22" height="22" rx="4" fill="#FFD3B6"/>
-  <text x="240" y="411">7.84 ms</text>
+  <text x="240" y="411">7.94 ms</text>
   <text x="200" y="441" text-anchor="end">css-tree</text>
-  <rect x="210" y="430" width="115" height="22" rx="4" fill="#3A86FF"/>
-  <text x="333" y="441">41.26 ms</text>
-  <text class="ratio" x="317" y="441" text-anchor="end">5.98×</text>
+  <rect x="210" y="430" width="112" height="22" rx="4" fill="#3A86FF"/>
+  <text x="330" y="441">39.86 ms</text>
+  <text class="ratio" x="314" y="441" text-anchor="end">5.67×</text>
   <text x="200" y="471" text-anchor="end">lightningcss</text>
-  <rect x="210" y="460" width="19" height="22" rx="4" fill="#F7B801"/>
-  <text x="237" y="471">6.90 ms</text>
+  <rect x="210" y="460" width="20" height="22" rx="4" fill="#F7B801"/>
+  <text x="238" y="471">7.03 ms</text>
   <text x="200" y="501" text-anchor="end">lightningcss-wasm</text>
   <rect x="210" y="490" width="350" height="22" rx="4" fill="#2EC4B6"/>
-  <text x="568" y="501">125.38 ms</text>
-  <text class="ratio" x="552" y="501" text-anchor="end">18.18×</text>
+  <text x="568" y="501">124.54 ms</text>
+  <text class="ratio" x="552" y="501" text-anchor="end">17.73×</text>
   <text x="200" y="531" text-anchor="end">postcss</text>
-  <rect x="210" y="520" width="50" height="22" rx="4" fill="#8338EC"/>
-  <text x="268" y="531">18.02 ms</text>
-  <text class="ratio" x="252" y="531" text-anchor="end">2.61×</text>
+  <rect x="210" y="520" width="52" height="22" rx="4" fill="#8338EC"/>
+  <text x="270" y="531">18.61 ms</text>
+  <text class="ratio" x="254" y="531" text-anchor="end">2.65×</text>
 </svg>
