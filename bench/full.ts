@@ -1,5 +1,5 @@
 // The in-depth benchmark: `bun run bench:full`. Writes bench/results/<date>.json, then
-// docs/benchmark.md, its charts and the README's Benchmark section from it. RUNS, BUDGET (ms per file), and COLD set its size.
+// docs/benchmark.md and its charts from it. RUNS, BUDGET (ms per file), and COLD set its size.
 import { execFileSync, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";

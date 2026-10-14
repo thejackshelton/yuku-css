@@ -4,26 +4,26 @@
     .ratio { font-size: 12px; fill: #fff }
   </style>
   <text x="200" y="11" text-anchor="end">yuku-css</text>
-  <rect x="210" y="0" width="43" height="22" rx="4" fill="#FF6B35"/>
-  <text x="261" y="11">13.1 µs</text>
+  <rect x="210" y="0" width="40" height="22" rx="4" fill="#FF6B35"/>
+  <text x="258" y="11">12.2 µs</text>
   <text x="200" y="41" text-anchor="end">css-tree, same work</text>
-  <rect x="210" y="30" width="140" height="22" rx="4" fill="#3A86FF"/>
-  <text x="358" y="41">42.9 µs</text>
-  <text class="ratio" x="342" y="41" text-anchor="end">3.26×</text>
+  <rect x="210" y="30" width="136" height="22" rx="4" fill="#3A86FF"/>
+  <text x="354" y="41">41.2 µs</text>
+  <text class="ratio" x="338" y="41" text-anchor="end">3.38×</text>
   <text x="200" y="71" text-anchor="end">css-tree, defaults</text>
-  <rect x="210" y="60" width="128" height="22" rx="4" fill="#3A86FF"/>
-  <text x="346" y="71">39.3 µs</text>
-  <text class="ratio" x="330" y="71" text-anchor="end">2.99×</text>
+  <rect x="210" y="60" width="124" height="22" rx="4" fill="#3A86FF"/>
+  <text x="342" y="71">37.4 µs</text>
+  <text class="ratio" x="326" y="71" text-anchor="end">3.06×</text>
   <text x="200" y="101" text-anchor="end">lightningcss</text>
-  <rect x="210" y="90" width="78" height="22" rx="4" fill="#F7B801"/>
-  <text x="296" y="101">23.9 µs</text>
-  <text class="ratio" x="280" y="101" text-anchor="end">1.82×</text>
+  <rect x="210" y="90" width="75" height="22" rx="4" fill="#F7B801"/>
+  <text x="293" y="101">22.8 µs</text>
+  <text class="ratio" x="277" y="101" text-anchor="end">1.87×</text>
   <text x="200" y="131" text-anchor="end">lightningcss-wasm</text>
   <rect x="210" y="120" width="350" height="22" rx="4" fill="#2EC4B6"/>
-  <text x="568" y="131">107.3 µs</text>
-  <text class="ratio" x="552" y="131" text-anchor="end">8.16×</text>
+  <text x="568" y="131">105.8 µs</text>
+  <text class="ratio" x="552" y="131" text-anchor="end">8.68×</text>
   <text x="200" y="161" text-anchor="end">postcss</text>
-  <rect x="210" y="150" width="66" height="22" rx="4" fill="#8338EC"/>
-  <text x="284" y="161">20.1 µs</text>
-  <text class="ratio" x="268" y="161" text-anchor="end">1.53×</text>
+  <rect x="210" y="150" width="63" height="22" rx="4" fill="#8338EC"/>
+  <text x="281" y="161">19.1 µs</text>
+  <text class="ratio" x="265" y="161" text-anchor="end">1.56×</text>
 </svg>

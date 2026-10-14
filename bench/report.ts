@@ -24,7 +24,6 @@ interface Memory {
 }
 
 const DOCS = new URL("../docs/", import.meta.url);
-const README = new URL("../README.md", import.meta.url);
 const LABEL = 210;
 const median = (values: number[]) => quantile(values, 0.5);
 const library = (name: string) => LIBRARIES.find((library) => library.name === name)!;
@@ -582,69 +581,6 @@ export function report(results: Results): void {
   mkdirSync(new URL("benchmark/", DOCS), { recursive: true });
   for (const [file, svg] of Object.entries(charts)) writeFileSync(new URL(`benchmark/${file}.svg`, DOCS), svg);
   writeFileSync(new URL("benchmark.md", DOCS), lines.join("\n"));
-  readme();
-
-  // the README's Benchmark section, from the same results as docs/benchmark.md
-  function readme(): void {
-    const byId = (id: string) => configs.find((config) => config.id === id);
-    const inCorpus = (keys: string[]) => keys.filter((key) => key.startsWith("markless/"));
-    const rows: { task: string; against: string; gain: number }[] = [];
-    const parsing = byId("yuku-css parsed");
-    const parsingTwin = byId("css-tree parsed");
-    if (!parsing || !parsingTwin) throw new Error("the results have no yuku-css and css-tree parse with positions");
-    const keys = clean([parsing.id, parsingTwin.id], markless);
-    rows.push({ task: "Parse into css-tree's AST", against: "css-tree", gain: ratio(parse("node", parsingTwin, keys), parse("node", parsing, keys)) });
-    if (validatedKeys) {
-      const shown = inCorpus(validatedKeys);
-      rows.push({ task: "Validate a style sheet", against: "css-tree", gain: ratio(total(results.validate.node["css-tree"], shown), total(results.validate.node["yuku-css"], shown)) });
-    }
-    if (results.generate) {
-      const shown = inCorpus(printable);
-      rows.push({ task: "Print an AST", against: "css-tree", gain: ratio(total(results.generate.node["css-tree"], shown), total(results.generate.node["yuku-css"], shown)) });
-    }
-    const transforming = byId("yuku-css transform parsed nopos");
-    const native = byId("lightningcss parsed nopos");
-    if (transforming && native) {
-      const shown = clean([transforming.id, native.id], markless);
-      rows.push({ task: "Parse and print", against: "Lightning CSS (native)", gain: ratio(parse("node", native, shown), parse("node", transforming, shown)) });
-    }
-    // an equal-work tool earns a row only where it is faster than the tool the task's row is already against
-    const rivals = results.competitors;
-    if (rivals)
-      for (const [task, row, current] of [
-        ["parse", "Parse into css-tree's AST", "parse css-tree"],
-        ["print", "Parse and print", "print lightningcss"],
-      ] as const) {
-        const shown = inCorpus(rivals.gate.common[task]);
-        const node = (name: string) => rivals.time.node?.[name] && total(rivals.time.node[name], shown);
-        const mine = node(`${task} yuku-css`);
-        const held = node(current);
-        for (const competitor of COMPETITORS.filter((competitor) => competitor.task === task && competitor.equal && competitor.package !== "yuku-css" && competitor.name !== current)) {
-          const theirs = node(competitor.name);
-          if (shown.length && mine && held && theirs && theirs.median < held.median) rows.push({ task: row, against: competitor.label, gain: ratio(theirs, mine) });
-        }
-      }
-    rows.sort((a, b) => b.gain - a.gain);
-
-    const section = [
-      "## Benchmark",
-      "",
-      `Each row does the same work on both sides, on the ${keys.length} real-world style sheets of [test/corpus](test/corpus):`,
-      "",
-      "| Task | Compared with | yuku-css is |",
-      "|---|---|---|",
-      ...rows.map((row) => `| ${row.task} | ${row.against} | **${row.gain.toFixed(1)}x faster** |`),
-      "",
-      `Median time per file over ${results.settings.runs} runs, each in a fresh Node.js ${results.runtimes.node.slice(1).split(".")[0]} process on an ${results.machine.cpu}.${native ? " Lightning CSS also types every value, so its row is not identical work." : ""} More in [docs/benchmark.md](docs/benchmark.md); run it with \`bun run bench:full\`.`,
-      "",
-      "",
-    ].join("\n");
-    const text = readFileSync(README, "utf8");
-    const start = text.indexOf("## Benchmark\n");
-    const end = text.indexOf("\n## ", start + 1);
-    if (start < 0 || end < 0) throw new Error("README.md has no Benchmark section to replace");
-    writeFileSync(README, text.slice(0, start) + section + text.slice(end + 1));
-  }
 
   function fastestSection(): void {
     const rivals = results.competitors;
@@ -679,6 +615,11 @@ export function report(results: Results): void {
       const rank = (runtime: string) =>
         rows.filter((row) => row.sums[runtime]).toSorted((a, b) => a.sums[runtime]!.median - b.sums[runtime]!.median);
       const counted = task === "parse" || task === "raw";
+      // stylis's tree links back to its parents, so it has no count
+      const nodeCount = (name: string) => {
+        const sum = keys.reduce((total, key) => total + (rivals.gate.nodes[name]?.[key] ?? 0), 0);
+        return sum ? sum.toLocaleString("en") : "–";
+      };
       const order = [...rank("node"), ...rows.filter((row) => !row.sums.node)];
       table(
         ["Tool", "Equal work", ...everywhere.flatMap((runtime) => [`${titleOf(runtime)}, per file`, "MB/s"]), "vs yuku-css on Node.js", ...(counted ? ["Nodes"] : [])],
@@ -692,20 +633,26 @@ export function report(results: Results): void {
               return sum ? [us(per(sum)), mbps(sum)] : ["–", "–"];
             }),
             competitor === own || !own_.node || !mine ? "" : own_.node.median >= mine.median ? `${times(own_.node, mine)} slower` : `**${times(mine, own_.node)} faster**`,
-            ...(counted ? [keys.reduce((sum, key) => sum + (rivals.gate.nodes[competitor.name]?.[key] ?? 0), 0).toLocaleString("en")] : []),
+            ...(counted ? [nodeCount(competitor.name)] : []),
           ];
         }),
       );
       out(...order.map(({ competitor }) => `- **${competitor.label}**: ${competitor.work}.`), "");
+      const slow = members.filter((competitor) => Object.values<string>(rivals.gate.failed[competitor.name] ?? {}).some((reason) => reason.includes(" s to read once")));
+      if (slow.length)
+        out(
+          `${list(slow.map((competitor) => competitor.label))} took over a second to read one file once, so the files from that size up are left out of this task for every tool, which is why it covers ${mb(keys.reduce((sum, key) => sum + bytes[key]!, 0))}. The larger files are compared in the sections below.`,
+          "",
+        );
       const fastest = everywhere.flatMap((runtime) => {
-        const ranked = rank(runtime);
+        const ranked = rank(runtime).filter((row) => row.competitor.equal || row.competitor.package !== "yuku-css" || row.competitor === own && own.equal);
         if (!ranked.length) return [];
         const first = ranked[0]!;
         const equalFirst = ranked.find((row) => row.competitor.equal);
         const text = `on ${titleOf(runtime)}, ${first.competitor.label} (${us(per(first.sums[runtime]!))} a file)`;
         return [equalFirst && equalFirst !== first ? `${text}; of the equal-work rows, ${equalFirst.competitor.label} (${us(per(equalFirst.sums[runtime]!))})` : text];
       });
-      out(`Fastest: ${list(fastest)}.`, "");
+      out(`Fastest${own.equal ? "" : ", leaving out yuku-css's row, which does not do this task"}: ${list(fastest)}.`, "");
       for (const runtime of everywhere) {
         const mine = sumFor(runtime, own.name, keys);
         if (!mine) continue;
@@ -743,7 +690,11 @@ export function report(results: Results): void {
     }
 
     out("### Where another tool beats yuku-css", "");
-    out(...(beats.length ? beats.map((line) => `- ${line}.`) : ["- Nowhere in these runs."]), "");
+    out(...(beats.length ? beats.map((line) => `- ${line}.`) : ["- On no task's total in these runs."]), "");
+    out(
+      "These are totals over each task's files. Single files, calls on near-empty input, a cold start, memory and download size are where yuku-css does lose, and the Summary and the Lightning CSS section below list each case.",
+      "",
+    );
     out(
       "Not added: Rolldown, Vite and Rspack hand CSS to Lightning CSS, which is timed above. `@swc/css` is timed printing, though its last release, 0.0.28, is from July 2023 and it lowers nesting even with no options; its `minifySync` is not timed, because it panics on any math function (`.a{width:calc(1px + 2px)}` throws `cannot access a scoped thread local variable without calling set first`), which would leave out every file with `calc()`, `min()` or `max()` for every minifier. `postcss-value-parser` and `postcss-selector-parser` parse one value or selector at a time and would only matter for a PostCSS same-work row, which PostCSS's string-valued tree rules out. Bundle sizes, cold starts and memory are measured only for the libraries in the sections below.",
       "",
@@ -775,8 +726,9 @@ export function report(results: Results): void {
           jsNodes: yukuConfig ? results.gate.nodes[yukuConfig.id]?.[key] : undefined,
         };
       });
-      const sum = (field: "parse" | "serialize" | "oxc") => rows.reduce((total: number, row: Record<string, number>) => total + row[field]!, 0);
-      const allBytes = rows.reduce((total: number, row: { key: string }) => total + bytes[row.key]!, 0);
+      const summed = rows.filter((row: { key: string }) => !row.key.endsWith("/huge-custom-properties.css"));
+      const sum = (field: "parse" | "serialize" | "oxc") => summed.reduce((total: number, row: Record<string, number>) => total + row[field]!, 0);
+      const allBytes = summed.reduce((total: number, row: { key: string }) => total + bytes[row.key]!, 0);
       const rate = (ms_: number, size: number) => `${(size / 1e6 / (ms_ / 1000)).toFixed(1)} MB/s`;
       const nsPer = (ms_: number, nodes: number) => ((ms_ * 1e6) / nodes).toFixed(1);
       out(
@@ -784,7 +736,7 @@ export function report(results: Results): void {
         "",
         `The parsers themselves, with no JS and no WebAssembly: yuku-css's Zig built for the host by tools/native_bench.zig (ReleaseFast, \`parse()\`'s defaults: values and preludes parsed, no positions), and oxc-css-parser's Rust by bench/oxc/native (release, fat LTO, one codegen unit, \`Syntax::Css\`, a fresh \`Allocator\` per parse as its own \`benches/self.rs\` makes). Each parses each file for a second to warm up, then ${native.rounds} times; a file's time is the median of those, and the median of ${results.settings.runs} fresh processes. Parse only: yuku-css's tree stays in its arrays and oxc's in its arena, nothing is handed to JS. yuku-css's parse and serialize, the transfer buffer its WebAssembly hands to JS, is listed too. On the ${rows.length} npm and synthetic files both read cleanly; the Markless corpus is left out because a second of warmup for each of its 231 files would take too long.`,
         "",
-        "The trees differ, so the node counts differ. Nodes are counted as everywhere on this page, each object with a string `type`: for yuku-css in its JS tree (`parse(source).ast`), for oxc in its serde output (bench/oxc/native counts it the same way, and it matches what the WebAssembly build hands JS). yuku-css's own Zig node array is smaller still, because some JS nodes come from lists and fields; its count is given for reference. MB/s does not depend on the tree's shape.",
+        "The trees differ, so the node counts differ. Nodes are counted as everywhere on this page, each object with a string `type`: for yuku-css in its JS tree (`parse(source).ast`), for oxc in its serde output (bench/oxc/native counts it the same way, and it matches what the WebAssembly build hands JS). yuku-css's Zig node array, also given, has one entry per JS node. MB/s does not depend on the tree's shape. The total leaves out huge-custom-properties.css, where the work differs most: yuku-css keeps custom property values as raw text, as css-tree does by default, while oxc parses them into typed values (46 nodes against over half a million).",
         "",
       );
       table(
@@ -804,7 +756,7 @@ export function report(results: Results): void {
       );
       const slower = rows.filter((row: { parse: number; oxc: number }) => row.oxc < row.parse);
       out(
-        `Over the ${rows.length} files, ${mb(allBytes)}, yuku-css's Zig parses at ${rate(sum("parse"), allBytes)} and oxc-css-parser's Rust at ${rate(sum("oxc"), allBytes)}: ${(sum("oxc") / sum("parse")).toFixed(2)}× in yuku-css's favour${slower.length ? `, though oxc is faster on ${list(slower.map((row: { key: string; parse: number; oxc: number }) => `${short(row.key)} (${(row.parse / row.oxc).toFixed(2)}×)`))}` : ", and faster on every file"}. With its serialize to the transfer buffer added, yuku-css runs at ${rate(sum("serialize"), allBytes)}.`,
+        `Over the other ${summed.length} files, ${mb(allBytes)}, yuku-css's Zig parses at ${rate(sum("parse"), allBytes)} and oxc-css-parser's Rust at ${rate(sum("oxc"), allBytes)}: ${(sum("oxc") / sum("parse")).toFixed(2)}× in yuku-css's favour${slower.length ? `, though oxc is faster on ${list(slower.map((row: { key: string; parse: number; oxc: number }) => `${short(row.key)} (${(row.parse / row.oxc).toFixed(2)}×)`))}` : ", and faster on every file"}. With its serialize to the transfer buffer added, yuku-css runs at ${rate(sum("serialize"), allBytes)}.`,
         "",
       );
       for (const runtime of everywhere) {
