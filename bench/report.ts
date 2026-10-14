@@ -553,7 +553,7 @@ export function report(results: Results): void {
     `- **Processes.** Each measurement runs in a fresh process, ${results.settings.runs} times, with the runs of every configuration taking turns. A file's time is the median over runs of its median; its p95 is the median over runs of its 95th percentile.`,
     `- **Sampling.** A process first parses its files in turn for at least a second, so the JIT has compiled the hot paths. It then parses each file for ${results.settings.budget / 5} ms more and samples it for ${results.settings.budget} ms and at least 10 samples (half that in the browser). A sample times enough parses to last 20 µs (500 µs in the browser), so the clock's cost and precision do not count.`,
     "- **Smallest first.** A process times its files a size bucket at a time, from the smallest, warming each bucket up first. css-tree resets its token buffers in full on every parse (`balance.fill(0)` in its `TokenStream`), and they keep the size of the largest source it has parsed: in a one-off check, `.a { color: red }` took 1.4 µs to parse before a 3.6 MB file and 60 µs after. Timing small files after large ones would charge css-tree for that.",
-    "- **Per file** is the sum of the files' medians over the number of files, as in the README chart. **MB/s** is the files' bytes over that sum.",
+    "- **Per file** is the sum of the files' medians over the number of files. **MB/s** is the files' bytes over that sum.",
     "- **Same work.** yuku-css and css-tree get the same options: `parseValue` and `parseAtrulePrelude` on and `parseCustomProperty` off, which is what yuku-css builds by default, and `positions` on, so both build css-tree's `loc` with lines and columns. Rows with values raw turn the first two off for both. css-tree's defaults are the same with positions off. Without positions yuku-css still gives each node `start` and `end` offsets, so it does more than css-tree there. Each library is called through one adapter in [bench/adapters.ts](../bench/adapters.ts), so after an API change only the adapter changes.",
     "- **Building the tree.** yuku-css builds its JS tree when `ast` is first read. Every yuku-css row reads `ast` inside the timed call, so its time includes building the tree, except `yuku-css diagnostics`, which reads only `diagnostics`, as a caller that only checks for errors would, and builds no tree in JS.",
     "- **Lightning CSS** has no parse-only API in JS. It is timed calling `transform({ filename, code, minify: false })`, which parses into typed structures, values included, and prints CSS back with no minifying and no targets, so nothing is lowered. Encoding the source string to bytes is part of the timed call, as it is in yuku-css's `parse`.",
@@ -583,99 +583,42 @@ export function report(results: Results): void {
   writeFileSync(new URL("benchmark.md", DOCS), lines.join("\n"));
   readme();
 
-  // the README's benchmark section and bench/chart.svg, from the same results as docs/benchmark.md
+  // the README's Benchmark section, from the same results as docs/benchmark.md
   function readme(): void {
     const byId = (id: string) => configs.find((config) => config.id === id);
-    const charted = (
-      [
-        ["yuku-css", "yuku-css parsed nopos"],
-        ["yuku-css loc", "yuku-css parsed"],
-        ["css-tree", "css-tree parsed"],
-        ["postcss", "postcss raw"],
-      ] as const
-    ).flatMap(([label, id]) => (byId(id) ? [{ label, config: byId(id)! }] : []));
-    const keys = clean(charted.map(({ config }) => config.id), markless);
-    const node = title("node");
-    const parsed = Object.fromEntries(charted.map(({ label, config }) => [label, parse("node", config, keys)]));
-    const svg = chart([{ bars: charted.map(({ label, config }) => bar(label, color(config), per(parsed[label]!))) }], { labelWidth: 110 });
-    writeFileSync(new URL("../bench/chart.svg", import.meta.url), svg);
-
     const inCorpus = (keys: string[]) => keys.filter((key) => key.startsWith("markless/"));
-    const cell = (what: string, sum: Total) => `${what}, ${us(per(sum))}`;
-    const rows: string[][] = [];
-    const tokens = results.tokenize.node?.["yuku-css"] && inCorpus(pair);
-    if (tokens) {
-      const own = total(results.tokenize.node["yuku-css"], tokens);
-      const other = total(results.tokenize.node["css-tree"], tokens);
-      rows.push(["Tokenize", cell("`tokenize`", own), `${cell("css-tree `tokenize`", other)} (${times(other, own)})`, "yes"]);
+    const rows: { task: string; against: string; gain: number }[] = [];
+    const parsing = byId("yuku-css parsed");
+    const parsingTwin = byId("css-tree parsed");
+    if (!parsing || !parsingTwin) throw new Error("the results have no yuku-css and css-tree parse with positions");
+    const keys = clean([parsing.id, parsingTwin.id], markless);
+    rows.push({ task: "Parse into css-tree's AST", against: "css-tree", gain: ratio(parse("node", parsingTwin, keys), parse("node", parsing, keys)) });
+    if (validatedKeys) {
+      const shown = inCorpus(validatedKeys);
+      rows.push({ task: "Validate a style sheet", against: "css-tree", gain: ratio(total(results.validate.node["css-tree"], shown), total(results.validate.node["yuku-css"], shown)) });
     }
     if (results.generate) {
       const shown = inCorpus(printable);
-      for (const map of [false, true]) {
-        const own = total(results.generate.node[`yuku-css${map ? " map" : ""}`], shown);
-        const other = total(results.generate.node[`css-tree${map ? " map" : ""}`], shown);
-        rows.push([
-          map ? "Print css-tree's tree with a source map" : "Print css-tree's tree",
-          cell("`generate`", own),
-          `${cell("css-tree `generate`", other)} (${times(other, own)})`,
-          "yes",
-        ]);
-      }
-    }
-    if (validatedKeys) {
-      const shown = inCorpus(validatedKeys);
-      const own = total(results.validate.node["yuku-css"], shown);
-      const other = total(results.validate.node["css-tree"], shown);
-      rows.push([
-        "Validate every declaration",
-        cell("`lexer.matchStylesheet`", own),
-        `${cell("css-tree `parse` and `matchDeclaration`", other)} (${times(other, own)})`,
-        "yes, over a different grammar: @webref/css, where css-tree's is mdn-data",
-      ]);
-    }
-    const checking = byId("yuku-css diagnostics parsed nopos");
-    const plain = byId("css-tree parsed nopos");
-    if (checking && plain) {
-      const shown = clean([checking.id, plain.id], markless);
-      const own = parse("node", checking, shown);
-      const other = parse("node", plain, shown);
-      rows.push([
-        "Check for parse errors",
-        cell("`parse`, reading only `diagnostics`", own),
-        `${cell("css-tree `parse` at its defaults", other)} (${times(other, own)})`,
-        "no: diagnostics only, yuku-css builds no tree in JS, where css-tree builds its whole tree",
-      ]);
+      rows.push({ task: "Print an AST", against: "css-tree", gain: ratio(total(results.generate.node["css-tree"], shown), total(results.generate.node["yuku-css"], shown)) });
     }
     const transforming = byId("yuku-css transform parsed nopos");
     const native = byId("lightningcss parsed nopos");
-    const wasm = byId("lightningcss-wasm parsed nopos");
-    if (transforming && native && wasm) {
-      const shown = clean([transforming.id, native.id, wasm.id], markless);
-      const own = parse("node", transforming, shown);
-      const addon = parse("node", native, shown);
-      const web = parse("node", wasm, shown);
-      rows.push([
-        "Parse and print",
-        cell("`transform`", own),
-        `Lightning CSS \`transform\`: native, ${us(per(addon))} (${times(addon, own)}); WebAssembly, ${us(per(web))} (${times(web, own)}${unsteady.some((line) => line.startsWith(`${wasm.library} on ${node}`)) ? "; unsteady between runs, see [the caveats](docs/benchmark.md#caveats)" : ""})`,
-        "no: Lightning CSS types every value and pretty-prints, yuku-css prints compactly",
-      ]);
+    if (transforming && native) {
+      const shown = clean([transforming.id, native.id], markless);
+      rows.push({ task: "Parse and print", against: "Lightning CSS (native)", gain: ratio(parse("node", native, shown), parse("node", transforming, shown)) });
     }
+    rows.sort((a, b) => b.gain - a.gain);
 
     const section = [
       "## Benchmark",
       "",
-      `Parsing the ${keys.length} style sheets of [test/corpus](test/corpus) that every parser here reads without an error. [css-tree](https://github.com/csstree/csstree) is set to build the tree \`yuku-css loc\` builds: selectors, values and at-rule preludes parsed, with positions; \`yuku-css\` gives offsets in their place. [PostCSS](https://postcss.org) keeps selectors, values and preludes as strings, so it does less.`,
+      `Each row does the same work on both sides, on the ${keys.length} real-world style sheets of [test/corpus](test/corpus):`,
       "",
-      "![Time per file to parse with yuku-css, css-tree, and PostCSS](bench/chart.svg)",
+      "| Task | Compared with | yuku-css is |",
+      "|---|---|---|",
+      ...rows.map((row) => `| ${row.task} | ${row.against} | **${row.gain.toFixed(1)}x faster** |`),
       "",
-      `Against \`yuku-css loc\`, css-tree takes ${times(parsed["css-tree"]!, parsed["yuku-css loc"]!)} as long. The rest of the API, per file of the same corpus, each row on the files both sides read cleanly:`,
-      "",
-      "| Task | yuku-css | Against | Same work |",
-      "|---|---|---|---|",
-      ...rows.map((row) => `| ${row.join(" | ")} |`),
-      "",
-      `Median time per file over ${results.settings.runs} runs, each in a fresh ${node} process on an ${results.machine.cpu}, files timed smallest first. [docs/benchmark.md](docs/benchmark.md) has Lightning CSS by file size, Bun and Chromium, real-world and synthetic CSS, cold start, memory, bundle size and where yuku-css loses. Run it with \`bun run bench:full\`; \`bun run bench\` times the chart's parsers alone, and \`bun run bench tokenize\`, \`generate\`, \`match\` or \`validate\` one row, without touching the README.`,
+      `Median time per file over ${results.settings.runs} runs, each in a fresh Node.js ${results.runtimes.node.slice(1).split(".")[0]} process on an ${results.machine.cpu}.${native ? " Lightning CSS also types every value, so its row is not identical work." : ""} More in [docs/benchmark.md](docs/benchmark.md); run it with \`bun run bench:full\`.`,
       "",
       "",
     ].join("\n");

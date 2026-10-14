@@ -1,7 +1,7 @@
-// One row of the README benchmark, quickly: `node bench/index.ts` times the chart's parsers on
+// One benchmark, quickly: `node bench/index.ts` times the parsers of the README's parse row on
 // test/corpus; `tokenize`, `generate`, `match` or `validate` times tokenizing, printing, matching
 // every declaration or validating each file instead. `CORPUS=npm` or `synthetic` times that group
-// of bench/corpus.ts in place of test/corpus. bench/full.ts writes the README and its chart.
+// of bench/corpus.ts in place of test/corpus. bench/full.ts writes the README section.
 import { spawnSync } from "node:child_process";
 import { LIBRARIES, type Mode } from "./adapters.ts";
 import { type File, load, prepare } from "./corpus.ts";
