@@ -98,7 +98,7 @@ async function run(task: Task): Promise<unknown> {
     }
     case "check": {
       const tool = COMPETITORS.find(({ name }) => name === task.tool)!;
-      const run = task.nodes ? await tool.load(where) : undefined;
+      const run = await tool.load(where);
       const failed: Record<string, string> = {};
       const nodes: Record<string, number> = {};
       let slow: string | undefined;
@@ -115,10 +115,18 @@ async function run(task: Task): Promise<unknown> {
           slow = `left out unread: ${key.slice(key.indexOf("/") + 1)} took ${seconds.toFixed(1)} s to read once`;
           failed[key] = `took ${seconds.toFixed(1)} s to read once, over the ${LIMIT} s limit`;
         } else if (reason) failed[key] = reason;
-        else if (run) {
+        else {
+          // the timed call itself must not throw, as @swc/css's minifySync does on files its transformSync reads
+          let output: unknown;
+          try {
+            output = await run(source(key));
+          } catch (error) {
+            failed[key] = `the timed call threw: ${(error as Error).message ?? error}`;
+            continue;
+          }
           // stylis links each node to its root and siblings, a cycle no count can walk
           try {
-            nodes[key] = count(await run(source(key)));
+            if (task.nodes) nodes[key] = count(output);
           } catch {}
         }
       }

@@ -953,20 +953,6 @@ export const COMPETITORS: Competitor[] = [
     check: bunCheck,
   },
   {
-    name: "minify swc",
-    label: "@swc/css",
-    task: "minify",
-    work: "`minifySync`: parses into swc's typed AST, minifies and prints",
-    equal: false,
-    package: "@swc/css",
-    runtimes: NATIVE,
-    async load() {
-      const swc = await swcCss();
-      return (source) => swc.minifySync(Buffer.from(source), {}).code;
-    },
-    check: swcCheck,
-  },
-  {
     name: "minify csso",
     label: "csso",
     task: "minify",
