@@ -379,11 +379,11 @@ export const TASKS = {
   },
   format: {
     title: "Format",
-    reference: "yuku-css has no formatter; its `transform`, which prints compactly, is listed for scale only",
+    reference: "no formatter; its `transform`, which prints compactly, is listed for scale only",
   },
   minify: {
     title: "Minify",
-    reference: "yuku-css has no minifier; its `transform`, which prints compactly but drops nothing, is listed for scale only",
+    reference: "no minifier; its `transform`, which prints compactly but drops nothing, is listed for scale only",
   },
 } as const;
 export type TaskName = keyof typeof TASKS;

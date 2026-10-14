@@ -3,7 +3,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { cpus, platform, release, totalmem } from "node:os";
+import { cpus, loadavg, platform, release, totalmem } from "node:os";
 import { brotliCompressSync, constants, gzipSync } from "node:zlib";
 import { rolldown } from "rolldown";
 import { COMPETITORS, count, LIBRARIES, MODES, type Mode, TASKS, VALIDATORS } from "./adapters.ts";
@@ -25,6 +25,7 @@ export const id = (library: string, { values, positions }: Mode) =>
   `${library} ${values}${positions ? "" : " nopos"}`;
 
 const began = Date.now();
+const loadBefore = loadavg()[0]!;
 const durations: Record<string, number> = {};
 const section = async <T>(name: string, work: () => T | Promise<T>): Promise<T> => {
   const start = Date.now();
@@ -298,7 +299,7 @@ const git = (...args: string[]) => execFileSync("git", args, { encoding: "utf8" 
 const date = new Date().toISOString().slice(0, 10);
 const results = {
   date,
-  machine: { cpu: cpus()[0]!.model, cores: cpus().length, memory: totalmem(), os: `${platform()} ${release()}` },
+  machine: { cpu: cpus()[0]!.model, cores: cpus().length, memory: totalmem(), os: `${platform()} ${release()}`, load: [loadBefore, loadavg()[0]!] },
   runtimes: {
     node: process.version,
     bun: execFileSync("bun", ["--version"], { encoding: "utf8" }).trim(),

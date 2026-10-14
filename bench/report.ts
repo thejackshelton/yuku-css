@@ -561,7 +561,7 @@ export function report(results: Results): void {
     "",
     "| | |",
     "| --- | --- |",
-    `| Machine | ${results.machine.cpu}, ${results.machine.cores} cores, ${Math.round(results.machine.memory / 2 ** 30)} GB, ${results.machine.os} |`,
+    `| Machine | ${results.machine.cpu}, ${results.machine.cores} cores, ${Math.round(results.machine.memory / 2 ** 30)} GB, ${results.machine.os}${results.machine.load ? `, one-minute load average ${results.machine.load.map((value: number) => value.toFixed(1)).join(" at the start, ")} at the end` : ""} |`,
     `| Runtimes | Node.js ${results.runtimes.node.slice(1)}, Bun ${results.runtimes.bun}, Chromium ${results.runtimes.chromium} |`,
     `| Libraries | ${Object.entries(results.libraries).map(([lib, version]) => `${lib} ${version}`).join(", ")} |`,
     `| Duration | ${Math.round(results.durations.total / 60)} min: ${Object.entries<number>(results.durations).filter(([part]) => part !== "total").map(([part, seconds]) => `${part} ${Math.round(seconds)} s`).join(", ")} |`,
@@ -673,7 +673,7 @@ export function report(results: Results): void {
       const members = COMPETITORS.filter((competitor) => competitor.task === task);
       const own = reference(task);
       const scope = task === "format" ? "Markless files" : "files";
-      out(`### ${TASKS[task].title}`, "", `yuku-css: ${TASKS[task].reference}. On the ${keys.length} ${scope} every tool below reads cleanly, ${mb(keys.reduce((sum, key) => sum + bytes[key]!, 0))}.`, "");
+      out(`### ${TASKS[task].title}`, "", `yuku-css: ${TASKS[task].reference}. Ranked by time on Node.js, on the ${keys.length} ${scope} every tool below reads cleanly, ${mb(keys.reduce((sum, key) => sum + bytes[key]!, 0))}.`, "");
       const sums = (name: string) => Object.fromEntries(everywhere.map((runtime) => [runtime, sumFor(runtime, name, keys)]));
       const rows = members.map((competitor) => ({ competitor, sums: sums(competitor.name) }));
       const rank = (runtime: string) =>
@@ -681,13 +681,12 @@ export function report(results: Results): void {
       const counted = task === "parse" || task === "raw";
       const order = [...rank("node"), ...rows.filter((row) => !row.sums.node)];
       table(
-        ["Tool", "Work", "Equal work", ...everywhere.flatMap((runtime) => [`${titleOf(runtime)}, per file`, "MB/s"]), "vs yuku-css on Node.js", ...(counted ? ["Nodes"] : [])],
+        ["Tool", "Equal work", ...everywhere.flatMap((runtime) => [`${titleOf(runtime)}, per file`, "MB/s"]), "vs yuku-css on Node.js", ...(counted ? ["Nodes"] : [])],
         order.map(({ competitor, sums: own_ }) => {
           const mine = sums(own.name).node;
           return [
             competitor.label,
-            competitor.work,
-            competitor === own ? "reference" : competitor.equal ? "**equal**" : "not equal",
+            competitor === own ? (own.equal ? "reference" : "for scale") : competitor.equal ? "**equal**" : "not equal",
             ...everywhere.flatMap((runtime) => {
               const sum = own_[runtime];
               return sum ? [us(per(sum)), mbps(sum)] : ["–", "–"];
@@ -697,6 +696,7 @@ export function report(results: Results): void {
           ];
         }),
       );
+      out(...order.map(({ competitor }) => `- **${competitor.label}**: ${competitor.work}.`), "");
       const fastest = everywhere.flatMap((runtime) => {
         const ranked = rank(runtime);
         if (!ranked.length) return [];
@@ -710,7 +710,7 @@ export function report(results: Results): void {
         const mine = sumFor(runtime, own.name, keys);
         if (!mine) continue;
         for (const row of rows)
-          if (row.competitor !== own && row.sums[runtime] && row.sums[runtime]!.median < mine.median)
+          if (row.competitor.package !== "yuku-css" && row.sums[runtime] && row.sums[runtime]!.median < mine.median)
             beats.push(
               `${TASKS[task].title}: ${row.competitor.label} beats yuku-css on ${titleOf(runtime)}, ${us(per(row.sums[runtime]!))} against ${us(per(mine))} a file (${times(mine, row.sums[runtime]!)}), ${row.competitor.equal ? "doing the same work" : "not the same work"}`,
             );
