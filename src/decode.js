@@ -197,15 +197,21 @@ function locator(src, starts, line, column, base, file) {
       return { source: file, start, end: point(e, j) };
     };
   }
-  // one literal, so that the three objects are allocated together
+  // the tree asks in the order of its starts, so the last start's line is tried first
+  let last = 0;
   return (s, e) => {
-    let j = blocks[s >> 6];
-    while (S[j + 1] <= s) j++;
+    let j = last;
+    if (S[j + 1] <= s || S[j] > s) {
+      j = blocks[s >> 6];
+      while (S[j + 1] <= s) j++;
+      last = j;
+    }
     const startLine = line + j, startColumn = s - S[j] + 1;
     if (S[j + 1] <= e) {
       j = blocks[e >> 6];
       while (S[j + 1] <= e) j++;
     }
+    // one literal, so that the three objects are allocated together
     return {
       source: file,
       start: { offset: base + s, line: startLine, column: startColumn },
