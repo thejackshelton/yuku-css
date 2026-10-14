@@ -1,0 +1,10 @@
+[workspace]
+resolver = "3"
+members = ["native", "wasm"]
+
+[workspace.dependencies]
+oxc-css-parser = { git = "https://github.com/oxc-project/oxc-css-parser", rev = "1c7745b887b99b0f812da33970918ef852a10994" }
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
