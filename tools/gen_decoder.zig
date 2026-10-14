@@ -345,8 +345,23 @@ fn writeNodeFunction(w: *Writer, comptime mode: Mode) !void {
     comptime std.debug.assert(rt.NODE_FLAGS_OFFSET == 2);
     try w.print(
         \\  function _{[name]s}Arr(s, len, depth) {{
-        \\    const r = new Array(len);
         \\    const base = _extraBase + s;
+        \\
+    , .{ .name = @tagName(mode) });
+    // short lists are array literals, whose allocation sites V8 pretenures with the nodes, where
+    // `new Array` lists stay young and are copied by every scavenge, but with positions the
+    // literals measured slower once small sheets had run first, as V8 then kept their sites young
+    if (mode == .offsets) try w.print(
+        \\    switch (len) {{
+        \\    case 0: return [];
+        \\    case 1: return [_{[name]s}(_u32[base], depth)];
+        \\    case 2: return [_{[name]s}(_u32[base], depth), _{[name]s}(_u32[base + 1], depth)];
+        \\    case 3: return [_{[name]s}(_u32[base], depth), _{[name]s}(_u32[base + 1], depth), _{[name]s}(_u32[base + 2], depth)];
+        \\    }}
+        \\
+    , .{ .name = @tagName(mode) });
+    try w.print(
+        \\    const r = new Array(len);
         \\    for (let j = 0; j < len; j++) r[j] = _{[name]s}(_u32[base + j], depth);
         \\    return r;
         \\  }}

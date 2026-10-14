@@ -245,8 +245,14 @@ function tree(buffer, at, source, loc) {
     return _n[i];
   }
   function _offsetsArr(s, len, depth) {
-    const r = new Array(len);
     const base = _extraBase + s;
+    switch (len) {
+    case 0: return [];
+    case 1: return [_offsets(_u32[base], depth)];
+    case 2: return [_offsets(_u32[base], depth), _offsets(_u32[base + 1], depth)];
+    case 3: return [_offsets(_u32[base], depth), _offsets(_u32[base + 1], depth), _offsets(_u32[base + 2], depth)];
+    }
+    const r = new Array(len);
     for (let j = 0; j < len; j++) r[j] = _offsets(_u32[base + j], depth);
     return r;
   }
@@ -308,8 +314,8 @@ function tree(buffer, at, source, loc) {
     }
   }
   function _locationArr(s, len, depth) {
-    const r = new Array(len);
     const base = _extraBase + s;
+    const r = new Array(len);
     for (let j = 0; j < len; j++) r[j] = _location(_u32[base + j], depth);
     return r;
   }
