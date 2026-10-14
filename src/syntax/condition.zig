@@ -12,7 +12,6 @@ const atrule = @import("atrule.zig");
 
 const Parser = parser.Parser;
 const ParseError = parser.ParseError;
-const Error = parser.Error;
 const NodeIndex = ast.NodeIndex;
 const String = ast.String;
 const Kind = ast.ConditionKind;
@@ -28,6 +27,13 @@ pub const Grammar = enum {
 /// css-tree's `Condition`: identifiers and parenthesized or functional terms, up to the first
 /// token that is neither.
 pub fn condition(p: *Parser, kind: Kind, grammar: Grammar) ParseError!NodeIndex {
+    const children = try terms(p, kind);
+    if (grammarError(p, children, grammar)) |d| try p.specError(d.message, d.span.start, d.span.end);
+    const span = p.spanOfList(children);
+    return p.add(.{ .condition = .{ .kind = kind, .children = children } }, span.start, span.end);
+}
+
+fn terms(p: *Parser, kind: Kind) ParseError!ast.IndexRange {
     const base = p.scratch.items.len;
     const first = p.tokenStart();
     while (!p.eof) {
@@ -38,18 +44,14 @@ pub fn condition(p: *Parser, kind: Kind, grammar: Grammar) ParseError!NodeIndex 
             },
             .ident => try p.identifier(),
             .left_parenthesis => try parenthesized(p, kind),
-            .function => try atrule.attempt(p, featureFunction, .{kind}) orelse
-                try generalEnclosed(p, kind),
+            .function => try functional(p, kind),
             else => break,
         };
         std.debug.assert(p.tokenStart() > first or p.tag == .eof);
         try p.push(child);
     }
     if (p.scratch.items.len == base) return p.fail(.condition_expected, null);
-    const children = try p.flush(base);
-    try checkGrammar(p, children, grammar);
-    const span = p.spanOfList(children);
-    return p.add(.{ .condition = .{ .kind = kind, .children = children } }, span.start, span.end);
+    return p.flush(base);
 }
 
 // a feature, a range or a supports declaration, else a nested condition, else general-enclosed,
@@ -68,23 +70,43 @@ fn parenthesized(p: *Parser, kind: Kind) ParseError!NodeIndex {
         error.OutOfMemory => |e| return e,
         error.Syntax => p.rewind(start),
     }
-    return parenthesizedEnclosed(p, kind, reported, p.failure);
+    return enclosedSilently(p, kind, reported, p.failure);
 }
 
-// `( <any-value>? )` reads any balanced tokens, so its Raw reports nothing either, while the bound
-// on nesting is still reported
-fn parenthesizedEnclosed(
+// `selector()` or `style()`, else general-enclosed, which takes any other function as valid
+// (css-conditional-3 §6.1, mediaqueries-4 §3, css-contain-3 §6.1)
+fn functional(p: *Parser, kind: Kind) ParseError!NodeIndex {
+    std.debug.assert(p.tag == .function);
+    const start = p.checkpoint();
+    const reported = p.tree.diagnostics.items.len;
+    if (featureFunction(p, kind)) |node| return node else |err| switch (err) {
+        error.OutOfMemory => |e| return e,
+        error.Syntax => p.rewind(start),
+    }
+    return enclosedSilently(p, kind, reported, p.failure);
+}
+
+// `<general-enclosed>` reads any balanced tokens, so its Raw reports nothing either, while the
+// bound on nesting is still reported, once
+fn enclosedSilently(
     p: *Parser,
     kind: Kind,
     reported: usize,
     failure: ast.Diagnostic,
 ) ParseError!NodeIndex {
     @branchHint(.cold);
-    std.debug.assert(p.tag == .left_parenthesis);
+    std.debug.assert(p.tag == .left_parenthesis or p.tag == .function);
     p.tree.diagnostics.shrinkRetainingCapacity(reported);
     const node = try generalEnclosed(p, kind);
-    p.tree.diagnostics.shrinkRetainingCapacity(reported);
-    if (failure.message == .nesting_too_deep) try p.report(failure);
+    const diagnostics = p.tree.diagnostics.items;
+    var kept = reported;
+    for (diagnostics[reported..]) |d| {
+        if (d.message != .nesting_too_deep) continue;
+        diagnostics[kept] = d;
+        kept += 1;
+    }
+    p.tree.diagnostics.shrinkRetainingCapacity(kept);
+    if (kept == reported and failure.message == .nesting_too_deep) try p.report(failure);
     std.debug.assert(p.tree.data(node) == .general_enclosed);
     return node;
 }
@@ -101,10 +123,12 @@ fn nested(p: *Parser, kind: Kind) ParseError!NodeIndex {
     p.depth += 1;
     defer p.depth -= 1;
     try p.eat(.left_parenthesis);
-    const node = try condition(p, kind, .full);
+    const children = try terms(p, kind);
+    // parentheses whose condition the grammar rejects are general-enclosed
+    if (grammarError(p, children, .full)) |d| return p.fail(d.message, d.span.start);
     if (!p.eof) try p.eat(.right_parenthesis);
-    std.debug.assert(p.tree.data(node) == .condition);
-    return node;
+    const span = p.spanOfList(children);
+    return p.add(.{ .condition = .{ .kind = kind, .children = children } }, span.start, span.end);
 }
 
 fn featureOrRange(p: *Parser, kind: Kind) ParseError!NodeIndex {
@@ -239,7 +263,7 @@ pub fn featureFunction(p: *Parser, kind: Kind) ParseError!NodeIndex {
         .container => if (std.ascii.eqlIgnoreCase(text, "style")) .declaration else .none,
         .media => .none,
     };
-    if (reads == .none) return unknownFeature(p, name);
+    if (reads == .none) return p.fail(.unknown_feature, null);
     p.skipSC();
     const value = try atrule.fallback(p, featureValue, .{reads}, atrule.rawBalanced, .{false});
     if (!p.eof) try p.eat(.right_parenthesis);
@@ -253,23 +277,6 @@ pub fn featureFunction(p: *Parser, kind: Kind) ParseError!NodeIndex {
 }
 
 const Reads = enum { none, selector, declaration };
-
-// css-tree names the function in lower case
-fn unknownFeature(p: *Parser, name: String) ParseError {
-    @branchHint(.cold);
-    std.debug.assert(name.start < name.end);
-    const text = p.src[name.start..name.end];
-    var argument = name;
-    for (text) |c| {
-        if (!std.ascii.isUpper(c)) continue;
-        const lower = try std.ascii.allocLowerString(p.tree.allocator(), text);
-        argument = try p.pooled(lower);
-        break;
-    }
-    const failure = p.fail(.unknown_feature, null);
-    p.failure.argument = argument;
-    return failure;
-}
 
 fn featureValue(p: *Parser, reads: Reads) ParseError!NodeIndex {
     std.debug.assert(reads != .none);
@@ -352,9 +359,9 @@ fn isTerm(p: *const Parser, node: NodeIndex) bool {
     return p.tree.data(node) != .identifier;
 }
 
-// `not <in-parens> | <in-parens> [and <in-parens>]* | <in-parens> [or <in-parens>]*`,
-// reporting one error at most
-fn checkGrammar(p: *Parser, children: ast.IndexRange, grammar: Grammar) Error!void {
+// `not <in-parens> | <in-parens> [and <in-parens>]* | <in-parens> [or <in-parens>]*`, the first
+// place the terms break it
+fn grammarError(p: *const Parser, children: ast.IndexRange, grammar: Grammar) ?ast.Diagnostic {
     const items = p.tree.extra(children);
     std.debug.assert(items.len > 0);
     const spans = p.tree.nodes.items(.span);
@@ -363,47 +370,47 @@ fn checkGrammar(p: *Parser, children: ast.IndexRange, grammar: Grammar) Error!vo
             return all[@backingInt(node)];
         }
     }.span;
+    const err = struct {
+        fn diagnostic(message: ast.Message, start: u32, end: u32) ast.Diagnostic {
+            return .{ .message = message, .span = .{ .start = start, .end = end } };
+        }
+    }.diagnostic;
     if (keyword(p, items[0]) == .not) {
         const end = at(spans, items[0]).end;
-        if (items.len == 1) return p.specError(.parenthesized_condition_expected, end, end);
+        if (items.len == 1) return err(.parenthesized_condition_expected, end, end);
         if (!isTerm(p, items[1])) {
             const span = at(spans, items[1]);
-            return p.specError(.parenthesized_condition_expected, span.start, span.end);
+            return err(.parenthesized_condition_expected, span.start, span.end);
         }
         if (items.len > 2) {
             const span = at(spans, items[2]);
-            return p.specError(.not_combined, span.start, span.end);
+            return err(.not_combined, span.start, span.end);
         }
-        return;
+        return null;
     }
     if (!isTerm(p, items[0])) {
         const span = at(spans, items[0]);
-        return p.specError(.parenthesized_condition_expected, span.start, span.end);
+        return err(.parenthesized_condition_expected, span.start, span.end);
     }
     var joined: Keyword = .none;
     var i: usize = 1;
     while (i < items.len) : (i += 2) {
         const word = keyword(p, items[i]);
         const span = at(spans, items[i]);
-        if (word != .@"and" and word != .@"or") {
-            return p.specError(.and_or_expected, span.start, span.end);
-        }
+        if (word != .@"and" and word != .@"or") return err(.and_or_expected, span.start, span.end);
         if (word == .@"or" and grammar == .without_or) {
-            return p.specError(.or_after_media_type, span.start, span.end);
+            return err(.or_after_media_type, span.start, span.end);
         }
-        if (joined != .none and joined != word) {
-            return p.specError(.and_or_mixed, span.start, span.end);
-        }
+        if (joined != .none and joined != word) return err(.and_or_mixed, span.start, span.end);
         joined = word;
-        if (i + 1 == items.len) {
-            return p.specError(.parenthesized_condition_expected, span.end, span.end);
-        }
+        if (i + 1 == items.len) return err(.parenthesized_condition_expected, span.end, span.end);
         if (!isTerm(p, items[i + 1])) {
             const next = at(spans, items[i + 1]);
-            return p.specError(.parenthesized_condition_expected, next.start, next.end);
+            return err(.parenthesized_condition_expected, next.start, next.end);
         }
     }
     std.debug.assert(i >= items.len);
+    return null;
 }
 
 test "reads the terms of conditions" {
@@ -455,12 +462,42 @@ test "reads parentheses that hold no condition as general-enclosed with no error
     try std.testing.expectEqual(ast.Tag.general_enclosed, tag);
 }
 
-test "names the unknown feature function in lower case" {
-    var tree = try parser.parse(std.testing.allocator, "@supports FUNC(a: b) {}", .{});
+test "reads a function or parentheses the grammar rejects as general-enclosed with no error" {
+    const cases = .{
+        .{ "@media f(a) {}", "f" },
+        .{ "@supports FUNC(a: b) {}", "FUNC" },
+        .{ "@container f() {}", "f" },
+        .{ "@media (a b) {}", "" },
+        .{ "@supports (a b) {}", "" },
+        .{ "@media ((a) x) {}", "" },
+        .{ "@supports ((a: b) and (c: d) or (e: f)) {}", "" },
+    };
+    inline for (cases) |case| {
+        var tree = try parser.parse(std.testing.allocator, case[0], .{});
+        defer tree.deinit();
+        try std.testing.expectEqual(0, tree.diagnostics.items.len);
+        const sheet = tree.data(tree.root).style_sheet;
+        const at = tree.data(tree.extra(sheet.children)[0]).atrule;
+        var node = tree.extra(tree.data(at.prelude).atrule_prelude.children)[0];
+        if (tree.data(node) == .media_query_list) {
+            const query = tree.extra(tree.data(node).media_query_list.children)[0];
+            node = tree.data(query).media_query.condition;
+        }
+        const children = tree.extra(tree.data(node).condition.children);
+        const last = tree.data(children[children.len - 1]).general_enclosed;
+        if (case[1].len == 0) {
+            try std.testing.expect(last.function.start == ast.String.none.start);
+        } else {
+            try std.testing.expectEqualStrings(case[1], tree.string(last.function));
+        }
+    }
+}
+
+test "keeps the grammar errors of a condition outside parentheses" {
+    var tree = try parser.parse(std.testing.allocator, "@supports (a: b) c (d: e) {}", .{});
     defer tree.deinit();
-    const diagnostic = tree.diagnostics.items[0];
-    try std.testing.expectEqual(ast.Message.unknown_feature, diagnostic.message);
-    try std.testing.expectEqualStrings("func", tree.string(diagnostic.argument));
+    try std.testing.expectEqual(1, tree.diagnostics.items.len);
+    try std.testing.expectEqual(ast.Message.and_or_expected, tree.diagnostics.items[0].message);
 }
 
 test "reads ranges as css-tree does" {
@@ -490,5 +527,20 @@ test "bounds the nesting of conditions" {
     for (0..300) |_| try source.appendSlice(gpa, "(not ");
     var tree = try parser.parse(gpa, source.items, .{});
     defer tree.deinit();
-    try std.testing.expect(tree.diagnostics.items.len > 0);
+    try std.testing.expectEqual(1, tree.diagnostics.items.len);
+    try std.testing.expectEqual(ast.Message.nesting_too_deep, tree.diagnostics.items[0].message);
+}
+
+test "bounds the nesting inside general-enclosed" {
+    const gpa = std.testing.allocator;
+    var source: std.ArrayList(u8) = .empty;
+    defer source.deinit(gpa);
+    try source.appendSlice(gpa, "@media (a b ");
+    for (0..300) |_| try source.appendSlice(gpa, "(");
+    for (0..301) |_| try source.appendSlice(gpa, ")");
+    try source.appendSlice(gpa, " {}");
+    var tree = try parser.parse(gpa, source.items, .{});
+    defer tree.deinit();
+    try std.testing.expectEqual(1, tree.diagnostics.items.len);
+    try std.testing.expectEqual(ast.Message.nesting_too_deep, tree.diagnostics.items[0].message);
 }

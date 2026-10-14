@@ -72,8 +72,8 @@ export const divergences: Divergence[] = [
   {
     rule:
       "A media, supports or container condition is `not` before one term in parentheses, or such terms joined all by `and` " +
-      "or all by `or`, with no `or` after a media type; css-tree reads identifiers and terms in any order, so the tree " +
-      "stays css-tree's and the first misplaced keyword or term is reported",
+      "or all by `or`, with no `or` after a media type; css-tree reads identifiers and terms in any order, so outside " +
+      "parentheses the tree stays css-tree's and the first misplaced keyword or term is reported",
     spec: "mediaqueries-4 §3 syntax, css-conditional-3 §6.1 supports condition, css-contain-3 §6.1 container queries",
     fixtures: ["ast/atrule/atrule/media.json missed 'and' keyword", "ast/mediaQuery/MediaQuery.json media feature with comments"],
   },
@@ -115,9 +115,17 @@ export const divergences: Divergence[] = [
     fixtures: [],
   },
   {
-    rule: "The function named in `Unknown feature` is lowercased in ASCII only, where css-tree uses JavaScript's Unicode `toLowerCase`",
-    spec: "none: the name is lowercased where it is reported, without a Unicode case table",
-    fixtures: [],
+    rule:
+      "A function in a condition other than `selector()` in `@supports` or `style()` in `@container`, as `f(a)`, is the " +
+      "`GeneralEnclosed` css-tree falls back to, with none of its \"Unknown feature\" or `Raw` errors; parentheses whose " +
+      "condition the grammar rejects, as `(a b)` or `((a) x)`, are a `GeneralEnclosed` of their component values, as " +
+      "css-tree reads `(1 2)`, where css-tree keeps a `Condition`",
+    spec: "mediaqueries-4 §3, css-conditional-3 §6.1, css-contain-3 §6.1: <general-enclosed> takes any function or balanced parentheses",
+    fixtures: [
+      "ast/atrule/atrule/supports.json using function",
+      "ast/mediaQuery/GeneralEnclosed.json function",
+      "ast/mediaQuery/GeneralEnclosed.json empty function",
+    ],
   },
   {
     rule: "A media type of `only`, `not`, `and`, `or` or `layer` is reported",

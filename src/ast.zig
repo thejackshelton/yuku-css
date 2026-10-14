@@ -231,7 +231,7 @@ pub const Message = enum(u8) {
     string_or_url_expected,
     url_function_expected,
     extension_name_expected,
-    /// Takes the function name as its argument.
+    /// Why a function is no `FeatureFunction`; it is read as `GeneralEnclosed` and not reported.
     unknown_feature,
     // where the grammars of conditions read an error that css-tree does not
     parenthesized_condition_expected,

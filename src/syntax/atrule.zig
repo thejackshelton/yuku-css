@@ -84,23 +84,6 @@ pub fn single(p: *Parser, node: NodeIndex) Error!ast.IndexRange {
     return range;
 }
 
-/// css-tree's `parseWithFallback` with a fallback of null: the error is reported, the input
-/// rewound, and null returned.
-pub fn attempt(p: *Parser, comptime consumer: anytype, args: anytype) Error!?NodeIndex {
-    const start = p.checkpoint();
-    const node = @call(.auto, consumer, .{p} ++ args) catch |err| switch (err) {
-        error.OutOfMemory => |e| return e,
-        error.Syntax => {
-            const failure = p.failure;
-            p.rewind(start);
-            try p.report(failure);
-            return null;
-        },
-    };
-    std.debug.assert(node != .null);
-    return node;
-}
-
 /// css-tree's `parseWithFallback`: when `consumer` fails, the input is rewound and read by
 /// `alternative`, whose own error is not caught, and only then is the first error reported.
 pub fn fallback(
