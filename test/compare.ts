@@ -127,34 +127,44 @@ function selectorErrors(sheet: Node): Error[] {
   return errors;
 }
 
+// `not <in-parens> | <in-parens> [and <in-parens>]* | <in-parens> [or <in-parens>]*`, the first
+// place the terms of `condition` break it
+function grammarError(condition: Node, withoutOr: boolean): Error | null {
+  const start = (node: Node) => node.loc!.start.offset;
+  const end = (node: Node) => node.loc!.end.offset;
+  const keyword = (node: Node) => (node.type === "Identifier" ? node.name!.toLowerCase() : null);
+  // the fork's own conditions hold css-tree's `List`
+  const children = condition.children as Node[] | { toArray(): Node[] };
+  const items = Array.isArray(children) ? children : children.toArray();
+  if (keyword(items[0]!) === "not") {
+    if (items.length === 1) return ["Condition in parentheses is expected", end(items[0]!)];
+    if (items[1]!.type === "Identifier") return ["Condition in parentheses is expected", start(items[1]!)];
+    if (items.length > 2) return ['"not" cannot be combined without parentheses', start(items[2]!)];
+    return null;
+  }
+  if (items[0]!.type === "Identifier") return ["Condition in parentheses is expected", start(items[0]!)];
+  let joined: string | null = null;
+  for (let i = 1; i < items.length; i += 2) {
+    const word = keyword(items[i]!);
+    if (word !== "and" && word !== "or") return ['Identifier "and" or "or" is expected', start(items[i]!)];
+    if (word === "or" && withoutOr) return ['"or" cannot follow a media type', start(items[i]!)];
+    if (joined !== null && joined !== word) return ['"and" and "or" cannot be mixed without parentheses', start(items[i]!)];
+    joined = word;
+    if (i + 1 === items.length) return ["Condition in parentheses is expected", end(items[i]!)];
+    if (items[i + 1]!.type === "Identifier") return ["Condition in parentheses is expected", start(items[i + 1]!)];
+  }
+  return null;
+}
+
 const RESERVED_MEDIA_TYPES = new Set(["only", "not", "and", "or", "layer"]);
 
 // the condition grammars of mediaqueries-4 §3, css-conditional-3 §6.1 and css-contain-3 §6.1, where
 // css-tree reads any order of keywords and terms, and the media types Media Queries 4 reserves
 function conditionErrors(sheet: Node, source: string): Error[] {
   const errors: Error[] = [];
-  const start = (node: Node) => node.loc!.start.offset;
-  const end = (node: Node) => node.loc!.end.offset;
-  const keyword = (node: Node) => (node.type === "Identifier" ? node.name!.toLowerCase() : null);
   const check = (condition: Node, withoutOr: boolean) => {
-    const items = condition.children!;
-    if (keyword(items[0]!) === "not") {
-      if (items.length === 1) errors.push(["Condition in parentheses is expected", end(items[0]!)]);
-      else if (items[1]!.type === "Identifier") errors.push(["Condition in parentheses is expected", start(items[1]!)]);
-      else if (items.length > 2) errors.push(['"not" cannot be combined without parentheses', start(items[2]!)]);
-      return;
-    }
-    if (items[0]!.type === "Identifier") return void errors.push(["Condition in parentheses is expected", start(items[0]!)]);
-    let joined: string | null = null;
-    for (let i = 1; i < items.length; i += 2) {
-      const word = keyword(items[i]!);
-      if (word !== "and" && word !== "or") return void errors.push(['Identifier "and" or "or" is expected', start(items[i]!)]);
-      if (word === "or" && withoutOr) return void errors.push(['"or" cannot follow a media type', start(items[i]!)]);
-      if (joined !== null && joined !== word) return void errors.push(['"and" and "or" cannot be mixed without parentheses', start(items[i]!)]);
-      joined = word;
-      if (i + 1 === items.length) return void errors.push(["Condition in parentheses is expected", end(items[i]!)]);
-      if (items[i + 1]!.type === "Identifier") return void errors.push(["Condition in parentheses is expected", start(items[i + 1]!)]);
-    }
+    const error = grammarError(condition, withoutOr);
+    if (error) errors.push(error);
   };
   // a condition is checked once the conditions inside it are, as yuku-css builds them
   const visit = (node: Node, withoutOr = false) => {
@@ -491,6 +501,14 @@ function silently(this: Parser, consumer: () => unknown): unknown {
   }
 }
 
+// general-enclosed reads any balanced tokens, so its Raw reports nothing
+function enclosedSilently(this: Parser, kind: string): unknown {
+  const count = reported.length;
+  const node = this.GeneralEnclosed(kind);
+  reported.length = count;
+  return node;
+}
+
 function Condition(this: Parser, kind = "media"): unknown {
   const children = this.createList();
   const inParens = () => {
@@ -510,22 +528,18 @@ function Condition(this: Parser, kind = "media"): unknown {
       case LeftParenthesis: {
         const nested = () => {
           this.eat(LeftParenthesis);
-          const node = this.Condition(kind);
+          const node = this.Condition(kind) as Node;
+          // parentheses whose condition the grammar rejects are general-enclosed
+          if (grammarError(node, false)) this.error();
           if (!this.eof) this.eat(RightParenthesis);
           return node;
         };
         // each reading is as valid as the others, so none reports the errors of those tried before it
-        let term = silently.call(this, inParens) ?? silently.call(this, nested);
-        if (!term) {
-          const count = reported.length;
-          term = this.GeneralEnclosed(kind);
-          reported.length = count;
-        }
-        children.push(term);
+        children.push(silently.call(this, inParens) ?? silently.call(this, nested) ?? enclosedSilently.call(this, kind));
         break;
       }
       case FunctionToken:
-        children.push(this.parseWithFallback(() => this.FeatureFunction(kind), () => null) ?? this.GeneralEnclosed(kind));
+        children.push(silently.call(this, () => this.FeatureFunction(kind)) ?? enclosedSilently.call(this, kind));
         break;
       default:
         break scan;

@@ -152,8 +152,30 @@ describe("at-rules", () => {
     expect(raw.prelude).toEqual({ type: "Raw", start: 8, end: 25, value: "url(a.css) screen" });
   });
 
-  test("an unknown feature function is named in its error, past non-ASCII text", () => {
-    expect(errors("é{} @supports fé(a: b) {}")).toEqual([["Unknown feature fé()", 17], ["Unexpected input", 18]]);
+  test("a function a condition does not know is general-enclosed with no error", () => {
+    const condition = (source: string) => {
+      const prelude = (clean(source).ast.children.at(-1) as Atrule).prelude!;
+      const node = (prelude as { children: Array<{ type: string; children?: unknown[]; condition?: unknown }> }).children[0]!;
+      return node.type === "MediaQueryList" ? (node.children![0] as { condition: unknown }).condition : node;
+    };
+    expect(condition("é{} @supports fé(a: b) {}")).toMatchObject({ children: [{ type: "GeneralEnclosed", function: "fé" }] });
+    expect(condition("@media f(a) and (b) {}")).toMatchObject({
+      children: [{ type: "GeneralEnclosed", function: "f", children: [{ type: "Identifier", name: "a" }] }, { name: "and" }, { type: "Feature" }],
+    });
+    expect(condition("@container style(--a: b) or f() {}")).toMatchObject({
+      children: [{ type: "FeatureFunction" }, { name: "or" }, { type: "GeneralEnclosed", function: "f", children: [] }],
+    });
+  });
+
+  test("parentheses holding a condition the grammar rejects are general-enclosed with no error", () => {
+    const condition = (source: string) => (clean(source).ast.children[0] as Atrule).prelude;
+    expect(condition("@supports (a b) or (c: d) {}")).toMatchObject({
+      children: [{ type: "Condition", children: [{ type: "GeneralEnclosed", function: null, children: [{ name: "a" }, { name: "b" }] }, { name: "or" }, {}] }],
+    });
+    for (const source of ["@media ((a) x) {}", "@media ((a) and (b) or (c)) {}", "@container (not (a) and (b)) {}", "@media (not) and (a and) {}"]) {
+      clean(source);
+    }
+    expect(errors("@media (a) b (c) {}")).toEqual([['Identifier "and" or "or" is expected', 11]]);
   });
 
   test("a condition in parentheses parses with no error", () => {
