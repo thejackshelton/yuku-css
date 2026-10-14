@@ -84,6 +84,12 @@ export function load(groups: ReadonlySet<File["group"]> = new Set(["markless", "
   ];
 }
 
+/** Where a file of the corpus lies on disk. */
+export function path({ group, name }: Pick<File, "group" | "name">): string {
+  const directory = { markless: MARKLESS, npm: NPM, synthetic: SYNTHETIC, overhead: OVERHEAD }[group];
+  return new URL(name, directory).pathname;
+}
+
 export async function prepare(): Promise<void> {
   mkdirSync(NPM, { recursive: true });
   mkdirSync(SYNTHETIC, { recursive: true });

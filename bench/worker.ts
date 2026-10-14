@@ -1,10 +1,12 @@
 // One measurement in a fresh process, run by bench/full.ts. The task comes as JSON in argv[2],
 // the result goes as JSON to stdout.
-import { LIBRARIES, MATCHERS, type Mode, VALIDATORS } from "./adapters.ts";
+import { COMPETITORS, count, LIBRARIES, MATCHERS, type Mode, VALIDATORS, type Where } from "./adapters.ts";
 import { type File, load } from "./corpus.ts";
-import { measure, sample, warm } from "./sample.ts";
+import { measure, measureAsync, sample, warm } from "./sample.ts";
 
 const booted = performance.now();
+// seconds one read of one file may take before a tool is left out of that file and every larger one
+const LIMIT = 1;
 
 export type Task =
   | { kind: "time"; library: string; mode: Mode; files: string[]; budget: number }
@@ -14,13 +16,16 @@ export type Task =
   | { kind: "validate"; validator: string; files: string[]; budget: number }
   | { kind: "phases"; mode: Mode; files: string[]; budget: number }
   | { kind: "cold"; library: string; mode: Mode; file: string }
-  | { kind: "memory"; library: string; mode: Mode; file: string };
+  | { kind: "memory"; library: string; mode: Mode; file: string }
+  | { kind: "compete"; tool: string; files: string[]; budget: number }
+  | { kind: "check"; tool: string; files: string[]; nodes: boolean };
 
 const task: Task = JSON.parse(process.argv[2]!);
 const keys = "files" in task ? task.files : [task.file];
 const groups = new Set(keys.map((key) => key.slice(0, key.indexOf("/")) as File["group"]));
 const sources = new Map(load(groups).map((file) => [`${file.group}/${file.name}`, file.source]));
 const source = (key: string) => sources.get(key)!;
+const where: Where = typeof Bun === "undefined" ? "node" : "bun";
 const library = "library" in task ? LIBRARIES.find((library) => library.name === task.library)! : undefined;
 
 process.stdout.write(JSON.stringify(await run(task)));
@@ -81,6 +86,43 @@ async function run(task: Task): Promise<unknown> {
       parse(text);
       const second = performance.now();
       return { boot: booted, load: loaded - start, first: first - loaded, second: second - first };
+    }
+    case "compete": {
+      const tool = COMPETITORS.find(({ name }) => name === task.tool)!;
+      const run = await tool.load(where);
+      const runs = task.files.map((key) => {
+        const text = source(key);
+        return { bytes: Buffer.byteLength(text), run: () => run(text) };
+      });
+      return tool.async?.includes(where) ? measureAsync(runs, task.budget) : measure(runs, task.budget);
+    }
+    case "check": {
+      const tool = COMPETITORS.find(({ name }) => name === task.tool)!;
+      const run = task.nodes ? await tool.load(where) : undefined;
+      const failed: Record<string, string> = {};
+      const nodes: Record<string, number> = {};
+      let slow: string | undefined;
+      // smallest first, so once a read passes the limit every larger file is left out unread
+      for (const key of task.files.toSorted((a, b) => Buffer.byteLength(source(a)) - Buffer.byteLength(source(b)))) {
+        if (slow) {
+          failed[key] = slow;
+          continue;
+        }
+        const start = performance.now();
+        const reason = await tool.check(source(key));
+        const seconds = (performance.now() - start) / 1000;
+        if (seconds > LIMIT) {
+          slow = `left out unread: ${key.slice(key.indexOf("/") + 1)} took ${seconds.toFixed(1)} s to read once`;
+          failed[key] = `took ${seconds.toFixed(1)} s to read once, over the ${LIMIT} s limit`;
+        } else if (reason) failed[key] = reason;
+        else if (run) {
+          // stylis links each node to its root and siblings, a cycle no count can walk
+          try {
+            nodes[key] = count(await run(source(key)));
+          } catch {}
+        }
+      }
+      return { failed, nodes };
     }
     case "memory": {
       const gc = (globalThis as { gc?: () => void }).gc!;

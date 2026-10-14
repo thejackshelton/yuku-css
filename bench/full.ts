@@ -6,9 +6,10 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { cpus, platform, release, totalmem } from "node:os";
 import { brotliCompressSync, constants, gzipSync } from "node:zlib";
 import { rolldown } from "rolldown";
-import { count, LIBRARIES, MODES, type Mode, VALIDATORS } from "./adapters.ts";
+import { COMPETITORS, count, LIBRARIES, MODES, type Mode, TASKS, VALIDATORS } from "./adapters.ts";
 import { browser } from "./browser.ts";
-import { bucket, load, prepare } from "./corpus.ts";
+import { bucket, load, path, prepare } from "./corpus.ts";
+import { BINARIES, build, OXC_REVISION } from "./oxc.ts";
 import { report } from "./report.ts";
 import type { Timing } from "./sample.ts";
 import type { Task } from "./worker.ts";
@@ -34,6 +35,7 @@ const section = async <T>(name: string, work: () => T | Promise<T>): Promise<T> 
 };
 
 await prepare();
+await section("oxc build", build);
 const files = load().map((file) => ({ ...file, key: `${file.group}/${file.name}`, bucket: bucket(file.bytes) }));
 
 const configs = await section("modes", async () => {
@@ -223,10 +225,69 @@ const bundle = await section("bundle", async () => {
   return out;
 });
 
+// every tool reads every file once; a task is timed on the files every tool in it reads cleanly
+const rivals = await section("competitors gate", () => {
+  const failed: Record<string, Record<string, string>> = {};
+  const nodes: Record<string, Record<string, number>> = {};
+  const keys = files.filter((file) => file.group !== "overhead").map((file) => file.key);
+  // Prettier takes seconds on each large file, so formatting is timed on the Markless corpus only
+  const scope = (task: string) => (task === "format" ? keys.filter((key) => key.startsWith("markless/")) : keys);
+  for (const tool of COMPETITORS) {
+    const runtime = tool.runtimes.includes("node") || tool.runtimes.includes("chromium") ? "node" : "bun";
+    const out = spawn(runtime, { kind: "check", tool: tool.name, files: scope(tool.task), nodes: tool.task === "parse" || tool.task === "raw" });
+    failed[tool.name] = out.failed;
+    nodes[tool.name] = out.nodes;
+  }
+  const common = Object.fromEntries(
+    Object.keys(TASKS).map((task) => [task, scope(task).filter((key) => COMPETITORS.every((tool) => tool.task !== task || !(key in failed[tool.name]!)))]),
+  );
+  return { failed, nodes, common };
+});
+
+const competitors = await section("competitors", () => {
+  const out: Record<string, Record<string, Record<string, Timing[]>>> = {};
+  for (const runtime of Object.keys(RUNTIMES)) {
+    const tools = COMPETITORS.filter((tool) => tool.runtimes.includes(runtime as "node" | "bun"));
+    const runs = rounds(
+      tools.map((tool) => ({
+        key: tool.name,
+        run: (): Timing[] => spawn(runtime, { kind: "compete", tool: tool.name, files: rivals.common[tool.task]!, budget: BUDGET }),
+      })),
+    );
+    out[runtime] = Object.fromEntries(tools.map((tool) => [tool.name, byFile(rivals.common[tool.task]!, runs[tool.name]!)]));
+  }
+  return out;
+});
+
+// both parsers built for the host, parse only, on the npm and synthetic files both read cleanly:
+// each tool warms up a second per file, too long for the Markless corpus's 231 files
+const NATIVE_ROUNDS = 31;
+const native = await section("native", () => {
+  const chosen = files.filter(
+    (file) =>
+      (file.group === "npm" || file.group === "synthetic") &&
+      !(file.key in gate.failed[id("yuku-css", { values: "parsed", positions: false })]!) &&
+      !(file.key in rivals.failed["parse oxc"]!),
+  );
+  const paths = chosen.map(path);
+  const lines = (output: string) => output.trim().split("\n").map((line) => JSON.parse(line));
+  const out: Record<string, object[][]> = { yuku: [], oxc: [] };
+  for (let round = 0; round < RUNS; round++) {
+    // the yuku-css flags are parse()'s defaults: rule preludes, values and at-rule preludes parsed, no positions
+    out.yuku!.push(lines(execFileSync(BINARIES.yuku, [String(NATIVE_ROUNDS), String(1 | (1 << 7) | (1 << 9)), ...paths], { encoding: "utf8" })));
+    out.oxc!.push(lines(execFileSync(BINARIES.oxc, [String(NATIVE_ROUNDS), ...paths], { encoding: "utf8" })));
+  }
+  return { keys: chosen.map((file) => file.key), rounds: NATIVE_ROUNDS, ...out };
+});
+
 const chromium = await section("browser", () =>
   browser(
     configs.filter((config) => LIBRARIES.find(({ name }) => name === config.library)!.browser),
     (config) => files.filter((file) => !(file.key in gate.failed[config]!)),
+    COMPETITORS.filter((tool) => tool.runtimes.includes("chromium")).map((tool) => ({
+      name: tool.name,
+      files: rivals.common[tool.task]!.map((key) => files.find((file) => file.key === key)!),
+    })),
     RUNS,
     BUDGET / 2,
   ),
@@ -248,6 +309,10 @@ const results = {
     "css-tree": version("css-tree"),
     lightningcss: version("lightningcss"),
     postcss: version("postcss"),
+    ...Object.fromEntries(
+      COMPETITORS.filter((tool) => !["yuku-css", "bun", "oxc-css-parser"].includes(tool.package)).map((tool) => [tool.package, version(tool.package)]),
+    ),
+    "oxc-css-parser": `0.0.17 (${OXC_REVISION.slice(0, 7)})`,
   },
   settings: { runs: RUNS, budget: BUDGET, cold: COLD },
   files: files.map(({ key, group, name, bytes, bucket }) => ({ key, group, name, bytes, bucket })),
@@ -262,6 +327,8 @@ const results = {
   memory,
   bundle,
   browser: chromium.results,
+  competitors: { gate: rivals, time: competitors, chromium: chromium.compete },
+  native,
   durations: { ...durations, total: (Date.now() - began) / 1000 },
 };
 

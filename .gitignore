@@ -6,3 +6,5 @@ zig-pkg/
 .worktrees/
 test/csstree/
 bench/corpus/
+bench/oxc/target/
+bench/oxc/pkg/

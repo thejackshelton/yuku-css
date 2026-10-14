@@ -68,3 +68,37 @@ export function quantile(values: number[], q: number): number {
   const low = Math.floor(at);
   return sorted[low]! + (sorted[Math.ceil(at)]! - sorted[low]!) * (at - low);
 }
+
+/** `sample` for a call that returns a promise, awaited inside the timing. */
+export async function sampleAsync(run: () => unknown, budget: number, least = 0.02): Promise<Timing> {
+  let start = performance.now();
+  let calls = 0;
+  while (calls < 3 || performance.now() - start < budget / 5) {
+    await run();
+    calls++;
+  }
+  const batch = Math.max(1, Math.ceil(least / ((performance.now() - start) / calls)));
+  const samples: number[] = [];
+  start = performance.now();
+  while (samples.length < 10 || performance.now() - start < budget) {
+    const before = performance.now();
+    for (let i = 0; i < batch; i++) await run();
+    samples.push((performance.now() - before) / batch);
+  }
+  return { median: quantile(samples, 0.5), p95: quantile(samples, 0.95) };
+}
+
+/** `measure` for calls that return a promise. */
+export async function measureAsync(runs: { bytes: number; run: () => unknown }[], budget: number, least?: number): Promise<Timing[]> {
+  const timings = new Array<Timing>(runs.length);
+  let warmup = 1000;
+  for (const { name } of BUCKETS) {
+    const chosen = runs.flatMap((run, index) => (bucket(run.bytes) === name ? [{ ...run, index }] : []));
+    if (!chosen.length) continue;
+    const start = performance.now();
+    for (let pass = 0; pass < 2 || performance.now() - start < warmup; pass++) for (const { run } of chosen) await run();
+    warmup = 200;
+    for (const { run, index } of chosen) timings[index] = await sampleAsync(run, budget, least);
+  }
+  return timings;
+}
