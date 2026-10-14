@@ -2,7 +2,7 @@
 
 A fast CSS parser, printer and validator, written in Zig and compiled to WebAssembly. It builds [css-tree](https://github.com/csstree/csstree)'s AST, passes css-tree's own test suite, and has zero dependencies.
 
-Up to **8.6x faster than css-tree**, **8.5x faster than esbuild** and **4.8x faster than Lightning CSS** at parsing and printing CSS, and up to **5.4x faster than css-tree** and **5.1x faster than PostCSS** at parsing it, every tool installed from npm. Natively, its Zig parser is **4.1x faster than oxc's Rust CSS parser** ([details](docs/benchmark.md)).
+Up to **8.6x faster than css-tree**, **8.5x faster than esbuild** and **4.8x faster than Lightning CSS** at parsing and printing CSS, and up to **5.4x faster than css-tree** and **5.1x faster than PostCSS** at parsing it, every tool installed from npm. Natively, its Zig parser is **4.1x faster than oxc's Rust CSS parser** ([details](docs/benchmark.md#oxc)).
 
 Parsing and printing tailwind.css (3.5 MB) on Bun:
 
