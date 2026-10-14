@@ -2,15 +2,17 @@
 
 A fast CSS parser, printer and validator, written in Zig and compiled to WebAssembly. It builds [css-tree](https://github.com/csstree/csstree)'s AST and passes css-tree's own test suite.
 
-Parsing tailwind.css (3.5 MB), each parser installed from npm, on Bun:
+Up to **8.6x faster than css-tree**, **8.5x faster than esbuild** and **4.8x faster than Lightning CSS** at parsing and printing CSS, and up to **5.4x faster than css-tree** and **5.1x faster than PostCSS** at parsing it, every tool installed from npm.
+
+Parsing and printing tailwind.css (3.5 MB) on Bun:
+
+![Time to parse and print tailwind.css with yuku-css, Lightning CSS, css-tree, esbuild and @swc/css](https://raw.githubusercontent.com/thejackshelton/css-parser-benchmark-js/main/charts/print-tailwind.png)
+
+Parsing it to an AST:
 
 ![Time to parse tailwind.css with yuku-css, css-tree, Stylis, @csstools and PostCSS](https://raw.githubusercontent.com/thejackshelton/css-parser-benchmark-js/main/charts/parse-tailwind.png)
 
-Parsing and printing it back:
-
-![Time to parse and print tailwind.css with yuku-css, Lightning CSS, css-tree and esbuild](https://raw.githubusercontent.com/thejackshelton/css-parser-benchmark-js/main/charts/print-tailwind.png)
-
-Across seven real-world style sheets, yuku-css parses 1.2x to 2.5x faster than css-tree on Bun and 2.7x to 5.4x on Node, and parses and prints 2.7x to 4.8x faster than Lightning CSS on Bun (2.2x to 3.7x on Node). Full results and method: [css-parser-benchmark-js](https://github.com/thejackshelton/css-parser-benchmark-js).
+Seven real-world style sheets on Bun and Node, with the method: [css-parser-benchmark-js](https://github.com/thejackshelton/css-parser-benchmark-js).
 
 ```bash
 npm install yuku-css
