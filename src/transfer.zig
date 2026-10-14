@@ -172,6 +172,22 @@ pub fn totalFlagBits(comptime T: type) u8 {
     return flagBitForField(T, @typeInfo(T).@"struct".field_types.len);
 }
 
+// for each tag whose payload holds its slots in order and has no flags, how many words it fills
+const copied: [@typeInfo(ast.NodeData).@"union".field_names.len]?u8 = blk: {
+    @setEvalBranchQuota(10_000);
+    const info = @typeInfo(ast.NodeData).@"union";
+    var t: [info.field_names.len]?u8 = @splat(null);
+    for (info.field_types, 0..) |T, tag| {
+        const fields = @typeInfo(T).@"struct";
+        var same = totalFlagBits(T) == 0 and @sizeOf(T) == totalU32Slots(T) * 4;
+        for (fields.field_names, 0..) |field, i| {
+            if (@offsetOf(T, field) != u32SlotForField(T, i) * 4) same = false;
+        }
+        if (same) t[tag] = totalU32Slots(T);
+    }
+    break :blk t;
+};
+
 pub fn bufferSize(tree: *const ast.Tree, utf16: Utf16, tokens: bool) usize {
     return HEADER_SIZE +
         tree.comments.len * 8 +
@@ -219,7 +235,26 @@ pub fn serializeInto(tree: *const ast.Tree, utf16: Utf16, tokens: bool, buf: []u
         .source_len = @intCast(tree.source.len),
     };
     if (utf16.count == 0) {
-        for (data, spans, 0..) |*node, span, i| nodes_out[i] = packNode(node, span, false, &map);
+        for (data, spans, 0..) |*node, span, i| {
+            const tag = @backingInt(std.meta.activeTag(node.*));
+            if (copied[tag]) |words| {
+                // the payload's words are its slots, which most nodes fill, so no switch on the tag
+                const payload: *const [NODE_DATA_SLOTS]u32 = @ptrCast(node);
+                var slots = payload.*;
+                for (&slots, 0..) |*slot, k| {
+                    if (k >= words) slot.* = 0;
+                }
+                nodes_out[i] = .{
+                    .tag = tag,
+                    .flags = 0,
+                    .slots = slots,
+                    .span_start = span.start,
+                    .span_end = span.end,
+                };
+            } else {
+                nodes_out[i] = packNode(node, span, false, &map);
+            }
+        }
     } else {
         for (data, spans, 0..) |*node, span, i| nodes_out[i] = packNode(node, span, true, &map);
     }
@@ -410,6 +445,18 @@ fn firstNonAscii(source: []const u8, from: u32) u32 {
     }
     while (i < source.len and source[i] < 0x80) i += 1;
     return @intCast(i);
+}
+
+test "copies a payload as its slots" {
+    // the copy reads a node's payload where the union starts
+    const info = @typeInfo(ast.NodeData).@"union";
+    inline for (info.field_names, 0..) |name, tag| {
+        var node = @unionInit(ast.NodeData, name, undefined);
+        try std.testing.expectEqual(@intFromPtr(&node), @intFromPtr(&@field(node, name)));
+        try std.testing.expect(copied[tag] == null or copied[tag].? <= NODE_DATA_SLOTS);
+    }
+    try std.testing.expect(copied[@backingInt(ast.Tag.dimension)] == 4);
+    try std.testing.expect(copied[@backingInt(ast.Tag.attribute_selector)] == null);
 }
 
 test "serializes" {
