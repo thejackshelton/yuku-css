@@ -285,8 +285,11 @@ pub const Parser = struct {
                 break :blk tag;
             },
             .whitespace => blk: {
-                l.pos = l.whitespaceEnd(l.pos + 1);
-                plain = !p.options.lines;
+                if (p.options.lines) {
+                    l.pos = p.whitespaceLines(l.pos);
+                } else {
+                    l.pos = l.whitespaceEnd(l.pos + 1);
+                }
                 break :blk .whitespace;
             },
             .name => blk: {
@@ -336,6 +339,25 @@ pub const Parser = struct {
             },
             .spaced => if (p.options.lines) p.recordLines(p.start, p.end),
         }
+    }
+
+    // the end of the whitespace at `from`, recording its line starts as `recordLines` does
+    fn whitespaceLines(p: *Parser, from: u32) u32 {
+        std.debug.assert(from < p.src.len);
+        std.debug.assert(lexer.isSpace(p.src[from]));
+        const src = p.src;
+        const last = if (p.lines.items.len > 0) p.lines.items[p.lines.items.len - 1] else 0;
+        var i = from;
+        while (i < src.len) : (i += 1) {
+            const c = src[i];
+            if (!lexer.isSpace(c)) break;
+            if (!lexer.isNewline(c) or i < last) continue;
+            if (c == '\r' and i + 1 < src.len and src[i + 1] == '\n') continue;
+            p.lines.append(p.tree.allocator(), i + 1) catch {
+                p.oom = true;
+            };
+        }
+        return i;
     }
 
     // the line starts in `src[from..to]` that are past the last one recorded
