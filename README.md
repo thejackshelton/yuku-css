@@ -4,6 +4,8 @@ A fast CSS parser, printer and validator, written in Zig and compiled to WebAsse
 
 Up to **8.6x faster than css-tree**, **8.5x faster than esbuild** and **4.8x faster than Lightning CSS** at parsing and printing CSS, and up to **5.4x faster than css-tree** and **5.1x faster than PostCSS** at parsing it, every tool installed from npm. Natively, its Zig parser is **4.1x faster than oxc's Rust CSS parser** ([details](docs/benchmark.md#oxc)).
 
+Small enough for the browser: the parser and printer are **56 KB gzipped**, against 3.7 MB for Lightning CSS's WebAssembly build.
+
 Parsing and printing tailwind.css (3.5 MB) on Bun:
 
 ![Time to parse and print tailwind.css with yuku-css, Lightning CSS, css-tree, esbuild and @swc/css](https://raw.githubusercontent.com/thejackshelton/css-parser-benchmark-js/main/charts/print-tailwind.png)
