@@ -101,12 +101,12 @@ jobs:
       - name: Install
         run: bun install --frozen-lockfile
 
-      # bun run test builds, syncs css-tree's fixtures and runs the suite
+      # bun run test builds, syncs css-tree's fixtures and runs the suite; typecheck needs the built dist the tests import
       - name: Test
         run: |
-          bun run typecheck
           zig build test --summary all
           bun run test
+          bun run typecheck
 
       - name: Pack
         shell: bash
