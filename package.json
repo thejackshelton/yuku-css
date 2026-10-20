@@ -1,6 +1,6 @@
 {
   "name": "yuku-css",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A fast CSS parser, printer and validator, written in Zig and compiled to WebAssembly",
   "keywords": [
     "ast",
