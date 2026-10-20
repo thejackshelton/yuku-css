@@ -1,7 +1,23 @@
 {
   "name": "yuku-css",
   "version": "0.1.0",
-  "description": "A fast CSS parser written in Zig, compiled to WebAssembly",
+  "description": "A fast CSS parser, printer and validator, written in Zig and compiled to WebAssembly",
+  "keywords": [
+    "ast",
+    "css",
+    "css-tree",
+    "lexer",
+    "parser",
+    "printer",
+    "validator",
+    "wasm",
+    "webassembly",
+    "zig"
+  ],
+  "homepage": "https://github.com/thejackshelton/yuku-css#readme",
+  "bugs": {
+    "url": "https://github.com/thejackshelton/yuku-css/issues"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -41,6 +57,9 @@
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "zig build && tsdown",
     "test": "bun run build && bun run sync && bun test",
